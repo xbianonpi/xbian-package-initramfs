@@ -11,9 +11,28 @@ mknod /dev/tty c 5 0
 
 mdev -s
 
-mount /dev/mmcblk0p2 /rootfs
+# read cmdline config
+declare -A config;
+while read line; do
+        if [ ! -z $line ]; then
+                if [[ $line =~ "=" ]]; then
+                        name=${line%%=*};
+                        name=${name/./_};
+                        config[$name]="${line##*=}";
+                else
+                        name=${line/./_};
+                        config[$name]=1;
+                fi
+        fi
+done < <(sed -e '/^#/d' /proc/cmdline | sed -e 's/ /\n/g');
 
-if [ $(cat /proc/cmdline | grep splash | wc -l) -eq 1 ]; then
+if [ ! -z ${config['root']} ]; then
+	mount ${config['root']} /rootfs
+else
+	mount /dev/mmcblk0p2 /rootfs
+fi
+
+if [ ! -z ${config['splash']} ]; then
 	if [ -f "/rootfs/usr/bin/splash" ]; then
 		if [ -f "/rootfs/var/splash.pid" ]; then
 			rm /rootfs/var/splash.pid;

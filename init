@@ -165,6 +165,8 @@ fi
 # continue with normal boot
 if [ ${SPLASH} == "1" ]; then
 	/rootfs/usr/bin/splash --percentagebar --percentage=12 --msgtxt="loading...";
+	#give splash time to settle
+	sleep 1
 fi
 
 umount /proc

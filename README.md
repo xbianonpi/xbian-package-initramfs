@@ -3,6 +3,8 @@ cd /opt/
 mkdir initramfs
 cd initramfs
 
+apt-get install fakeroot busybox
+
 fakeroot
 mkdir bin dev etc lib proc rootfs sbin sys
 touch etc/mdev.conf

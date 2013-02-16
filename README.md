@@ -22,7 +22,7 @@ cp /lib/arm-linux-gnueabihf/libpthread.so.0 lib/arm-linux-gnueabihf/
 cp /sbin/fdisk sbin/
 cp /sbin/resize2fs sbin/
 ln -s lib/arm-linux-gnueabihf/libc.so.6 lib/libc.so.6
-ln -sl lib/arm-linux-gnueabihf/libgcc_s.so.1 lib/libgcc_s.so.1
+ln -s lib/arm-linux-gnueabihf/libgcc_s.so.1 lib/libgcc_s.so.1
 
 wget -O - https://raw.github.com/xbianonpi/xbian-initramfs/master/init > init
 chmod a+x init

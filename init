@@ -61,6 +61,32 @@ if [ ! -b "${ROOTDEV}" ]; then
 	exit 0
 fi 
 
+# resize root partition
+if [ "${ROOTDEV}" == "/dev/mmcblk0p2" ]; then
+
+	PART_START=`/sbin/fdisk -l | grep mmcblk0p2 | awk '{print $2}'`;
+	PART_END=`/sbin/fdisk -l | grep mmcblk0p2 | awk '{print $3}'`;
+	SDEND=`/sbin/fdisk -l | sed -n '/mmcblk0/{n;p;}' | head -1 | awk '{print $8}'`;
+	SDEND=$(($SDEND-1));
+
+	if [ $SDEND -lt $PART_END ]; then
+
+/sbin/fdisk /dev/mmcblk0 2>/dev/null >/dev/null <<EOF
+d
+2
+n
+p
+2
+heb $PART_START
+$PART_END
+w
+EOF
+	
+	/sbin/resize2fs ${ROOTDEV}
+
+	fi
+fi
+
 # mount root partition
 mount -t ${ROOTFSTYPE} -o rw,${ROOTFSOPTS} ${ROOTDEV} /rootfs
 if [ $? -ne 0 ]; then
@@ -68,9 +94,6 @@ if [ $? -ne 0 ]; then
 	exec /bin/busybox sh
 	exit 0
 fi
-
-echo ${ROOTDEV} ${ROOTFSTYPE} ${ROOTFSOPTS} ${SPLASH}
-sleep 3;
 
 # display splash
 if [ ${SPLASH} == "1" ]; then

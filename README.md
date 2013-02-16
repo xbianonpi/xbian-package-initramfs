@@ -1,3 +1,4 @@
+```
 cd /opt/<br />
 mkdir initramfs<br />
 cd initramfs<br />
@@ -20,3 +21,4 @@ rm -r .git<br />
 <br />
 find . | cpio -H newc -o > ../initramfs.cpio<br />
 cat ../initramfs.cpio | gzip > /boot/initramfs.gz<br />
+```

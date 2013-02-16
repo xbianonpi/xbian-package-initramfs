@@ -14,6 +14,8 @@ ROOTDEV="/dev/mmcblk0p2";
 ROOTFSTYPE="ext4";
 ROOTFSOPTS="noatime";
 SPLASH=0;
+RESIZE=0;
+INITIALBOOT=0;
 
 # read cmdline config
 ARRAY=`sed -e '/^#/d' /proc/cmdline | sed -e 's/ /\n/g' | while read line; do
@@ -47,7 +49,6 @@ for line in ${ARRAY}; do
 done
 
 # check if new root partition exists
-
 X=0;
 while [ ! -b "${ROOTDEV}" ] && [ ${X} -lt 10 ]; do
 	X=$(($X+1));
@@ -78,12 +79,12 @@ n
 p
 2
 $PART_START
-$PART_END
+$SDEND
 w
 EOF
-	
-	/sbin/resize2fs ${ROOTDEV}
 
+	RESIZE=1;
+	
 	fi
 fi
 
@@ -104,11 +105,67 @@ if [ ${SPLASH} == "1" ]; then
 		if [ -f "/rootfs/var/splash.dat" ]; then
 			rm /rootfs/var/splash.dat;
 		fi
-	        $(/rootfs/usr/bin/splash --percentage=12);
 	fi
 fi
 
-sleep 1;
+# check if we are in the initialboot
+if [ -f /rootfs/root/initialboot ]; then
+	INITIALBOOT=1;
+	rm /rootfs/root/initialboot;
+	if [ ${SPLASH} == "1" ]; then
+		/rootfs/usr/bin/splash --infinitebar --msgtxt="initial setup...";
+		sleep 3;
+	fi
+fi
+
+# resize root partition
+if [ ${RESIZE} == "1" ]; then
+	if [ ${SPLASH} == "1" ]; then
+	        /rootfs/usr/bin/splash --infinitebar --msgtxt="resizing sd...";
+	else
+echo '
+8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
+888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
+888    888 888        Y88b.        888        d88P     888   88888b  888 888    888
+888   d88P 8888888     "Y888b.     888       d88P      888   888Y88b 888 888
+8888888P"  888            "Y88b.   888      d88P       888   888 Y88b888 888  88888
+888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
+888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
+888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
+	fi
+	/rootfs/sbin/resize2fs ${ROOTDEV}
+fi
+
+# create swapfile
+if [ ! -f /rootfs/var/swapfile ]; then
+	if [ ${SPLASH} == "1" ]; then
+		/rootfs/usr/bin/splash --infinitebar --msgtxt="creating swapfile...";
+	else
+echo '
+       d8888 8888888b.  8888888b.     .d8888b.  888       888        d8888 8888888b.  
+      d88888 888  "Y88b 888  "Y88b   d88P  Y88b 888   o   888       d88888 888   Y88b 
+     d88P888 888    888 888    888   Y88b.      888  d8b  888      d88P888 888    888 
+    d88P 888 888    888 888    888    "Y888b.   888 d888b 888     d88P 888 888   d88P 
+   d88P  888 888    888 888    888       "Y88b. 888d88888b888    d88P  888 8888888P"  
+  d88P   888 888    888 888    888         "888 88888P Y88888   d88P   888 888        
+ d8888888888 888  .d88P 888  .d88P   Y88b  d88P 8888P   Y8888  d8888888888 888        
+d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
+	fi
+	dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000 &>/dev/null
+	/sbin/mkswap /rootfs/var/swapfile &>/dev/null
+	/sbin/swapon /rootfs/var/swapfile &>/dev/null
+fi
+
+# add swapfile to fstab
+IFSWAP=`grep /var/swapfile /rootfs/etc/fstab | wc -l`
+if [ ${IFSWAP} == "0" ]; then
+	echo -e '/var/swapfile\tswap\tswap\tdefaults\t0\t0' >> /rootfs/etc/fstab
+fi
+
+# continue with normal boot
+if [ ${SPLASH} == "1" ]; then
+	/rootfs/usr/bin/splash --percentagebar --percentage=12 --msgtxt="loading...";
+fi
 
 umount /proc
 umount /sys

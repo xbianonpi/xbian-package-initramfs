@@ -6,33 +6,74 @@ mount -t sysfs none /sys
 /bin/busybox --install -s 2>/dev/null
 
 # populate /dev
-mknod /dev/null c 1 3
 mknod /dev/tty c 5 0
 
 mdev -s
 
+ROOTDEV="/dev/mmcblk0p2";
+ROOTFSTYPE="ext4";
+ROOTFSOPTS="noatime";
+SPLASH=0;
+
 # read cmdline config
-declare -A config;
-while read line; do
-        if [ ! -z $line ]; then
-                if [[ $line =~ "=" ]]; then
+ARRAY=`sed -e '/^#/d' /proc/cmdline | sed -e 's/ /\n/g' | while read line; do
+        if [ ! -z ${line} ]; then
+                if [ $(echo ${line} | grep "=" | wc -l) -eq 1 ]; then
                         name=${line%%=*};
                         name=${name/./_};
-                        config[$name]="${line##*=}";
+                        echo ${name}="${line##*=}";
                 else
-                        name=${line/./_};
-                        config[$name]=1;
+	                name=${line/./_};
+                        echo ${name}="1";
                 fi
         fi
-done < <(sed -e '/^#/d' /proc/cmdline | sed -e 's/ /\n/g');
+done;`
 
-if [ ! -z ${config['root']} ]; then
-	mount ${config['root']} /rootfs
-else
-	mount /dev/mmcblk0p2 /rootfs
+for line in ${ARRAY}; do
+	case ${line%%=*} in
+		root)
+			ROOTDEV=${line##*=};
+		;;
+		rootfstype)
+			ROOTFSTYPE=${line##*=};
+		;;
+		rootfsopts)
+			ROOTFSOPTS=${line##*=};
+		;;
+		splash)
+			SPLASH=${line##*=}
+		;;
+	esac
+done
+
+# check if new root partition exists
+
+X=0;
+while [ ! -b "${ROOTDEV}" ] && [ ${X} -lt 10 ]; do
+	X=$(($X+1));
+	mdev -s
+	sleep 1;
+done;
+
+if [ ! -b "${ROOTDEV}" ]; then
+	echo "Root partition ${ROOTDEV} missing"
+	exec /bin/busybox sh
+	exit 0
+fi 
+
+# mount root partition
+mount -t ${ROOTFSTYPE} -o rw,${ROOTFSOPTS} ${ROOTDEV} /rootfs
+if [ $? -ne 0 ]; then
+	echo "Mounting root partition ${ROOTDEV} failed"
+	exec /bin/busybox sh
+	exit 0
 fi
 
-if [ ! -z ${config['splash']} ]; then
+echo ${ROOTDEV} ${ROOTFSTYPE} ${ROOTFSOPTS} ${SPLASH}
+sleep 3;
+
+# display splash
+if [ ${SPLASH} == "1" ]; then
 	if [ -f "/rootfs/usr/bin/splash" ]; then
 		if [ -f "/rootfs/var/splash.pid" ]; then
 			rm /rootfs/var/splash.pid;
@@ -52,4 +93,4 @@ umount /sys
 exec switch_root /rootfs /sbin/init
 
 echo "Failed to switch_root, dropping to a shell"
-exec /bin/sh
+exec /bin/busybox sh

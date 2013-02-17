@@ -14,7 +14,11 @@ ROOTDEV="/dev/mmcblk0p2";
 ROOTFSTYPE="ext4";
 ROOTFSOPTS="noatime";
 SPLASH=0;
+RESIZEERROR=0;
 INITIALBOOT=0;
+NORESIZESD="0"
+NOSWAPFILE="0"
+RANSCRIPTS=0;
 
 # read cmdline config
 ARRAY=`sed -e '/^#/d' /proc/cmdline | sed -e 's/ /\n/g' | while read line; do
@@ -44,6 +48,12 @@ for line in ${ARRAY}; do
 		splash)
 			SPLASH=${line##*=}
 		;;
+		noresizesd)
+			NORESIZESD=${line##*=}
+		;;
+		noswapfile)
+			NOSWAPFILE=${line##*=}
+		;;
 	esac
 done
 
@@ -62,26 +72,44 @@ if [ ! -b "${ROOTDEV}" ]; then
 fi 
 
 # resize root partition
-if [ "${ROOTDEV}" == "/dev/mmcblk0p2" ]; then
+if [ "${ROOTDEV}" == "/dev/mmcblk0p2" ] && [ ${NORESIZESD} == "0" ]; then
 
-	PART_START=`/sbin/fdisk -l | grep mmcblk0p2 | awk '{print $2}'`;
-	PART_END=`/sbin/fdisk -l | grep mmcblk0p2 | awk '{print $3}'`;
-	SDEND=`/sbin/fdisk -l | sed -n '/mmcblk0/{n;p;}' | head -1 | awk '{print $8}'`;
-	SDEND=$(($SDEND-1));
+	#Save partition table to file
+	/sbin/sfdisk -d /dev/mmcblk0 > /tmp/curpart.txt
 
-	if [ $SDEND -gt $PART_END ]; then
+	#Backup partition table
+	cp /tmp/curpart.txt /tmp/part.txt
 
-/sbin/fdisk /dev/mmcblk0 2>/dev/null >/dev/null <<EOF
-d
-2
-n
-p
-2
-$PART_START
-$SDEND
-w
-EOF
+	#Read partition sizes
+	TOTALBLOCKS=`/sbin/fdisk -l /dev/mmcblk0 | grep total | awk '{printf "%s", $8}'`;
+	LASTBLOCK=$TOTALBLOCKS;
+	PARTSTART=`grep Id=83 /tmp/part.txt | awk '{printf "%d", $4}'`;
+	PARTSIZE=`grep Id=83 /tmp/part.txt | awk '{printf "%d", $6}'`;
+	NEWSIZE=$(($LASTBLOCK-$PARTSTART));
 
+	if [ $PARTSIZE -lt $NEWSIZE ]; then
+		#Change size of root partition
+		sed -i "s/$PARTSIZE/$NEWSIZE/g" /tmp/part.txt
+
+		#Backup current partition
+		/sbin/sfdisk --no-reread -q -f /dev/mmcblk0 -O /tmp/part.bin < /tmp/part.txt &> /dev/null
+
+		#Dump new partition
+		/sbin/sfdisk -d /dev/mmcblk0 > /tmp/newpart.txt
+
+		#Check if the changes could be made to the partition table
+		CHECKSIZE=`grep Id=83 /tmp/newpart.txt | awk '{printf "%d", $6}'`;
+
+		if [ $CHECKSIZE -ne $NEWSIZE ]; then
+			#If partition table could not be changed
+			DIFF=`diff /tmp/curpart.txt /tmp/newpart.txt; echo $?`
+			if [ ${DIFF} != "0" ]; then
+				#Restoring old partition table
+				/sbin/sfdisk --force -q -I /tmp/part.bin /dev/mmcblk0 &> /dev/null
+			fi
+			RESIZERROR=1;
+		fi
+		RANSCRIPTS=1;
 	fi
 fi
 
@@ -111,11 +139,11 @@ if [ -f /rootfs/root/initialboot ]; then
 	rm /rootfs/root/initialboot;
 	if [ ${SPLASH} == "1" ]; then
 		/rootfs/usr/bin/splash --infinitebar --msgtxt="initial setup...";
-		sleep 3;
 	fi
+	RANSCRIPTS=1;
 fi
 
-if [ "${ROOTDEV}" == "/dev/mmcblk0p2" ]; then
+if [ "${ROOTDEV}" == "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${NORESIZESD} == "0" ]; then
 	# check if the partition needs resizing
 	FDISKBLOCKSIZE=`/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}'`
 	FDISKBLOCKCOUNT=`/sbin/fdisk -l /dev/mmcblk0 | grep Units | sed -ne 's/\(.*= \)\([0-9]\{1,\}\)\( bytes\)/\2/p'`
@@ -128,7 +156,10 @@ if [ "${ROOTDEV}" == "/dev/mmcblk0p2" ]; then
 	# resize root partition
 	if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
 		if [ ${SPLASH} == "1" ]; then
-		        /rootfs/usr/bin/splash --infinitebar --msgtxt="resizing sd...";
+			if [ $INITIALBOOT -eq 0 ]; then
+				/rootfs/usr/bin/splash --infinitebar --msgtxt="resizing sd...";
+			fi
+			/rootfs/sbin/resize2fs ${ROOTDEV}
 		else
 echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
@@ -139,8 +170,9 @@ echo '
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
+			/rootfs/sbin/resize2fs;
 		fi
-		/rootfs/sbin/resize2fs ${ROOTDEV}
+		RANSCRIPTS=1;
 	fi
 
 	FDISKBLOCKSIZE=`/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}'`
@@ -167,9 +199,12 @@ echo '
 fi
 
 # create swapfile
-if [ ! -f /rootfs/var/swapfile ] && [ ! -f /rootfs/root/resizefailed ]; then
+if [ ! -f /rootfs/var/swapfile ] && [ ! -f /rootfs/root/resizefailed ] && [ ${NOSWAPFILE} == "0" ]; then
 	if [ ${SPLASH} == "1" ]; then
-		/rootfs/usr/bin/splash --infinitebar --msgtxt="creating swapfile...";
+		if [ $INITIALBOOT -eq 0 ]; then
+			/rootfs/usr/bin/splash --infinitebar --msgtxt="creating swapfile...";
+		fi
+		dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
 	else
 echo '
        d8888 8888888b.  8888888b.     .d8888b.  888       888        d8888 8888888b.  
@@ -180,10 +215,11 @@ echo '
   d88P   888 888    888 888    888         "888 88888P Y88888   d88P   888 888        
  d8888888888 888  .d88P 888  .d88P   Y88b  d88P 8888P   Y8888  d8888888888 888        
 d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
+		dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
 	fi
-	dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000 &>/dev/null
 	/sbin/mkswap /rootfs/var/swapfile &>/dev/null
 	/sbin/swapon /rootfs/var/swapfile &>/dev/null
+	RANSCRIPTS=1;
 fi
 
 # add swapfile to fstab

@@ -26,6 +26,7 @@ cp /lib/arm-linux-gnueabihf/libselinux.so.1 lib/arm-linux-gnueabihf/
 cp /sbin/fdisk sbin/
 cp /sbin/sfdisk sbin/
 cp /sbin/tune2fs sbin/
+cp /sbin/e2fsck sbin/
 cp /sbin/resize2fs sbin/
 cp /sbin/swapon sbin/
 cp /sbin/mkswap sbin/

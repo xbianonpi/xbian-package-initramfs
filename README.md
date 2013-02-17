@@ -24,6 +24,8 @@ cp /lib/arm-linux-gnueabihf/libcom_err.so.2 lib/arm-linux-gnueabihf/
 cp /lib/arm-linux-gnueabihf/libpthread.so.0 lib/arm-linux-gnueabihf/
 cp /lib/arm-linux-gnueabihf/libselinux.so.1 lib/arm-linux-gnueabihf/
 cp /sbin/fdisk sbin/
+cp /sbin/sfdisk sbin/
+cp /sbin/tune2fs sbin/
 cp /sbin/resize2fs sbin/
 cp /sbin/swapon sbin/
 cp /sbin/mkswap sbin/

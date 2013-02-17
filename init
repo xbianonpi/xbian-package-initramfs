@@ -14,7 +14,6 @@ ROOTDEV="/dev/mmcblk0p2";
 ROOTFSTYPE="ext4";
 ROOTFSOPTS="noatime";
 SPLASH=0;
-RESIZE=0;
 INITIALBOOT=0;
 
 # read cmdline config
@@ -83,8 +82,6 @@ $SDEND
 w
 EOF
 
-	RESIZE=1;
-	
 	fi
 fi
 
@@ -118,11 +115,21 @@ if [ -f /rootfs/root/initialboot ]; then
 	fi
 fi
 
-# resize root partition
-if [ ${RESIZE} == "1" ]; then
-	if [ ${SPLASH} == "1" ]; then
-	        /rootfs/usr/bin/splash --infinitebar --msgtxt="resizing sd...";
-	else
+if [ "${ROOTDEV}" == "/dev/mmcblk0p2" ]; then
+	# check if the partition needs resizing
+	FDISKBLOCKSIZE=`/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}'`
+	FDISKBLOCKCOUNT=`/sbin/fdisk -l /dev/mmcblk0 | grep Units | sed -ne 's/\(.*= \)\([0-9]\{1,\}\)\( bytes\)/\2/p'`
+	TUNE2FS=`/sbin/tune2fs -l /dev/mmcblk0p2`
+	TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`
+	TUNEBLOCKCOUNT=`echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}'`
+	TUNETOTALBLOCKS=$(($(($TUNEBLOCKCOUNT*$TUNEBLOCKSIZE))/1024/1024));
+	FDISKTOTALBLOCKS=$(($(($FDISKBLOCKSIZE*$FDISKBLOCKCOUNT))/1024/1024));
+		
+	# resize root partition
+	if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
+		if [ ${SPLASH} == "1" ]; then
+		        /rootfs/usr/bin/splash --infinitebar --msgtxt="resizing sd...";
+		else
 echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
 888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
@@ -132,12 +139,35 @@ echo '
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
+		fi
+		/rootfs/sbin/resize2fs ${ROOTDEV}
 	fi
-	/rootfs/sbin/resize2fs ${ROOTDEV}
+
+	FDISKBLOCKSIZE=`/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}'`
+	FDISKBLOCKCOUNT=`/sbin/fdisk -l /dev/mmcblk0 | grep Units | sed -ne 's/\(.*= \)\([0-9]\{1,\}\)\( bytes\)/\2/p'`
+	TUNE2FS=`/sbin/tune2fs -l /dev/mmcblk0p2`
+	TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`
+	TUNEBLOCKCOUNT=`echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}'`
+	TUNETOTALBLOCKS=$(($(($TUNEBLOCKCOUNT*$TUNEBLOCKSIZE))/1024/1024));
+	FDISKTOTALBLOCKS=$(($(($FDISKBLOCKSIZE*$FDISKBLOCKCOUNT))/1024/1024));
+
+	# check if parition was actually resized, if not reboot
+	if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
+		if [ ! -f /rootfs/root/resizefailed ]; then
+		        /rootfs/usr/bin/splash --infinitebar --msgtxt="reboot...";
+			touch /rootfs/root/resizefailed
+			sleep 3;
+			reboot
+		fi
+	else
+		if [ -f /rootfs/root/resizefailed ]; then
+			rm /rootfs/root/resizefailed
+		fi
+	fi	
 fi
 
 # create swapfile
-if [ ! -f /rootfs/var/swapfile ]; then
+if [ ! -f /rootfs/var/swapfile ] && [ ! -f /rootfs/root/resizefailed ]; then
 	if [ ${SPLASH} == "1" ]; then
 		/rootfs/usr/bin/splash --infinitebar --msgtxt="creating swapfile...";
 	else
@@ -157,16 +187,18 @@ d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
 fi
 
 # add swapfile to fstab
-IFSWAP=`grep /var/swapfile /rootfs/etc/fstab | wc -l`
-if [ ${IFSWAP} == "0" ]; then
-	echo -e '/var/swapfile\tswap\tswap\tdefaults\t0\t0' >> /rootfs/etc/fstab
+if [ -f /rootfs/var/swapfile ]; then
+	IFSWAP=`grep /var/swapfile /rootfs/etc/fstab | wc -l`
+	if [ ${IFSWAP} == "0" ]; then
+		echo -e '/var/swapfile\tswap\tswap\tdefaults\t0\t0' >> /rootfs/etc/fstab
+	fi
 fi
 
 # continue with normal boot
 if [ ${SPLASH} == "1" ]; then
 	/rootfs/usr/bin/splash --percentagebar --percentage=12 --msgtxt="loading...";
-	#give splash time to settle
-	sleep 1
+	# give splash time to settle
+	sleep 1;
 fi
 
 umount /proc

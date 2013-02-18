@@ -186,7 +186,7 @@ echo '
 fi
 
 # create swapfile
-if [ ! -f /rootfs/var/swapfile ] && [ ${RESIZEERROR} -eq 0 ] && [ ${NOSWAPFILE} == "0" ]; then
+if [ ! -f /rootfs/var/swapfile ] && [ $RESIZEERROR -eq 0 ] && [ ${NOSWAPFILE} == "0" ]; then
 	if [ ${SPLASH} == "1" ]; then
 		if [ $INITIALBOOT -eq 0 ]; then
 			/rootfs/usr/bin/splash --infinitebar --msgtxt="creating swapfile...";

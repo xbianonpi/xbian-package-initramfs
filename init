@@ -106,7 +106,7 @@ if [ "${ROOTDEV}" == "/dev/mmcblk0p2" ] && [ ${NORESIZESD} == "0" ]; then
 				#Restoring old partition table
 				/sbin/sfdisk --force -q -I /tmp/part.bin /dev/mmcblk0 &> /dev/null
 			fi
-			RESIZERROR=1;
+			RESIZEERROR=1;
 		fi
 	fi
 fi

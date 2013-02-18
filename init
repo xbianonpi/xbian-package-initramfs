@@ -185,16 +185,9 @@ echo '
 
 	# check if parition was actually resized, if not reboot
 	if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
-		if [ ! -f /rootfs/root/resizefailed ]; then
-		        /rootfs/usr/bin/splash --infinitebar --msgtxt="reboot...";
-			touch /rootfs/root/resizefailed
-			sleep 3;
-			reboot
-		fi
-	else
-		if [ -f /rootfs/root/resizefailed ]; then
-			rm /rootfs/root/resizefailed
-		fi
+		touch /rootfs/root/resizefailed
+	elif [ -f /rootfs/root/resizefailed ]; then
+		rm /rootfs/root/resizefailed
 	fi	
 fi
 

@@ -206,7 +206,6 @@ d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
 	fi
 	/sbin/mkswap /rootfs/var/swapfile &>/dev/null
 	/sbin/swapon /rootfs/var/swapfile &>/dev/null
-	RANSCRIPTS=1;
 fi
 
 # add swapfile to fstab

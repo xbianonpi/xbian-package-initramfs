@@ -18,7 +18,6 @@ RESIZEERROR=0;
 INITIALBOOT=0;
 NORESIZESD="0"
 NOSWAPFILE="0"
-RANSCRIPTS=0;
 
 # read cmdline config
 ARRAY=`sed -e '/^#/d' /proc/cmdline | sed -e 's/ /\n/g' | while read line; do
@@ -109,7 +108,6 @@ if [ "${ROOTDEV}" == "/dev/mmcblk0p2" ] && [ ${NORESIZESD} == "0" ]; then
 			fi
 			RESIZERROR=1;
 		fi
-		RANSCRIPTS=1;
 	fi
 fi
 
@@ -140,7 +138,6 @@ if [ -f /rootfs/root/initialboot ]; then
 	if [ ${SPLASH} == "1" ]; then
 		/rootfs/usr/bin/splash --infinitebar --msgtxt="initial setup...";
 	fi
-	RANSCRIPTS=1;
 fi
 
 if [ "${ROOTDEV}" == "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${NORESIZESD} == "0" ]; then
@@ -172,7 +169,6 @@ echo '
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
 			/rootfs/sbin/resize2fs;
 		fi
-		RANSCRIPTS=1;
 	fi
 
 	FDISKBLOCKSIZE=`/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}'`
@@ -183,16 +179,14 @@ echo '
 	TUNETOTALBLOCKS=$(($(($TUNEBLOCKCOUNT*$TUNEBLOCKSIZE))/1024/1024));
 	FDISKTOTALBLOCKS=$(($(($FDISKBLOCKSIZE*$FDISKBLOCKCOUNT))/1024/1024));
 
-	# check if parition was actually resized, if not reboot
+	# check if parition was actually resized
 	if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
-		touch /rootfs/root/resizefailed
-	elif [ -f /rootfs/root/resizefailed ]; then
-		rm /rootfs/root/resizefailed
+		RESIZEERROR=1
 	fi	
 fi
 
 # create swapfile
-if [ ! -f /rootfs/var/swapfile ] && [ ! -f /rootfs/root/resizefailed ] && [ ${NOSWAPFILE} == "0" ]; then
+if [ ! -f /rootfs/var/swapfile ] && [ ${RESIZEERROR} -eq 0 ] && [ ${NOSWAPFILE} == "0" ]; then
 	if [ ${SPLASH} == "1" ]; then
 		if [ $INITIALBOOT -eq 0 ]; then
 			/rootfs/usr/bin/splash --infinitebar --msgtxt="creating swapfile...";

@@ -71,7 +71,7 @@ if [ ! -b "${ROOTDEV}" ]; then
 fi 
 
 # resize root partition
-if [ "${ROOTDEV}" == "/dev/mmcblk0p2" ] && [ ${NORESIZESD} == "0" ]; then
+if [ "${ROOTDEV}" = "/dev/mmcblk0p2" ] && [ ${NORESIZESD} = "0" ]; then
 
 	#Save partition table to file
 	/sbin/sfdisk -d /dev/mmcblk0 > /tmp/curpart.txt
@@ -120,7 +120,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # display splash
-if [ ${SPLASH} == "1" ]; then
+if [ ${SPLASH} = "1" ]; then
 	if [ -f "/rootfs/usr/bin/splash" ]; then
 		if [ -f "/rootfs/var/splash.pid" ]; then
 			rm /rootfs/var/splash.pid;
@@ -135,12 +135,12 @@ fi
 if [ -f /rootfs/root/initialboot ]; then
 	INITIALBOOT=1;
 	rm /rootfs/root/initialboot;
-	if [ ${SPLASH} == "1" ]; then
+	if [ ${SPLASH} = "1" ]; then
 		/rootfs/usr/bin/splash --infinitebar --msgtxt="initial setup...";
 	fi
 fi
 
-if [ "${ROOTDEV}" == "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${NORESIZESD} == "0" ]; then
+if [ "${ROOTDEV}" = "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${NORESIZESD} = "0" ]; then
 	# check if the partition needs resizing
 	FDISKBLOCKSIZE=`/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}'`
 	FDISKBLOCKCOUNT=`/sbin/fdisk -l /dev/mmcblk0 | grep Units | sed -ne 's/\(.*= \)\([0-9]\{1,\}\)\( bytes\)/\2/p'`
@@ -152,7 +152,7 @@ if [ "${ROOTDEV}" == "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${NORESIZ
 		
 	# resize root partition
 	if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
-		if [ ${SPLASH} == "1" ]; then
+		if [ ${SPLASH} = "1" ]; then
 			if [ $INITIALBOOT -eq 0 ]; then
 				/rootfs/usr/bin/splash --infinitebar --msgtxt="resizing sd...";
 			fi
@@ -185,8 +185,8 @@ echo '
 fi
 
 # create swapfile
-if [ ! -f /rootfs/var/swapfile ] && [ $RESIZEERROR -eq 0 ] && [ ${NOSWAPFILE} == "0" ]; then
-	if [ ${SPLASH} == "1" ]; then
+if [ ! -f /rootfs/var/swapfile ] && [ $RESIZEERROR -eq 0 ] && [ ${NOSWAPFILE} = "0" ]; then
+	if [ ${SPLASH} = "1" ]; then
 		if [ $INITIALBOOT -eq 0 ]; then
 			/rootfs/usr/bin/splash --infinitebar --msgtxt="creating swapfile...";
 		fi
@@ -209,13 +209,13 @@ fi
 # add swapfile to fstab
 if [ -f /rootfs/var/swapfile ]; then
 	IFSWAP=`grep /var/swapfile /rootfs/etc/fstab | wc -l`
-	if [ ${IFSWAP} == "0" ]; then
+	if [ ${IFSWAP} = "0" ]; then
 		echo -e '/var/swapfile\tswap\tswap\tdefaults\t0\t0' >> /rootfs/etc/fstab
 	fi
 fi
 
 # continue with normal boot
-if [ ${SPLASH} == "1" ]; then
+if [ ${SPLASH} = "1" ]; then
 	/rootfs/usr/bin/splash --percentagebar --percentage=12 --msgtxt="loading...";
 	# give splash time to settle
 	sleep 1;

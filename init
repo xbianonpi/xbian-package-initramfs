@@ -109,6 +109,8 @@ if [ "${ROOTDEV}" = "/dev/mmcblk0p2" ] && [ ${NORESIZESD} = "0" ]; then
 			RESIZEERROR=1;
 		fi
 	fi
+	mdev -s
+	sleep 1
 fi
 
 # mount root partition

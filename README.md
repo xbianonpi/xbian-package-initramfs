@@ -6,7 +6,7 @@ cd initramfs
 apt-get install fakeroot busybox
 
 fakeroot
-mkdir bin dev etc lib proc rootfs sbin sys
+mkdir bin dev etc lib proc rootfs sbin sys tmp
 touch etc/mdev.conf
 cp /bin/busybox bin/
 ln -s busybox bin/sh

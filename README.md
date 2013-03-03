@@ -7,6 +7,10 @@ apt-get install fakeroot busybox udhcpc
 
 fakeroot
 mkdir bin dev etc lib proc rootfs sbin sys tmp
+mkdir etc/udhcpc
+mkdir lib/modules
+cp /etc/udhcpc/default.script etc/udhcpc/
+sed -i 's/\/etc\/resolv.conf/\/rootfs\/etc\/resolv.conf/g' etc/udhcpc/default.script
 touch etc/mdev.conf
 cp /bin/busybox bin/
 ln -s busybox bin/sh

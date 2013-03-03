@@ -18,16 +18,20 @@ RESIZEERROR=0;
 INITIALBOOT=0;
 NORESIZESD="0"
 NOSWAPFILE="0"
+LANMODE="";
+LANADDRESS="";
+LANNETMASK="";
+LANGATEWAY="";
 
 # read cmdline config
 ARRAY=`sed -e '/^#/d' /proc/cmdline | sed -e 's/ /\n/g' | while read line; do
         if [ ! -z ${line} ]; then
                 if [ $(echo ${line} | grep "=" | wc -l) -eq 1 ]; then
                         name=${line%%=*};
-                        name=${name/./_};
+			name=${line//./_};
                         echo ${name}="${line##*=}";
                 else
-	                name=${line/./_};
+			name=${line//./_};
                         echo ${name}="1";
                 fi
         fi
@@ -45,13 +49,28 @@ for line in ${ARRAY}; do
 			ROOTFSOPTS=${line##*=};
 		;;
 		splash)
-			SPLASH=${line##*=};
+			SPLASH=${line##*=}
 		;;
 		noresizesd)
-			NORESIZESD=${line##*=};
+			NORESIZESD=${line##*=}
 		;;
 		noswapfile)
-			NOSWAPFILE=${line##*=};
+			NOSWAPFILE=${line##*=}
+		;;
+		network_eth0_mode)
+			LANMODE=${line##*=}
+		;;
+		network_eth0_netmask)
+			LANNETMASK=${line##*=}
+			LANNETMASK=${LANNETMASK//_/.};
+		;;
+		network_eth0_gateway)
+			LANGATEWAY=${line##*=}
+			LANGATEWAY=${LANGATEWAY//_/.};
+		;;
+		network_eth0_address)
+			LANADDRESS=${line##*=}
+			LANADDRESS=${LANADDRESS//_/.};
 		;;
 	esac
 done
@@ -106,7 +125,7 @@ if [ "${ROOTDEV}" = "/dev/mmcblk0p2" ] && [ ${NORESIZESD} = "0" ]; then
 				#Restoring old partition table
 				/sbin/sfdisk --force -q -I /tmp/part.bin /dev/mmcblk0 &> /dev/null
 			fi
-			RESIZEERROR=1;
+			RESIZERROR=1;
 		fi
 		mdev -s
 		sleep 1
@@ -158,6 +177,7 @@ if [ "${ROOTDEV}" = "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${NORESIZE
 			if [ $INITIALBOOT -eq 0 ]; then
 				/rootfs/usr/bin/splash --infinitebar --msgtxt="resizing sd...";
 			fi
+			/rootfs/sbin/resize2fs ${ROOTDEV}
 		else
 echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
@@ -168,8 +188,8 @@ echo '
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
+			/rootfs/sbin/resize2fs;
 		fi
-	/rootfs/sbin/resize2fs ${ROOTDEV};
 	fi
 
 	FDISKBLOCKSIZE=`/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}'`
@@ -192,6 +212,7 @@ if [ ! -f /rootfs/var/swapfile ] && [ $RESIZEERROR -eq 0 ] && [ ${NOSWAPFILE} = 
 		if [ $INITIALBOOT -eq 0 ]; then
 			/rootfs/usr/bin/splash --infinitebar --msgtxt="creating swapfile...";
 		fi
+		dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
 	else
 echo '
        d8888 8888888b.  8888888b.     .d8888b.  888       888        d8888 8888888b.  
@@ -202,10 +223,11 @@ echo '
   d88P   888 888    888 888    888         "888 88888P Y88888   d88P   888 888        
  d8888888888 888  .d88P 888  .d88P   Y88b  d88P 8888P   Y8888  d8888888888 888        
 d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
+		dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
 	fi
-	dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
 	/sbin/mkswap /rootfs/var/swapfile &>/dev/null
 	/sbin/swapon /rootfs/var/swapfile &>/dev/null
+	RANSCRIPTS=1;
 fi
 
 # add swapfile to fstab
@@ -223,22 +245,41 @@ if [ ${SPLASH} = "1" ]; then
 	sleep 1;
 fi
 
-# load rpi core module to initialize eth0
-ln -s /rootfs/lib/modules/`uname -r` /lib/modules/
-/sbin/modprobe smsc95xx
+if [ -d /rootfs/lib/modules/`uname -r` ]; then
+	# load rpi core module to initialize eth0
+	ln -s /rootfs/lib/modules/`uname -r` /lib/modules/
+	/sbin/modprobe smsc95xx
 
-# load additional user kernel modules
-if [ -f /rootfs/etc/modules ]; then
-        while read MODULE; do
-                if [ ! -z `echo $MODULE | sed -e '/^#/d'` ]; then
-                        /sbin/modprobe $MODULE
-                fi
-        done < /rootfs/etc/modules
+	# load additional user kernel modules
+	if [ -f /rootfs/etc/modules ]; then
+		while read MODULE; do
+			if [ ! -z `echo $MODULE | sed -e '/^#/d'` ]; then
+				/sbin/modprobe $MODULE
+			fi
+		done < /rootfs/etc/modules
+	fi
+	sleep 1;
+
+	# remove eth0 entry in network configuration	
+	awk '/eth0/ {flag=1} /wlan0/{flag=0} !flag{print}' /rootfs/etc/network/interfaces > /rootfs/etc/network/interfaces.new
+	mv /rootfs/etc/network/interfaces.new /rootfs/etc/network/interfaces 
+	if [ "${LANMODE}" = "dhcp" ]; then
+		# connect eth0 to dhcp server
+		echo -e "iface eth0 inet dhcp" >> /rootfs/etc/network/interfaces
+
+		cp /rootfs/etc/network/interfaces /etc/network/
+		/sbin/udhcpc -i eth0 -s /etc/udhcpc/default.script -t 5 -T 5 -b
+	elif [ "${LANMODE}" = "static" ]; then
+		if [ ! -z ${LANADDRESS} ] && [ ! -z ${LANGATEWAY} ] && [ ! -z ${LANNETMASK} ]; then
+			# connect eth0 with an static ip
+			echo -e "iface eth0 inet static\naddress ${LANADDRESS}\nnetmask ${LANNETMASK}\ngateway ${LANGATEWAY}" >> /rootfs/etc/network/interfaces
+			cp /rootfs/etc/network/interfaces /etc/network/
+
+			/sbin/ifconfig eth0 down
+			/sbin/ifconfig eth0 up
+		fi		
+	fi
 fi
-sleep 1;
-
-# Connect eth0 to dhcp server
-/sbin/udhcpc -i eth0 -s /etc/udhcpc/default.script -t 5 -T 5 -b
 
 umount /proc
 umount /sys
@@ -246,4 +287,4 @@ umount /sys
 exec switch_root /rootfs /sbin/init
 
 echo "Failed to switch_root, dropping to a shell"
-exec /bin/busybox sh
+exec /bin/busybox sh 

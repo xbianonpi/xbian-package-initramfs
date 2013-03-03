@@ -224,7 +224,7 @@ if [ ${SPLASH} = "1" ]; then
 fi
 
 # Load ethernet module interface and let it settle
-ln -s /rootfs/lib/modules/$(uname -r) /lib/modules/
+ln -s /rootfs/lib/modules/`uname -r` /lib/modules/
 /sbin/modprobe smsc95xx
 sleep 1;
 

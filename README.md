@@ -3,7 +3,7 @@ cd /opt/
 mkdir initramfs
 cd initramfs
 
-apt-get install fakeroot busybox
+apt-get install fakeroot busybox udhcpc
 
 fakeroot
 mkdir bin dev etc lib proc rootfs sbin sys tmp
@@ -31,6 +31,8 @@ cp /sbin/e2fsck sbin/
 cp /sbin/resize2fs sbin/
 cp /sbin/swapon sbin/
 cp /sbin/mkswap sbin/
+cp /sbin/modprobe sbin/
+cp /sbin/udhcpc sbin/
 
 ln -s lib/arm-linux-gnueabihf/libc.so.6 lib/libc.so.6
 ln -s lib/arm-linux-gnueabihf/libgcc_s.so.1 lib/libgcc_s.so.1

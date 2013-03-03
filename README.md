@@ -40,12 +40,12 @@ cp /lib/arm-linux-gnueabihf/libz.so.1 lib/arm-linux-gnueabihf/
 cp /lib/arm-linux-gnueabihf/librt.so.1 lib/arm-linux-gnueabihf/
 cp /lib/arm-linux-gnueabihf/libiw.so.30 lib/arm-linux-gnueabihf/
 
-cp /usr/lib/arm-linux-gnueabihf/libcrypto.so.1.0.0 usr/lib/arm-linux-gnueabihf
-cp /usr/lib/arm-linux-gnueabihf/libpcsclite.so.1 usr/lib/arm-linux-gnueabihf
-cp /usr/lib/arm-linux-gnueabihf/libssl.so.1.0.0 usr/lib/arm-linux-gnueabihf
+cp /usr/lib/arm-linux-gnueabihf/libcrypto.so.1.0.0 usr/lib/arm-linux-gnueabihf/
+cp /usr/lib/arm-linux-gnueabihf/libpcsclite.so.1 usr/lib/arm-linux-gnueabihf/
+cp /usr/lib/arm-linux-gnueabihf/libssl.so.1.0.0 usr/lib/arm-linux-gnueabihf/
 
-ln -s lib/arm-linux-gnueabihf/libc.so.6 lib/libc.so.6
-ln -s lib/arm-linux-gnueabihf/libgcc_s.so.1 lib/libgcc_s.so.1
+ln -s lib/arm-linux-gnueabihf/libc.so.6 lib/
+ln -s lib/arm-linux-gnueabihf/libgcc_s.so.1 lib/
 ln -s lib/arm-linux-gnueabihf/libdl.so.2 lib/
 ln -s lib/arm-linux-gnueabihf/libnl-3.so.200 lib/
 ln -s lib/arm-linux-gnueabihf/libnl-genl-3.so.200 lib/

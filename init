@@ -223,6 +223,14 @@ if [ ${SPLASH} = "1" ]; then
 	sleep 1;
 fi
 
+# Load ethernet module interface and let it settle
+ln -s /rootfs/lib/modules/$(uname -r) /lib/modules/
+/sbin/modprobe smsc95xx
+sleep 1;
+
+# Connect eth0 to dhcp client
+/sbin/udhcpc -i eth0 -s /etc/udhcpc/default.script -t 5 -T 5 -b
+
 umount /proc
 umount /sys
 

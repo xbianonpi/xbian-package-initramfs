@@ -7,7 +7,8 @@ apt-get install fakeroot busybox udhcpc
 
 fakeroot
 mkdir bin dev etc lib proc rootfs sbin sys tmp
-mkdir etc/udhcpc
+mkdir etc/udhcpc etc/network
+mkdir etc/network/if-down.d etc/network/if-up.d etc/network/if-post-down.d etc/network/if-pre-up.d
 mkdir lib/modules
 cp /etc/udhcpc/default.script etc/udhcpc/
 sed -i 's/\/etc\/resolv.conf/\/rootfs\/etc\/resolv.conf/g' etc/udhcpc/default.script
@@ -37,6 +38,7 @@ cp /sbin/swapon sbin/
 cp /sbin/mkswap sbin/
 cp /sbin/modprobe sbin/
 cp /sbin/udhcpc sbin/
+cp /sbin/ifconfig sbin/
 
 ln -s lib/arm-linux-gnueabihf/libc.so.6 lib/libc.so.6
 ln -s lib/arm-linux-gnueabihf/libgcc_s.so.1 lib/libgcc_s.so.1

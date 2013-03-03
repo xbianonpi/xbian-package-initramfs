@@ -223,12 +223,21 @@ if [ ${SPLASH} = "1" ]; then
 	sleep 1;
 fi
 
-# Load ethernet module interface and let it settle
+# load rpi core module to initialize eth0
 ln -s /rootfs/lib/modules/`uname -r` /lib/modules/
 /sbin/modprobe smsc95xx
+
+# load additional user kernel modules
+if [ -f /rootfs/etc/modules ]; then
+        while read MODULE; do
+                if [ ! -z `echo $MODULE | sed -e '/^#/d'` ]; then
+                        /sbin/modprobe $MODULE
+                fi
+        done < /rootfs/etc/modules
+fi
 sleep 1;
 
-# Connect eth0 to dhcp client
+# Connect eth0 to dhcp server
 /sbin/udhcpc -i eth0 -s /etc/udhcpc/default.script -t 5 -T 5 -b
 
 umount /proc

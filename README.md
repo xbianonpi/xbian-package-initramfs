@@ -239,6 +239,7 @@ cp /lib/arm-linux-gnueabihf/libnl-3.so.200.so.1 lib/arm-linux-gnueabihf/
 cp /lib/arm-linux-gnueabihf/libz.so.1 lib/arm-linux-gnueabihf/
 cp /lib/arm-linux-gnueabihf/librt.so.1 lib/arm-linux-gnueabihf/
 cp /lib/arm-linux-gnueabihf/libiw.so.30 lib/arm-linux-gnueabihf/
+cp /lib/arm-linux-gnueabihf/libtinfo.so.5 lib/arm-linux-gnueabihf/
 
 cp /usr/lib/arm-linux-gnueabihf/libcrypto.so.1.0.0 usr/lib/arm-linux-gnueabihf/
 cp /usr/lib/arm-linux-gnueabihf/libpcsclite.so.1 usr/lib/arm-linux-gnueabihf/
@@ -250,6 +251,7 @@ ln -s lib/arm-linux-gnueabihf/libdl.so.2 lib/
 ln -s lib/arm-linux-gnueabihf/libnl-3.so.200 lib/
 ln -s lib/arm-linux-gnueabihf/libnl-genl-3.so.200 lib/
 
+cp /bin/bash bin/
 cp /sbin/fdisk sbin/
 cp /sbin/sfdisk sbin/
 cp /sbin/tune2fs sbin/

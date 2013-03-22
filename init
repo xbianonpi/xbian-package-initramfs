@@ -97,11 +97,11 @@ fi
 # display splash
 if [ ${CONFIG['splash']} -eq 1 ]; then
 	if [ -f "/rootfs/usr/bin/splash" ]; then
-		if [ -f "/rootfs/run/splash.pid" ]; then
-			rm /rootfs/run/splash.pid;
+		if [ -f "/rootfs/var/splash.pid" ]; then
+			rm /rootfs/var/splash.pid;
 		fi
-		if [ -f "/rootfs/run/splash.dat" ]; then
-			rm /rootfs/run/splash.dat;
+		if [ -f "/rootfs/var/splash.dat" ]; then
+			rm /rootfs/var/splash.dat;
 		fi
 	fi
 fi

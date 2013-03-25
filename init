@@ -3,6 +3,11 @@
 mount -t proc none /proc
 mount -t sysfs none /sys
 
+mkdir -p /run
+mount -t tmpfs -o "nosuid,size=20%,mode=0755" tmpfs /run
+
+
+
 # populate /dev
 mknod /dev/tty c 5 0
 
@@ -94,17 +99,6 @@ if [ $? -ne 0 ]; then
 	exit 0
 fi
 
-# display splash
-if [ ${CONFIG['splash']} -eq 1 ]; then
-	if [ -f "/rootfs/usr/bin/splash" ]; then
-		if [ -f "/rootfs/var/splash.pid" ]; then
-			rm /rootfs/var/splash.pid;
-		fi
-		if [ -f "/rootfs/var/splash.dat" ]; then
-			rm /rootfs/var/splash.dat;
-		fi
-	fi
-fi
 
 # check if we are in the initialboot
 if [ -f /rootfs/root/initialboot ]; then
@@ -180,14 +174,14 @@ d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
 		dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
 	fi
 	mkswap /rootfs/var/swapfile &>/dev/null
-	swapon /rootfs/var/swapfile &>/dev/null
+	swapon -p 0 /rootfs/var/swapfile &>/dev/null
 fi
 
 # add swapfile to fstab
 if [ -f /rootfs/var/swapfile ]; then
 	IFSWAP=$(grep /var/swapfile /rootfs/etc/fstab | wc -l);
 	if [ ${IFSWAP} -eq 0 ]; then
-		echo -e '/var/swapfile\tswap\tswap\tdefaults\t0\t0' >> /rootfs/etc/fstab
+		echo -e '/var/swapfile\tswap\tswap\tpri=0\t0\t0' >> /rootfs/etc/fstab
 	fi
 fi
 
@@ -265,8 +259,10 @@ if [ -d "/rootfs/lib/modules/$(uname -r)" ]; then
 
 fi
 
-umount /proc
-umount /sys
+echo "Moving "
+mount -n -o move /run /rootfs/run
+mount -n -o move /sys /rootfs/sys
+mount -n -o move /proc /rootfs/proc
 
 exec switch_root /rootfs /sbin/init
 

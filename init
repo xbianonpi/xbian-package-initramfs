@@ -6,12 +6,15 @@ mount -t sysfs none /sys
 mkdir -p /run
 mount -t tmpfs -o "nosuid,size=20%,mode=0755" tmpfs /run
 
+if ! mount -t devtmpfs -o size=$tmpfs_size,mode=0755 udev /dev; then
+	echo "W: devtmpfs not available, falling back to tmpfs for /dev"
+	mount -t tmpfs -o size=$tmpfs_size,mode=0755 udev /dev
+	mknod -m 0600 /dev/console c 5 1
+	mknod /dev/null c 1 3
+fi
+mkdir /dev/pts
+mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts || true
 
-
-# populate /dev
-mknod /dev/tty c 5 0
-
-mdev -s
 
 RESIZEERROR=0;
 INITIALBOOT=0;
@@ -204,7 +207,16 @@ if [ -d "/rootfs/lib/modules/$(uname -r)" ]; then
 
 fi
 
+echo > /sys/kernel/uevent_helper
+
+UDEV_ROOT=/dev \
+udevd --daemon --resolve-names=never
+
+udevadm trigger --action=add
+udevadm settle || true
 echo "Moving "
+
+mount -n -o move /dev /rootfs/dev
 mount -n -o move /run /rootfs/run
 mount -n -o move /sys /rootfs/sys
 mount -n -o move /proc /rootfs/proc

@@ -18,6 +18,13 @@ cp -R /etc/wpa_supplicant etc/
 sed -i 's/\/etc\/resolv.conf/\/rootfs\/etc\/resolv.conf/g' etc/udhcpc/default.script
 touch etc/mdev.conf
 cp /bin/busybox bin/
+cp /etc/modules etc/
+cp -av --parents /lib/modules/$(uname -r)/kernel/fs/btrfs lib/
+cp -av --parents /lib/modules/$(uname -r)/kernel/fs/fuse lib/
+cp -av --parents /lib/modules/$(uname -r)/kernel/lib lib/
+cp -av --parents /lib/modules/$(uname -r)/modules.builtin lib/
+cp -av --parents /lib/modules/$(uname -r)/modules.order lib/
+depmod -ab ./
 
 ln -s busybox bin/[
 ln -s busybox bin/[[
@@ -259,6 +266,7 @@ cp /sbin/e2fsck sbin/
 cp /sbin/resize2fs sbin/
 cp /sbin/ifdown sbin/
 cp /sbin/ifup sbin/
+cp /sbin/btrfs sbin/
 cp /sbin/iwconfig sbin/
 cp /sbin/wpa_supplicant sbin/
 

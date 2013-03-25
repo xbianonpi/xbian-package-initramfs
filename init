@@ -20,7 +20,6 @@ declare -A CONFIG;
 CONFIG['rootfstype']="ext4";
 CONFIG['rootfsopts']="noatime";
 CONFIG['root']="/dev/mmcblk0p2";
-CONFIG['splash']=0;
 CONFIG['noresizesd']=0;
 CONFIG['noswapfile']=0;
 
@@ -33,6 +32,10 @@ for OPTION in ${CMDLINE[@]}; do
 		CONFIG[$OPTION]=1;
 	fi
 done
+
+if [ -z "$CONFIG['splash']" ]; then 
+	touch /run/nosplash
+fi
 
 # check if new root partition exists
 X=0;
@@ -75,8 +78,8 @@ fi
 if [ -f /rootfs/root/initialboot ]; then
 	INITIALBOOT=1;
 	rm /rootfs/root/initialboot;
-	if [ ${CONFIG['splash']} -eq 1 ]; then
-		/rootfs/usr/bin/splash --infinitebar --msgtxt="initial setup...";
+	if [ -n "${CONFIG['splash']}" ]; then
+		/rootfs/usr/bin/splash --infinitebar --msgtxt="initial setup..."
 	fi
 fi
 
@@ -127,9 +130,9 @@ fi
 
 # create swapfile
 if [ ! -f /rootfs/var/swapfile ] && [ $RESIZEERROR -eq 0 ] && [ ${CONFIG['noswapfile']} -eq 0 ]; then
-	if [ ${CONFIG['splash']} -eq 1 ]; then
+	if [ -n "${CONFIG['splash']}" ]; then
 		if [ $INITIALBOOT -eq 0 ]; then
-			/rootfs/usr/bin/splash --infinitebar --msgtxt="creating swapfile...";
+			/rootfs/usr/bin/splash --infinitebar --msgtxt="creating swapfile..."
 		fi
 		dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
 	else
@@ -149,7 +152,7 @@ d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
 fi
 
 # continue with normal boot
-if [ ${CONFIG['splash']} -eq 1 ]; then
+if [ -n "${CONFIG['splash']}" ]; then
 	/rootfs/usr/bin/splash --percentagebar --percentage=12 --msgtxt="loading...";
 	# give splash time to settle
 	sleep 1;

@@ -36,6 +36,23 @@ for OPTION in ${CMDLINE[@]}; do
 	fi
 done
 
+case ${CONFIG['rootfstype']} in
+	btrfs)
+		echo "Loading btrfs module ... "
+		modprobe btrfs
+		btrfs dev scan
+		;;
+	*)
+		modprobe fuse
+		;;
+esac
+
+echo "Loading other modules ... "
+cat /etc/modules | grep -v ^# | xargs modprobe
+
+mdev -s
+
+
 if [ -z "$CONFIG['splash']" ]; then 
 	touch /run/nosplash
 fi
@@ -45,6 +62,7 @@ X=0;
 while [ ! -b "${CONFIG['root']}" ] && [ ${X} -lt 10 ]; do
 	X=$(($X+1));
 	mdev -s
+	echo "$X Waiting for root...\r"
 	sleep 1;
 done;
 

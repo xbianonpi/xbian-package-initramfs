@@ -148,14 +148,6 @@ d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
 	swapon -p 0 /rootfs/var/swapfile &>/dev/null
 fi
 
-# add swapfile to fstab
-if [ -f /rootfs/var/swapfile ]; then
-	IFSWAP=$(grep /var/swapfile /rootfs/etc/fstab | wc -l);
-	if [ ${IFSWAP} -eq 0 ]; then
-		echo -e '/var/swapfile\tswap\tswap\tpri=0\t0\t0' >> /rootfs/etc/fstab
-	fi
-fi
-
 # continue with normal boot
 if [ ${CONFIG['splash']} -eq 1 ]; then
 	/rootfs/usr/bin/splash --percentagebar --percentage=12 --msgtxt="loading...";

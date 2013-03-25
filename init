@@ -3,10 +3,18 @@
 mount -t proc none /proc
 mount -t sysfs none /sys
 
-# populate /dev
-mknod /dev/tty c 5 0
+mkdir -p /run
+mount -t tmpfs -o "nosuid,size=20%,mode=0755" tmpfs /run
 
-mdev -s
+if ! mount -t devtmpfs -o size=$tmpfs_size,mode=0755 udev /dev; then
+	echo "W: devtmpfs not available, falling back to tmpfs for /dev"
+	mount -t tmpfs -o size=$tmpfs_size,mode=0755 udev /dev
+	mknod -m 0600 /dev/console c 5 1
+	mknod /dev/null c 1 3
+fi
+mkdir /dev/pts
+mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts || true
+
 
 RESIZEERROR=0;
 INITIALBOOT=0;
@@ -15,7 +23,6 @@ declare -A CONFIG;
 CONFIG['rootfstype']="ext4";
 CONFIG['rootfsopts']="noatime";
 CONFIG['root']="/dev/mmcblk0p2";
-CONFIG['splash']=0;
 CONFIG['noresizesd']=0;
 CONFIG['noswapfile']=0;
 
@@ -28,6 +35,10 @@ for OPTION in ${CMDLINE[@]}; do
 		CONFIG[$OPTION]=1;
 	fi
 done
+
+if [ -z "$CONFIG['splash']" ]; then 
+	touch /run/nosplash
+fi
 
 # check if new root partition exists
 X=0;
@@ -44,47 +55,18 @@ if [ ! -b "${CONFIG['root']}" ]; then
 fi
 
 # resize root partition
-if [ "${CONFIG['root']}" == "/dev/mmcblk0p2" ] && [ ${CONFIG['noresizesd']} -eq 0 ]; then
+if [ ${CONFIG['noresizesd']} -eq 0 ]; then
 
-	#Save partition table to file
-	/sbin/sfdisk -d /dev/mmcblk0 > /tmp/curpart.txt
+	CONFIG['rootdev']=${CONFIG['root']%%[0-9]}
+	CONFIG['rootdev']=${CONFIG['rootdev']%%p}
 
-	#Backup partition table
-	cp /tmp/curpart.txt /tmp/part.txt
+	pSIZE=$(/sbin/sfdisk -s ${CONFIG['root']})
+	echo ",+,,," | /sbin/sfdisk -uM -N2 --force -q ${CONFIG['rootdev']} 2&>/dev/null
 
-	#Read partition sizes
-	TOTALBLOCKS=$(/sbin/fdisk -l /dev/mmcblk0 | grep total | awk '{printf "%s", $8}');
-	LASTBLOCK=$TOTALBLOCKS;
-	PARTSTART=$(grep Id=83 /tmp/part.txt | awk '{printf "%d", $4}');
-	PARTSIZE=$(grep Id=83 /tmp/part.txt | awk '{printf "%d", $6}');
-	NEWSIZE=$(($LASTBLOCK-$PARTSTART));
+	nSIZE=$(/sbin/sfdisk -s ${CONFIG['root']})
 
-	if [ $PARTSIZE -lt $NEWSIZE ]; then
-		#Change size of root partition
-		sed -i "s/$PARTSIZE/$NEWSIZE/g" /tmp/part.txt
-
-		#Backup current partition
-		/sbin/sfdisk --no-reread -q -f /dev/mmcblk0 -O /tmp/part.bin < /tmp/part.txt &> /dev/null
-
-		#Dump new partition
-		/sbin/sfdisk -d /dev/mmcblk0 > /tmp/newpart.txt
-
-		#Check if the changes could be made to the partition table
-		CHECKSIZE=$(grep Id=83 /tmp/newpart.txt | awk '{printf "%d", $6}');
-
-		if [ $CHECKSIZE -ne $NEWSIZE ]; then
-			#If partition table could not be changed
-			DIFF=$(diff /tmp/curpart.txt /tmp/newpart.txt; echo $?);
-			if [ ${DIFF} != "0" ]; then
-				#Restoring old partition table
-				/sbin/sfdisk --force -q -I /tmp/part.bin /dev/mmcblk0 &> /dev/null
-			fi
-			RESIZERROR=1;
-		fi
-		mdev -s
-		sleep 1
-	fi
-fi
+	test "$pSIZE" -eq "$nSIZE" && RESIZEERROR='1'
+fi	
 
 # mount root partition
 mount -t ${CONFIG['rootfstype']} -o rw,${CONFIG['rootfsopts']} ${CONFIG['root']} /rootfs
@@ -94,45 +76,24 @@ if [ $? -ne 0 ]; then
 	exit 0
 fi
 
-# display splash
-if [ ${CONFIG['splash']} -eq 1 ]; then
-	if [ -f "/rootfs/usr/bin/splash" ]; then
-		if [ -f "/rootfs/var/splash.pid" ]; then
-			rm /rootfs/var/splash.pid;
-		fi
-		if [ -f "/rootfs/var/splash.dat" ]; then
-			rm /rootfs/var/splash.dat;
-		fi
-	fi
-fi
 
 # check if we are in the initialboot
 if [ -f /rootfs/root/initialboot ]; then
 	INITIALBOOT=1;
 	rm /rootfs/root/initialboot;
-	if [ ${CONFIG['splash']} -eq 1 ]; then
-		/rootfs/usr/bin/splash --infinitebar --msgtxt="initial setup...";
+	if [ -n "${CONFIG['splash']}" ]; then
+		/rootfs/usr/bin/splash --infinitebar --msgtxt="initial setup..."
 	fi
 fi
 
-if [ "${CONFIG['root']}" == "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${CONFIG['noresizesd']} -eq 0 ]; then
-	# check if the partition needs resizing
-	FDISKBLOCKSIZE=$(/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}');
-	FDISKBLOCKCOUNT=$(/sbin/fdisk -l /dev/mmcblk0 | grep Units | sed -ne 's/\(.*= \)\([0-9]\{1,\}\)\( bytes\)/\2/p')
-	TUNE2FS=$(/sbin/tune2fs -l /dev/mmcblk0p2);
-	TUNEBLOCKSIZE=$(echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}');
-	TUNEBLOCKCOUNT=$(echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}');
-	TUNETOTALBLOCKS=$(($(($TUNEBLOCKCOUNT*$TUNEBLOCKSIZE))/1024/1024));
-	FDISKTOTALBLOCKS=$(($(($FDISKBLOCKSIZE*$FDISKBLOCKCOUNT))/1024/1024));
+if [ $RESIZEERROR -eq 0 -a ! -e /rootfs/root/.resized ] && [ ${CONFIG['noresizesd']} -eq 0 ]; then
 
 	# resize root partition
-	if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
-		if [ ${CONFIG['splash']} -eq 1 ]; then
-			if [ $INITIALBOOT -eq 0 ]; then
-				/rootfs/usr/bin/splash --infinitebar --msgtxt="resizing sd...";
-			fi
-			/rootfs/sbin/resize2fs ${CONFIG['root']}
-		else
+	if [ -n "${CONFIG['splash']}" ]; then
+		if [ $INITIALBOOT -eq 0 ]; then
+			/rootfs/usr/bin/splash --infinitebar --msgtxt="resizing sd..."
+		fi
+	else
 echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
 888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
@@ -142,29 +103,18 @@ echo '
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
-			/rootfs/sbin/resize2fs;
-		fi
 	fi
 
-	FDISKBLOCKSIZE=$(/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}');
-	FDISKBLOCKCOUNT=$(/sbin/fdisk -l /dev/mmcblk0 | grep Units | sed -ne 's/\(.*= \)\([0-9]\{1,\}\)\( bytes\)/\2/p');
-	TUNE2FS=$(/sbin/tune2fs -l /dev/mmcblk0p2);
-	TUNEBLOCKSIZE=$(echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}');
-	TUNEBLOCKCOUNT=$(echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}');
-	TUNETOTALBLOCKS=$(($(($TUNEBLOCKCOUNT*$TUNEBLOCKSIZE))/1024/1024));
-	FDISKTOTALBLOCKS=$(($(($FDISKBLOCKSIZE*$FDISKBLOCKCOUNT))/1024/1024));
+	/rootfs/sbin/resize2fs ${CONFIG['root']}
+	touch /rootfs/root/.resized
 
-	# check if parition was actually resized
-	if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
-		RESIZEERROR=1
-	fi
 fi
 
 # create swapfile
 if [ ! -f /rootfs/var/swapfile ] && [ $RESIZEERROR -eq 0 ] && [ ${CONFIG['noswapfile']} -eq 0 ]; then
-	if [ ${CONFIG['splash']} -eq 1 ]; then
+	if [ -n "${CONFIG['splash']}" ]; then
 		if [ $INITIALBOOT -eq 0 ]; then
-			/rootfs/usr/bin/splash --infinitebar --msgtxt="creating swapfile...";
+			/rootfs/usr/bin/splash --infinitebar --msgtxt="creating swapfile..."
 		fi
 		dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
 	else
@@ -180,19 +130,11 @@ d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
 		dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
 	fi
 	mkswap /rootfs/var/swapfile &>/dev/null
-	swapon /rootfs/var/swapfile &>/dev/null
-fi
-
-# add swapfile to fstab
-if [ -f /rootfs/var/swapfile ]; then
-	IFSWAP=$(grep /var/swapfile /rootfs/etc/fstab | wc -l);
-	if [ ${IFSWAP} -eq 0 ]; then
-		echo -e '/var/swapfile\tswap\tswap\tdefaults\t0\t0' >> /rootfs/etc/fstab
-	fi
+	swapon -p 0 /rootfs/var/swapfile &>/dev/null
 fi
 
 # continue with normal boot
-if [ ${CONFIG['splash']} -eq 1 ]; then
+if [ -n "${CONFIG['splash']}" ]; then
 	/rootfs/usr/bin/splash --percentagebar --percentage=12 --msgtxt="loading...";
 	# give splash time to settle
 	sleep 1;
@@ -265,8 +207,19 @@ if [ -d "/rootfs/lib/modules/$(uname -r)" ]; then
 
 fi
 
-umount /proc
-umount /sys
+echo > /sys/kernel/uevent_helper
+
+UDEV_ROOT=/dev \
+udevd --daemon --resolve-names=never
+
+udevadm trigger --action=add
+udevadm settle || true
+echo "Moving "
+
+mount -n -o move /dev /rootfs/dev
+mount -n -o move /run /rootfs/run
+mount -n -o move /sys /rootfs/sys
+mount -n -o move /proc /rootfs/proc
 
 exec switch_root /rootfs /sbin/init
 

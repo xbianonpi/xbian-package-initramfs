@@ -163,8 +163,6 @@ if [ -d "/rootfs/lib/modules/$(uname -r)" ]; then
 	ln -s "/rootfs/lib/modules/$(uname -r)" /lib/modules/
 	ln -s /rootfs/lib/firmware /lib/
 
-	modprobe smsc95xx
-
 	# load additional user kernel modules
 	if [ -f /rootfs/etc/modules ]; then
 		while read MODULE; do
@@ -199,29 +197,6 @@ if [ -d "/rootfs/lib/modules/$(uname -r)" ]; then
 		fi
 	fi
 
-	if [ "${CONFIG['network.eth0.mode']}" == "dhcp" ]; then
-		# remove eth0 entry in network configuration
-		awk '/eth0/ {flag=1} /wlan0/{flag=0} !flag{print}' /rootfs/etc/network/interfaces > /rootfs/etc/network/interfaces.new
-		mv /rootfs/etc/network/interfaces.new /rootfs/etc/network/interfaces
-
-		# connect eth0 to dhcp server
-		echo -e "iface eth0 inet dhcp\n" >> /rootfs/etc/network/interfaces
-	elif [ "${CONFIG['network.eth0.mode']}" == "static" ] && [ ! -z ${CONFIG['network.eth0.address']} ] && [ ! -z ${CONFIG['network.eth0.gateway']} ] && [ ! -z ${CONFIG['network.eth0.netmask']} ]; then
-		# remove eth0 entry in network configuration
-		awk '/eth0/ {flag=1} /wlan0/{flag=0} !flag{print}' /rootfs/etc/network/interfaces > /rootfs/etc/network/interfaces.new
-		mv /rootfs/etc/network/interfaces.new /rootfs/etc/network/interfaces
-
-		# connect eth0 with an static ip
-		echo -e "iface eth0 inet static\naddress ${CONFIG['network.eth0.address']}\nnetmask ${CONFIG['network.eth0.netmask']}\ngateway ${CONFIG['network.eth0.gateway']}\n" >> /rootfs/etc/network/interfaces
-	fi
-
-	cp /rootfs/etc/network/interfaces /etc/network/
-
-	if [ "${CONFIG['network.eth0.mode']}" == "dhcp" ]; then
-		udhcpc -i eth0 -s /etc/udhcpc/default.script -t 5 -T 5 -b
-	elif [ "${CONFIG['network.eth0.mode']}" == "static" ] && [ ! -z ${CONFIG['network.eth0.address']} ] && [ ! -z ${CONFIG['network.eth0.gateway']} ] && [ ! -z ${CONFIG['network.eth0.netmask']} ]; then
-		ifconfig eth0 up
-	fi
 
 fi
 

@@ -49,47 +49,18 @@ if [ ! -b "${CONFIG['root']}" ]; then
 fi
 
 # resize root partition
-if [ "${CONFIG['root']}" == "/dev/mmcblk0p2" ] && [ ${CONFIG['noresizesd']} -eq 0 ]; then
+if [ ${CONFIG['noresizesd']} -eq 0 ]; then
 
-	#Save partition table to file
-	/sbin/sfdisk -d /dev/mmcblk0 > /tmp/curpart.txt
+	CONFIG['rootdev']=${CONFIG['root']%%[0-9]}
+	CONFIG['rootdev']=${CONFIG['rootdev']%%p}
 
-	#Backup partition table
-	cp /tmp/curpart.txt /tmp/part.txt
+	pSIZE=$(/sbin/sfdisk -s ${CONFIG['root']})
+	echo ",+,,," | /sbin/sfdisk -uM -N2 --force -q ${CONFIG['rootdev']} 2&>/dev/null
 
-	#Read partition sizes
-	TOTALBLOCKS=$(/sbin/fdisk -l /dev/mmcblk0 | grep total | awk '{printf "%s", $8}');
-	LASTBLOCK=$TOTALBLOCKS;
-	PARTSTART=$(grep Id=83 /tmp/part.txt | awk '{printf "%d", $4}');
-	PARTSIZE=$(grep Id=83 /tmp/part.txt | awk '{printf "%d", $6}');
-	NEWSIZE=$(($LASTBLOCK-$PARTSTART));
+	nSIZE=$(/sbin/sfdisk -s ${CONFIG['root']})
 
-	if [ $PARTSIZE -lt $NEWSIZE ]; then
-		#Change size of root partition
-		sed -i "s/$PARTSIZE/$NEWSIZE/g" /tmp/part.txt
-
-		#Backup current partition
-		/sbin/sfdisk --no-reread -q -f /dev/mmcblk0 -O /tmp/part.bin < /tmp/part.txt &> /dev/null
-
-		#Dump new partition
-		/sbin/sfdisk -d /dev/mmcblk0 > /tmp/newpart.txt
-
-		#Check if the changes could be made to the partition table
-		CHECKSIZE=$(grep Id=83 /tmp/newpart.txt | awk '{printf "%d", $6}');
-
-		if [ $CHECKSIZE -ne $NEWSIZE ]; then
-			#If partition table could not be changed
-			DIFF=$(diff /tmp/curpart.txt /tmp/newpart.txt; echo $?);
-			if [ ${DIFF} != "0" ]; then
-				#Restoring old partition table
-				/sbin/sfdisk --force -q -I /tmp/part.bin /dev/mmcblk0 &> /dev/null
-			fi
-			RESIZERROR=1;
-		fi
-		mdev -s
-		sleep 1
-	fi
-fi
+	test "$pSIZE" -eq "$nSIZE" && RESIZEERROR='1'
+fi	
 
 # mount root partition
 mount -t ${CONFIG['rootfstype']} -o rw,${CONFIG['rootfsopts']} ${CONFIG['root']} /rootfs

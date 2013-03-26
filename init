@@ -208,47 +208,47 @@ if [ -n "${CONFIG['splash']}" ]; then
 	sleep 1;
 fi
 
-if [ -d "/rootfs/lib/modules/$(uname -r)" ]; then
-	# load rpi core module to initialize eth0
-	ln -s "/rootfs/lib/modules/$(uname -r)" /lib/modules/
-	ln -s /rootfs/lib/firmware /lib/
-
-	# load additional user kernel modules
-	if [ -f /rootfs/etc/modules ]; then
-		while read MODULE; do
-			if [ ! -z $(echo $MODULE | sed -e '/^#/d') ]; then
-				modprobe $MODULE
-			fi
-		done < /rootfs/etc/modules
-	fi
-
-	if [ ! -z "${CONFIG['network.wlan0.module']}" ]; then
-		modprobe ${CONFIG['network.wlan0.module']}
-	fi
-	sleep 1;
-
-	if [ "${CONFIG['network.wlan0.mode']}" == "dhcp" ] && [ ! -z ${CONFIG['network.wlan0.ssid']} ] && [ ! -z ${CONFIG['network.wlan0.protection']} ]; then
-		# remove wlan0 entry in network configuration
-                awk '/wlan0/ {flag=1} /eth0/{flag=0} !flag{print}' /rootfs/etc/network/interfaces > /rootfs/etc/network/interfaces.new
-		mv /rootfs/etc/network/interfaces.new /rootfs/etc/network/interfaces
-
-		# connect wlan0 to dhcp server
-		if [ "${CONFIG['network.wlan0.protection']}" == "WPA" ] || [ "${CONFIG['network.wlan0.protection']}" == "WPA2" ]; then
-	                echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwpa-ssid \"${CONFIG['network.wlan0.ssid']}\"\nwpa-psk \"${CONFIG['network.wlan0.password']}\"\n" >> /rootfs/etc/network/interfaces
-			if [ ! -d /rootfs/root/wpa_supplicant ]; then
-				mkdir /rootfs/root/wpa_supplicant;
-			fi
-			echo -e "ctrl_interface=/rootfs/root/wpa_supplicant\nupdate_config=1\nnetwork={\nssid=\"${CONFIG['network.wlan0.ssid']}\"\npsk=\"${CONFIG['network.wlan0.password']}\"\nkey_mgmt=WPA-PSK\nproto=RSN WPA\npairwise=CCMP TKIP\ngroup=CCMP TKIP\n}" > /etc/wpa_supplicant/wpa_supplicant.conf
-			echo -e "ctrl_interface=/root/wpa_supplicant\nupdate_config=1\nnetwork={\nssid=\"${CONFIG['network.wlan0.ssid']}\"\npsk=\"${CONFIG['network.wlan0.password']}\"\nkey_mgmt=WPA-PSK\nproto=RSN WPA\npairwise=CCMP TKIP\ngroup=CCMP TKIP\n}" > /rootfs/etc/wpa_supplicant/wpa_supplicant.conf
-		elif [ "${CONFIG['network.wlan0.protection']}" == "WEP" ]; then
-	                echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwireless-ssid ${CONFIG['network.wlan0.ssid']}\nwireless-key ${CONFIG['network.wlan0.password']}\n" >> /rootfs/etc/network/interfaces
-		elif [ "${CONFIG['network.wlan0.protection']}" == "open" ]; then
-                	echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwireless-ssid ${CONFIG['network.wlan0.protection']}\nwireless-mode managed\n" >> /rootfs/etc/network/interfaces
-		fi
-	fi
-
-
-fi
+#if [ -d "/rootfs/lib/modules/$(uname -r)" ]; then
+#	# load rpi core module to initialize eth0
+#	ln -s "/rootfs/lib/modules/$(uname -r)" /lib/modules/
+#	ln -s /rootfs/lib/firmware /lib/
+#
+#	# load additional user kernel modules
+#	if [ -f /rootfs/etc/modules ]; then
+#		while read MODULE; do
+#			if [ ! -z $(echo $MODULE | sed -e '/^#/d') ]; then
+#				modprobe $MODULE
+#			fi
+#		done < /rootfs/etc/modules
+#	fi
+#
+#	if [ ! -z "${CONFIG['network.wlan0.module']}" ]; then
+#		modprobe ${CONFIG['network.wlan0.module']}
+#	fi
+#	sleep 1;
+#
+#	if [ "${CONFIG['network.wlan0.mode']}" == "dhcp" ] && [ ! -z ${CONFIG['network.wlan0.ssid']} ] && [ ! -z ${CONFIG['network.wlan0.protection']} ]; then
+#		# remove wlan0 entry in network configuration
+#                awk '/wlan0/ {flag=1} /eth0/{flag=0} !flag{print}' /rootfs/etc/network/interfaces > /rootfs/etc/network/interfaces.new
+#		mv /rootfs/etc/network/interfaces.new /rootfs/etc/network/interfaces
+#
+#		# connect wlan0 to dhcp server
+#		if [ "${CONFIG['network.wlan0.protection']}" == "WPA" ] || [ "${CONFIG['network.wlan0.protection']}" == "WPA2" ]; then
+#	                echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwpa-ssid \"${CONFIG['network.wlan0.ssid']}\"\nwpa-psk \"${CONFIG['network.wlan0.password']}\"\n" >> /rootfs/etc/network/interfaces
+#			if [ ! -d /rootfs/root/wpa_supplicant ]; then
+#				mkdir /rootfs/root/wpa_supplicant;
+#			fi
+#			echo -e "ctrl_interface=/rootfs/root/wpa_supplicant\nupdate_config=1\nnetwork={\nssid=\"${CONFIG['network.wlan0.ssid']}\"\npsk=\"${CONFIG['network.wlan0.password']}\"\nkey_mgmt=WPA-PSK\nproto=RSN WPA\npairwise=CCMP TKIP\ngroup=CCMP TKIP\n}" > /etc/wpa_supplicant/wpa_supplicant.conf
+#			echo -e "ctrl_interface=/root/wpa_supplicant\nupdate_config=1\nnetwork={\nssid=\"${CONFIG['network.wlan0.ssid']}\"\npsk=\"${CONFIG['network.wlan0.password']}\"\nkey_mgmt=WPA-PSK\nproto=RSN WPA\npairwise=CCMP TKIP\ngroup=CCMP TKIP\n}" > /rootfs/etc/wpa_supplicant/wpa_supplicant.conf
+#		elif [ "${CONFIG['network.wlan0.protection']}" == "WEP" ]; then
+#	                echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwireless-ssid ${CONFIG['network.wlan0.ssid']}\nwireless-key ${CONFIG['network.wlan0.password']}\n" >> /rootfs/etc/network/interfaces
+#		elif [ "${CONFIG['network.wlan0.protection']}" == "open" ]; then
+#                	echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwireless-ssid ${CONFIG['network.wlan0.protection']}\nwireless-mode managed\n" >> /rootfs/etc/network/interfaces
+#		fi
+#	fi
+#
+#
+#fi
 
 echo > /sys/kernel/uevent_helper
 

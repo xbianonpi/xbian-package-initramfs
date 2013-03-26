@@ -7,6 +7,7 @@ apt-get install fakeroot busybox udhcpc btrfs-tools
 
 fakeroot
 mkdir bin dev etc lib proc rootfs run sbin sys tmp usr
+mkdir usr/bin
 mkdir etc/udhcpc etc/network etc/wpa_supplicant
 mkdir etc/network/if-down.d etc/network/if-up.d etc/network/if-post-down.d etc/network/if-pre-up.d
 mkdir lib/modules
@@ -19,6 +20,7 @@ sed -i 's/\/etc\/resolv.conf/\/rootfs\/etc\/resolv.conf/g' etc/udhcpc/default.sc
 touch etc/mdev.conf
 cp /bin/busybox bin/
 cp /etc/modules etc/
+cp /usr/bin/xargs usr/bin/
 mkdir lib/modules/$(uname -r)
 mkdir -p lib/modules/$(uname -r)/kernel/fs/{btrfs,fuse}
 mkdir -p lib/modules/$(uname -r)/kernel/lib
@@ -272,6 +274,8 @@ cp /sbin/ifup sbin/
 cp /sbin/btrfs sbin/
 cp /sbin/iwconfig sbin/
 cp /sbin/wpa_supplicant sbin/
+cp /sbin/udevadm sbin/
+cp /sbin/udevd sbin/
 
 wget -O - https://raw.github.com/xbianonpi/xbian-initramfs/master/init > init
 chmod a+x init

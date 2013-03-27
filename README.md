@@ -6,7 +6,8 @@ cd initramfs
 apt-get install fakeroot busybox udhcpc
 
 fakeroot
-mkdir bin dev etc lib proc rootfs run sbin sys tmp
+mkdir bin dev etc lib proc rootfs run sbin sys tmp usr
+mkdir usr/bin
 mkdir etc/udhcpc etc/network etc/wpa_supplicant
 mkdir etc/network/if-down.d etc/network/if-up.d etc/network/if-post-down.d etc/network/if-pre-up.d
 mkdir lib/modules

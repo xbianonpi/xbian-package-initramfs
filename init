@@ -111,16 +111,45 @@ fi
 # resize root partition
 if [ ${CONFIG_noresizesd} -eq 0 ]; then
 
-	CONFIG_rootdev=${CONFIG_root%%[0-9]}
-	CONFIG_rootdev=${CONFIG_rootdev%%p}
+	#Save partition table to file
+	/sbin/sfdisk -d /dev/mmcblk0 > /tmp/curpart.txt
 
-	pSIZE=$(/sbin/sfdisk -s ${CONFIG_root})
-	echo ",+,,," | /sbin/sfdisk -uM -N2 --force -q ${CONFIG_rootdev} 2&>/dev/null
+	#Backup partition table
+	cp /tmp/curpart.txt /tmp/part.txt
 
-	nSIZE=$(/sbin/sfdisk -s ${CONFIG_root})
+	#Read partition sizes
+	TOTALBLOCKS=$(/sbin/fdisk -l /dev/mmcblk0 | grep total | awk '{printf "%s", $8}');
+	LASTBLOCK=$TOTALBLOCKS;
+	PARTSTART=$(grep Id=83 /tmp/part.txt | awk '{printf "%d", $4}');
+	PARTSIZE=$(grep Id=83 /tmp/part.txt | awk '{printf "%d", $6}');
+	NEWSIZE=$(($LASTBLOCK-$PARTSTART));
 
-	test "$pSIZE" -eq "$nSIZE" && RESIZEERROR='1'
-fi	
+	if [ $PARTSIZE -lt $NEWSIZE ]; then
+		#Change size of root partition
+		sed -i "s/$PARTSIZE/$NEWSIZE/g" /tmp/part.txt
+
+		#Backup current partition
+		/sbin/sfdisk --no-reread -q -f /dev/mmcblk0 -O /tmp/part.bin < /tmp/part.txt &> /dev/null
+
+		#Dump new partition
+		/sbin/sfdisk -d /dev/mmcblk0 > /tmp/newpart.txt
+
+		#Check if the changes could be made to the partition table
+		CHECKSIZE=$(grep Id=83 /tmp/newpart.txt | awk '{printf "%d", $6}');
+
+		if [ $CHECKSIZE -ne $NEWSIZE ]; then
+			#If partition table could not be changed
+			DIFF=$(diff /tmp/curpart.txt /tmp/newpart.txt; echo $?);
+			if [ ${DIFF} != "0" ]; then
+				#Restoring old partition table
+				/sbin/sfdisk --force -q -I /tmp/part.bin /dev/mmcblk0 &> /dev/null
+			fi
+			RESIZERROR=1;
+		fi
+		mdev -s
+		sleep 1
+	fi
+fi
 
 # mount root partition
 echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o rw,${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
@@ -141,14 +170,24 @@ if [ -f /rootfs/root/initialboot ]; then
 	fi
 fi
 
-if [ $RESIZEERROR -eq 0 -a ! -e /rootfs/root/.resized ] && [ ${CONFIG_noresizesd} -eq 0 ]; then
+if [ "${CONFIG['root']}" == "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${CONFIG['noresizesd']} -eq 0 ]; then
+	# check if the partition needs resizing
+	FDISKBLOCKSIZE=$(/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}');
+	FDISKBLOCKCOUNT=$(/sbin/fdisk -l /dev/mmcblk0 | grep Units | sed -ne 's/\(.*= \)\([0-9]\{1,\}\)\( bytes\)/\2/p')
+	TUNE2FS=$(/sbin/tune2fs -l /dev/mmcblk0p2);
+	TUNEBLOCKSIZE=$(echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}');
+	TUNEBLOCKCOUNT=$(echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}');
+	TUNETOTALBLOCKS=$(($(($TUNEBLOCKCOUNT*$TUNEBLOCKSIZE))/1024/1024));
+	FDISKTOTALBLOCKS=$(($(($FDISKBLOCKSIZE*$FDISKBLOCKCOUNT))/1024/1024));
 
 	# resize root partition
-	if [ -n "${CONFIG_splash}" ]; then
-		if [ $INITIALBOOT -eq 0 ]; then
-			/rootfs/usr/bin/splash --percentage=50 --msgtxt="resizing sd..."
-		fi
-	else
+	if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
+		if [ ${CONFIG['splash']} -eq 1 ]; then
+			if [ $INITIALBOOT -eq 0 ]; then
+				/rootfs/usr/bin/splash --infinitebar --msgtxt="resizing sd...";
+			fi
+			/rootfs/sbin/resize2fs ${CONFIG['root']}
+		else
 echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
 888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
@@ -158,11 +197,22 @@ echo '
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
+			/rootfs/sbin/resize2fs;
+		fi
 	fi
 
-	/rootfs/sbin/resize2fs ${CONFIG_root}
-	touch /rootfs/root/.resized
+	FDISKBLOCKSIZE=$(/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}');
+	FDISKBLOCKCOUNT=$(/sbin/fdisk -l /dev/mmcblk0 | grep Units | sed -ne 's/\(.*= \)\([0-9]\{1,\}\)\( bytes\)/\2/p');
+	TUNE2FS=$(/sbin/tune2fs -l /dev/mmcblk0p2);
+	TUNEBLOCKSIZE=$(echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}');
+	TUNEBLOCKCOUNT=$(echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}');
+	TUNETOTALBLOCKS=$(($(($TUNEBLOCKCOUNT*$TUNEBLOCKSIZE))/1024/1024));
+	FDISKTOTALBLOCKS=$(($(($FDISKBLOCKSIZE*$FDISKBLOCKCOUNT))/1024/1024));
 
+	# check if parition was actually resized
+	if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
+		RESIZEERROR=1
+	fi
 fi
 
 # create swapfile

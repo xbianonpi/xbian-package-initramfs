@@ -3,7 +3,7 @@ cd /opt/
 mkdir initramfs
 cd initramfs
 
-apt-get install fakeroot busybox udhcpc
+apt-get install fakeroot busybox udhcpc udev
 
 fakeroot
 mkdir bin dev etc lib proc rootfs run sbin sys tmp usr

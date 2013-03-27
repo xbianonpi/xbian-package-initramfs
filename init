@@ -170,7 +170,7 @@ if [ -f /rootfs/root/initialboot ]; then
 	fi
 fi
 
-if [ "${CONFIG['root']}" == "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${CONFIG['noresizesd']} -eq 0 ]; then
+if [ "${CONFIG_root}" == "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${CONFIG_noresizesd} -eq 0 ]; then
 	# check if the partition needs resizing
 	FDISKBLOCKSIZE=$(/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}');
 	FDISKBLOCKCOUNT=$(/sbin/fdisk -l /dev/mmcblk0 | grep Units | sed -ne 's/\(.*= \)\([0-9]\{1,\}\)\( bytes\)/\2/p')
@@ -186,7 +186,7 @@ if [ "${CONFIG['root']}" == "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${
 			if [ $INITIALBOOT -eq 0 ]; then
 				/rootfs/usr/bin/splash --infinitebar --msgtxt="resizing sd...";
 			fi
-			/rootfs/sbin/resize2fs ${CONFIG['root']}
+			/rootfs/sbin/resize2fs ${CONFIG_root}
 		else
 echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
@@ -235,7 +235,6 @@ d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
 		dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
 	fi
 	mkswap /rootfs/var/swapfile &>/dev/null
-	swapon -p 0 /rootfs/var/swapfile &>/dev/null
 fi
 
 # continue with normal boot
@@ -245,47 +244,47 @@ if [ -n "${CONFIG_splash}" ]; then
 	#sleep 1;
 fi
 
-if [ -d "/rootfs/lib/modules/$(uname -r)" ]; then
-	# load rpi core module to initialize eth0
-	ln -s /rootfs/lib/firmware /lib/
-
-	# load additional user kernel modules
-	echo "Loading other modules ... "
-	if [ -f /rootfs/etc/modules.wifiinit ]; then
-		while read MODULE; do
-			if [ ! -z $(echo $MODULE | sed -e '/^#/d') ]; then
-				modprobe $MODULE
-			fi
-		done < /rootfs/etc/modules.wifiinit
-	fi
-
-	if [ ! -z "${CONFIG_network_wlan0_module}" ]; then
-		modprobe ${CONFIG_network_wlan0_module}
-	fi
-	sleep 1;
-
-	if [ "${CONFIG_network_wlan0_mode}" == "dhcp" ] && [ ! -z ${CONFIG_network_wlan0_ssid} ] && [ ! -z ${CONFIG_network_wlan0_protection} ]; then
-		# remove wlan0 entry in network configuration
-                awk '/wlan0/ {flag=1} /eth0/{flag=0} !flag{print}' /rootfs/etc/network/interfaces > /rootfs/etc/network/interfaces.new
-		mv /rootfs/etc/network/interfaces.new /rootfs/etc/network/interfaces
-
-		# connect wlan0 to dhcp server
-		if [ "${CONFIG_network_wlan0_protection}" == "WPA" ] || [ "${CONFIG_network_wlan0_protection}" == "WPA2" ]; then
-	                echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwpa-ssid \"${CONFIG_network_wlan0_ssid}\"\nwpa-psk \"${CONFIG_network_wlan0_password}\"\n" >> /rootfs/etc/network/interfaces
-			if [ ! -d /rootfs/root/wpa_supplicant ]; then
-				mkdir /rootfs/root/wpa_supplicant;
-			fi
-			echo -e "ctrl_interface=/rootfs/root/wpa_supplicant\nupdate_config=1\nnetwork={\nssid=\"${CONFIG_network_wlan0_ssid}\"\npsk=\"${CONFIG_network_wlan0_password}\"\nkey_mgmt=WPA-PSK\nproto=RSN WPA\npairwise=CCMP TKIP\ngroup=CCMP TKIP\n}" > /etc/wpa_supplicant/wpa_supplicant.conf
-			echo -e "ctrl_interface=/root/wpa_supplicant\nupdate_config=1\nnetwork={\nssid=\"${CONFIG_network_wlan0_ssid}\"\npsk=\"${CONFIG_network_wlan0_password}\"\nkey_mgmt=WPA-PSK\nproto=RSN WPA\npairwise=CCMP TKIP\ngroup=CCMP TKIP\n}" > /rootfs/etc/wpa_supplicant/wpa_supplicant.conf
-		elif [ "${CONFIG_network_wlan0_protection}" == "WEP" ]; then
-	                echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwireless-ssid ${CONFIG_network_wlan0_ssid}\nwireless-key ${CONFIG_network_wlan0_password}\n" >> /rootfs/etc/network/interfaces
-		elif [ "${CONFIG_network_wlan0_protection}" == "open" ]; then
-                	echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwireless-ssid ${CONFIG_network_wlan0_protection}\nwireless-mode managed\n" >> /rootfs/etc/network/interfaces
-		fi
-	fi
-
-
-fi
+#if [ -d "/rootfs/lib/modules/$(uname -r)" ]; then
+#	# load rpi core module to initialize eth0
+#	ln -s /rootfs/lib/firmware /lib/
+#
+#	# load additional user kernel modules
+#	echo "Loading other modules ... "
+#	if [ -f /rootfs/etc/modules.wifiinit ]; then
+#		while read MODULE; do
+#			if [ ! -z $(echo $MODULE | sed -e '/^#/d') ]; then
+#				modprobe $MODULE
+#			fi
+#		done < /rootfs/etc/modules.wifiinit
+#	fi
+#
+#	if [ ! -z "${CONFIG_network_wlan0_module}" ]; then
+#		modprobe ${CONFIG_network_wlan0_module}
+#	fi
+#	sleep 1;
+#
+#	if [ "${CONFIG_network_wlan0_mode}" == "dhcp" ] && [ ! -z ${CONFIG_network_wlan0_ssid} ] && [ ! -z ${CONFIG_network_wlan0_protection} ]; then
+#		# remove wlan0 entry in network configuration
+#                awk '/wlan0/ {flag=1} /eth0/{flag=0} !flag{print}' /rootfs/etc/network/interfaces > /rootfs/etc/network/interfaces.new
+#		mv /rootfs/etc/network/interfaces.new /rootfs/etc/network/interfaces
+#
+#		# connect wlan0 to dhcp server
+#		if [ "${CONFIG_network_wlan0_protection}" == "WPA" ] || [ "${CONFIG_network_wlan0_protection}" == "WPA2" ]; then
+#	                echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwpa-ssid \"${CONFIG_network_wlan0_ssid}\"\nwpa-psk \"${CONFIG_network_wlan0_password}\"\n" >> /rootfs/etc/network/interfaces
+#			if [ ! -d /rootfs/root/wpa_supplicant ]; then
+#				mkdir /rootfs/root/wpa_supplicant;
+#			fi
+#			echo -e "ctrl_interface=/rootfs/root/wpa_supplicant\nupdate_config=1\nnetwork={\nssid=\"${CONFIG_network_wlan0_ssid}\"\npsk=\"${CONFIG_network_wlan0_password}\"\nkey_mgmt=WPA-PSK\nproto=RSN WPA\npairwise=CCMP TKIP\ngroup=CCMP TKIP\n}" > /etc/wpa_supplicant/wpa_supplicant.conf
+#			echo -e "ctrl_interface=/root/wpa_supplicant\nupdate_config=1\nnetwork={\nssid=\"${CONFIG_network_wlan0_ssid}\"\npsk=\"${CONFIG_network_wlan0_password}\"\nkey_mgmt=WPA-PSK\nproto=RSN WPA\npairwise=CCMP TKIP\ngroup=CCMP TKIP\n}" > /rootfs/etc/wpa_supplicant/wpa_supplicant.conf
+#		elif [ "${CONFIG_network_wlan0_protection}" == "WEP" ]; then
+#	                echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwireless-ssid ${CONFIG_network_wlan0_ssid}\nwireless-key ${CONFIG_network_wlan0_password}\n" >> /rootfs/etc/network/interfaces
+#		elif [ "${CONFIG_network_wlan0_protection}" == "open" ]; then
+#                	echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwireless-ssid ${CONFIG_network_wlan0_protection}\nwireless-mode managed\n" >> /rootfs/etc/network/interfaces
+#		fi
+#	fi
+#
+#
+#fi
 
 echo "Moving root "
 rm -fr /rootfs/run; mkdir /rootfs/run

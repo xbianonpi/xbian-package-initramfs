@@ -38,10 +38,10 @@ touch etc/mtab
 
 mkdir -p lib/arm-linux-gnueabihf
 cp /lib/ld-linux-armhf.so.3 lib/
-cp -a --parents /lib/{.,arm-linux-gnueabihf}/{librt*,libpthread*,ld-*,libc-*,libgcc_s.so*,libc.so*,libdl*} ./
-cp -a --parents /lib/{.,arm-linux-gnueabihf}/{libm-*,libm.so*,libpam.so*,libpam_misc*,libkmod*} ./
-cp -a --parents /lib/{.,arm-linux-gnueabihf}/{libblkid*,libuuid*,libe2p*,libext2fs*,libcom_err*,libpthread*,libselinux*} ./
-cp -a --parents /lib/{.,arm-linux-gnueabihf}/{libdbus-1*,libnl-genl-3*,libnl-3*,libz.so*,librt.so*,libiw.so*,libtinfo.so*} ./
+cp -a --parents /lib/*/{librt*,libpthread*,ld-*,libc-*,libgcc_s.so*,libc.so*,libdl*} ./
+cp -a --parents /lib/*/{libm-*,libm.so*,libpam.so*,libpam_misc*,libkmod*} ./
+cp -a --parents /lib/*/{libblkid*,libuuid*,libe2p*,libext2fs*,libcom_err*,libpthread*,libselinux*} ./
+cp -a --parents /lib/*/{libdbus-1*,libnl-genl-3*,libnl-3*,libz.so*,librt.so*,libiw.so*,libtinfo.so*} ./
 
 cp -a --parents /usr/lib/arm-linux-gnueabihf/libcrypto.so* ./ 
 cp -a --parents /usr/lib/arm-linux-gnueabihf/libpcsclite.so* ./ 

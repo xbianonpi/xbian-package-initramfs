@@ -57,7 +57,6 @@ cp -a --parents /sbin/{rmmod,insmod,modprobe,udevd,udevadm} ./
 cp -a --parents /bin/kmod ./
 cp /usr/bin/xargs usr/bin
 cp /bin/bash bin/
-cp /usr/bin/key usr/bin/
 cp /sbin/MAKEDEV sbin/
 cp /sbin/MAKEDEV sbin/
 cp /sbin/sfdisk sbin/
@@ -71,6 +70,9 @@ cp /sbin/ifconfig sbin/
 cp /sbin/ethtool sbin/
 cp /sbin/iwconfig sbin/
 cp /sbin/wpa_supplicant sbin/
+
+wget -O - https://raw.github.com/xbianonpi/xbian-initramfs/master/key.c > /home/xbian/key.c
+cc -o usr/bin/key /home/xbian/key.c
 
 cp -arv --parents /lib/udev/*_id ./
 cp -arv --parents /lib/udev/{net.agent,keyboard-force-release.sh,findkeyboards,keymaps} ./

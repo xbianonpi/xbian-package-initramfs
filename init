@@ -1,95 +1,132 @@
-#!/bin/bash
+#!/bin/sh
 
-mount -t proc none /proc
-mount -t sysfs none /sys
+mkdir -p /var/lock
+mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
+mount -t proc -o nodev,noexec,nosuid proc /proc
 
-mkdir -p /run
-mount -t tmpfs -o "nosuid,size=20%,mode=0755" tmpfs /run
+tmpfs_size="10M"
+if [ -e /etc/udev/udev.conf ]; then
+        . /etc/udev/udev.conf
+fi
 
 if ! mount -t devtmpfs -o size=$tmpfs_size,mode=0755 udev /dev; then
-	echo "W: devtmpfs not available, falling back to tmpfs for /dev"
-	mount -t tmpfs -o size=$tmpfs_size,mode=0755 udev /dev
-	mknod -m 0600 /dev/console c 5 1
-	mknod /dev/null c 1 3
+        echo "W: devtmpfs not available, falling back to tmpfs for /dev"
+        mount -t tmpfs -o size=$tmpfs_size,mode=0755 udev /dev
+        [ -e /dev/console ] || mknod -m 0600 /dev/console c 5 1
+        [ -e /dev/null ] || mknod /dev/null c 1 3
 fi
+
 mkdir /dev/pts
-mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts || true
+mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
+mount -t tmpfs -o "nosuid,size=20%,mode=0755" tmpfs /run
+mkdir -m 0755 /run/initramfs
 
+echo > /sys/kernel/uevent_helper
 
-RESIZEERROR=0;
-INITIALBOOT=0;
+UDEV_ROOT=/dev \
+udevd --daemon --resolve-names=never
 
-declare -A CONFIG;
-CONFIG['rootfstype']="ext4";
-CONFIG['rootfsopts']="noatime";
-CONFIG['root']="/dev/mmcblk0p2";
-CONFIG['noresizesd']=0;
-CONFIG['noswapfile']=0;
+udevadm trigger --action=add
+udevadm settle || true
 
-CMDLINE=($(cat /proc/cmdline));
-for OPTION in ${CMDLINE[@]}; do
-	if [[ $OPTION =~ "=" ]]; then
-		VALUE=$(printf "%b" ${OPTION##*=});
-		CONFIG[${OPTION%%=*}]="$VALUE"
-	else
-		CONFIG[$OPTION]=1;
+if [ -d /sys/bus/scsi ]; then
+        modprobe -q scsi_wait_scan && modprobe -r scsi_wait_scan || true
+        udevadm settle || true
+fi
+mdev -s
+
+echo "Checking for keyboard..."
+keyboard=$(/bin/ls /dev/input/by-id/*eyboar* | grep -m1 .)
+if [ "${keyboard}" != '' ]; then
+	echo "? boot recovery hold left shift ?"
+	sleep 2
+	/usr/bin/key lshift ${keyboard}
+	if [ "$?" -eq '0' ]; then 
+		echo "Dropping to initramfs on request..."
+ 		/bin/bash
 	fi
+fi
+
+RESIZEERROR=0
+INITIALBOOT=0
+
+export CONFIG_rootfstype="ext4"
+export CONFIG_rootfsopts="noatime"
+export CONFIG_root="/dev/mmcblk0p2"
+export CONFIG_noresizesd=0
+export CONFIG_noswapfile=0
+export CONFIG_init='switch_root'
+
+export CMDLINE="$(cat /proc/cmdline)"
+for OPTION in ${CMDLINE}
+do
+	OPTIONNAME=${OPTION%%=*}
+	namecheck=${OPTIONNAME##*"."}
+	test ${namecheck} = ${OPTIONNAME} || continue
+	VALUE=$(printf "%b" ${OPTION#*=})
+	test -z ${VALUE} && VALUE='1' 
+	export CONFIG_"${OPTIONNAME}"="$VALUE" 
 done
 
-case ${CONFIG['rootfstype']} in
+case ${CONFIG_rootfstype} in
 	btrfs)
 		echo "Loading btrfs module ... "
 		modprobe btrfs
 		btrfs dev scan
 		;;
+	/dev/nfs|nfs)
+		export CONFIG_root="${CONFIG_nfsroot%%,*}"
+		export CONFIG_rootfstype='nfs'
+		export CONFIG_rootfsopts="${CONFIG_nfsroot#*,}"
+		export CONFIG_noresizesd='1'
+		;;
 	*)
-		modprobe fuse
 		;;
 esac
 
-echo "Loading other modules ... "
-cat /etc/modules | grep -v ^# | xargs modprobe
+echo "Loading initram modules ... "
+cat /etc/modules | grep -v ^# | /usr/bin/xargs -L1 modprobe
 
 mdev -s
 
-
-if [ -z "$CONFIG['splash']" ]; then 
+if [ -z "$CONFIG_splash" ]; then 
 	touch /run/nosplash
 fi
 
 # check if new root partition exists
 X=0;
-while [ ! -b "${CONFIG['root']}" ] && [ ${X} -lt 10 ]; do
+while [ ! -b "${CONFIG_root}" -a -n "${CONFIG_rootwait}" -a "${CONFIG_rootfstype}" != "nfs" ] && [ ${X} -lt 10 ]; do
 	X=$(($X+1));
 	mdev -s
 	echo "$X Waiting for root...\r"
 	sleep 1;
 done;
 
-if [ ! -b "${CONFIG['root']}" ]; then
-	echo "Root partition ${CONFIG['root']} missing"
-	exec /bin/bash
+if [ ! -b "${CONFIG_root}" -a "${CONFIG_rootfstype}" != "nfs" ]; then
+	echo "Root partition ${CONFIG_root} missing"
+	/bin/bash
 	exit 0
 fi
 
 # resize root partition
-if [ ${CONFIG['noresizesd']} -eq 0 ]; then
+if [ ${CONFIG_noresizesd} -eq 0 ]; then
 
-	CONFIG['rootdev']=${CONFIG['root']%%[0-9]}
-	CONFIG['rootdev']=${CONFIG['rootdev']%%p}
+	CONFIG_rootdev=${CONFIG_root%%[0-9]}
+	CONFIG_rootdev=${CONFIG_rootdev%%p}
 
-	pSIZE=$(/sbin/sfdisk -s ${CONFIG['root']})
-	echo ",+,,," | /sbin/sfdisk -uM -N2 --force -q ${CONFIG['rootdev']} 2&>/dev/null
+	pSIZE=$(/sbin/sfdisk -s ${CONFIG_root})
+	echo ",+,,," | /sbin/sfdisk -uM -N2 --force -q ${CONFIG_rootdev} 2&>/dev/null
 
-	nSIZE=$(/sbin/sfdisk -s ${CONFIG['root']})
+	nSIZE=$(/sbin/sfdisk -s ${CONFIG_root})
 
 	test "$pSIZE" -eq "$nSIZE" && RESIZEERROR='1'
 fi	
 
 # mount root partition
-mount -t ${CONFIG['rootfstype']} -o rw,${CONFIG['rootfsopts']} ${CONFIG['root']} /rootfs
+echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o rw,${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
+mount -t ${CONFIG_rootfstype} -o rw,"${CONFIG_rootfsopts}" "${CONFIG_root}" /rootfs
 if [ $? -ne 0 ]; then
-	echo "Mounting root partition ${CONFIG['root']} failed"
+	echo "Mounting root partition ${CONFIG_root} failed"
 	exec /bin/bash
 	exit 0
 fi
@@ -99,17 +136,17 @@ fi
 if [ -f /rootfs/root/initialboot ]; then
 	INITIALBOOT=1;
 	rm /rootfs/root/initialboot;
-	if [ -n "${CONFIG['splash']}" ]; then
-		/rootfs/usr/bin/splash --infinitebar --msgtxt="initial setup..."
+	if [ -n "${CONFIG_splash}" ]; then
+		/rootfs/usr/bin/splash --percentage=30 --msgtxt="initial setup..."
 	fi
 fi
 
-if [ $RESIZEERROR -eq 0 -a ! -e /rootfs/root/.resized ] && [ ${CONFIG['noresizesd']} -eq 0 ]; then
+if [ $RESIZEERROR -eq 0 -a ! -e /rootfs/root/.resized ] && [ ${CONFIG_noresizesd} -eq 0 ]; then
 
 	# resize root partition
-	if [ -n "${CONFIG['splash']}" ]; then
+	if [ -n "${CONFIG_splash}" ]; then
 		if [ $INITIALBOOT -eq 0 ]; then
-			/rootfs/usr/bin/splash --infinitebar --msgtxt="resizing sd..."
+			/rootfs/usr/bin/splash --percentage=50 --msgtxt="resizing sd..."
 		fi
 	else
 echo '
@@ -123,16 +160,16 @@ echo '
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
 	fi
 
-	/rootfs/sbin/resize2fs ${CONFIG['root']}
+	/rootfs/sbin/resize2fs ${CONFIG_root}
 	touch /rootfs/root/.resized
 
 fi
 
 # create swapfile
-if [ ! -f /rootfs/var/swapfile ] && [ $RESIZEERROR -eq 0 ] && [ ${CONFIG['noswapfile']} -eq 0 ]; then
-	if [ -n "${CONFIG['splash']}" ]; then
+if [ ! -f /rootfs/var/swapfile ] && [ $RESIZEERROR -eq 0 ] && [ ${CONFIG_noswapfile} -eq 0 ]; then
+	if [ -n "${CONFIG_splash}" ]; then
 		if [ $INITIALBOOT -eq 0 ]; then
-			/rootfs/usr/bin/splash --infinitebar --msgtxt="creating swapfile..."
+			/rootfs/usr/bin/splash --percentage=70 --msgtxt="creating swapfile..."
 		fi
 		dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
 	else
@@ -152,69 +189,76 @@ d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
 fi
 
 # continue with normal boot
-if [ -n "${CONFIG['splash']}" ]; then
-	/rootfs/usr/bin/splash --percentagebar --percentage=12 --msgtxt="loading...";
+if [ -n "${CONFIG_splash}" ]; then
+	/rootfs/usr/bin/splash --percentagebar --percentage=90 --msgtxt="loading...";
 	# give splash time to settle
-	sleep 1;
+	#sleep 1;
 fi
 
 if [ -d "/rootfs/lib/modules/$(uname -r)" ]; then
 	# load rpi core module to initialize eth0
-	ln -s "/rootfs/lib/modules/$(uname -r)" /lib/modules/
 	ln -s /rootfs/lib/firmware /lib/
 
 	# load additional user kernel modules
-	if [ -f /rootfs/etc/modules ]; then
+	echo "Loading other modules ... "
+	if [ -f /rootfs/etc/modules.wifiinit ]; then
 		while read MODULE; do
 			if [ ! -z $(echo $MODULE | sed -e '/^#/d') ]; then
 				modprobe $MODULE
 			fi
-		done < /rootfs/etc/modules
+		done < /rootfs/etc/modules.wifiinit
 	fi
 
-	if [ ! -z "${CONFIG['network.wlan0.module']}" ]; then
-		modprobe ${CONFIG['network.wlan0.module']}
+	if [ ! -z "${CONFIG_network_wlan0_module}" ]; then
+		modprobe ${CONFIG_network_wlan0_module}
 	fi
 	sleep 1;
 
-	if [ "${CONFIG['network.wlan0.mode']}" == "dhcp" ] && [ ! -z ${CONFIG['network.wlan0.ssid']} ] && [ ! -z ${CONFIG['network.wlan0.protection']} ]; then
+	if [ "${CONFIG_network_wlan0_mode}" == "dhcp" ] && [ ! -z ${CONFIG_network_wlan0_ssid} ] && [ ! -z ${CONFIG_network_wlan0_protection} ]; then
 		# remove wlan0 entry in network configuration
                 awk '/wlan0/ {flag=1} /eth0/{flag=0} !flag{print}' /rootfs/etc/network/interfaces > /rootfs/etc/network/interfaces.new
 		mv /rootfs/etc/network/interfaces.new /rootfs/etc/network/interfaces
 
 		# connect wlan0 to dhcp server
-		if [ "${CONFIG['network.wlan0.protection']}" == "WPA" ] || [ "${CONFIG['network.wlan0.protection']}" == "WPA2" ]; then
-	                echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwpa-ssid \"${CONFIG['network.wlan0.ssid']}\"\nwpa-psk \"${CONFIG['network.wlan0.password']}\"\n" >> /rootfs/etc/network/interfaces
+		if [ "${CONFIG_network_wlan0_protection}" == "WPA" ] || [ "${CONFIG_network_wlan0_protection}" == "WPA2" ]; then
+	                echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwpa-ssid \"${CONFIG_network_wlan0_ssid}\"\nwpa-psk \"${CONFIG_network_wlan0_password}\"\n" >> /rootfs/etc/network/interfaces
 			if [ ! -d /rootfs/root/wpa_supplicant ]; then
 				mkdir /rootfs/root/wpa_supplicant;
 			fi
-			echo -e "ctrl_interface=/rootfs/root/wpa_supplicant\nupdate_config=1\nnetwork={\nssid=\"${CONFIG['network.wlan0.ssid']}\"\npsk=\"${CONFIG['network.wlan0.password']}\"\nkey_mgmt=WPA-PSK\nproto=RSN WPA\npairwise=CCMP TKIP\ngroup=CCMP TKIP\n}" > /etc/wpa_supplicant/wpa_supplicant.conf
-			echo -e "ctrl_interface=/root/wpa_supplicant\nupdate_config=1\nnetwork={\nssid=\"${CONFIG['network.wlan0.ssid']}\"\npsk=\"${CONFIG['network.wlan0.password']}\"\nkey_mgmt=WPA-PSK\nproto=RSN WPA\npairwise=CCMP TKIP\ngroup=CCMP TKIP\n}" > /rootfs/etc/wpa_supplicant/wpa_supplicant.conf
-		elif [ "${CONFIG['network.wlan0.protection']}" == "WEP" ]; then
-	                echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwireless-ssid ${CONFIG['network.wlan0.ssid']}\nwireless-key ${CONFIG['network.wlan0.password']}\n" >> /rootfs/etc/network/interfaces
-		elif [ "${CONFIG['network.wlan0.protection']}" == "open" ]; then
-                	echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwireless-ssid ${CONFIG['network.wlan0.protection']}\nwireless-mode managed\n" >> /rootfs/etc/network/interfaces
+			echo -e "ctrl_interface=/rootfs/root/wpa_supplicant\nupdate_config=1\nnetwork={\nssid=\"${CONFIG_network_wlan0_ssid}\"\npsk=\"${CONFIG_network_wlan0_password}\"\nkey_mgmt=WPA-PSK\nproto=RSN WPA\npairwise=CCMP TKIP\ngroup=CCMP TKIP\n}" > /etc/wpa_supplicant/wpa_supplicant.conf
+			echo -e "ctrl_interface=/root/wpa_supplicant\nupdate_config=1\nnetwork={\nssid=\"${CONFIG_network_wlan0_ssid}\"\npsk=\"${CONFIG_network_wlan0_password}\"\nkey_mgmt=WPA-PSK\nproto=RSN WPA\npairwise=CCMP TKIP\ngroup=CCMP TKIP\n}" > /rootfs/etc/wpa_supplicant/wpa_supplicant.conf
+		elif [ "${CONFIG_network_wlan0_protection}" == "WEP" ]; then
+	                echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwireless-ssid ${CONFIG_network_wlan0_ssid}\nwireless-key ${CONFIG_network_wlan0_password}\n" >> /rootfs/etc/network/interfaces
+		elif [ "${CONFIG_network_wlan0_protection}" == "open" ]; then
+                	echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwireless-ssid ${CONFIG_network_wlan0_protection}\nwireless-mode managed\n" >> /rootfs/etc/network/interfaces
 		fi
 	fi
 
 
 fi
 
-echo > /sys/kernel/uevent_helper
-
-UDEV_ROOT=/dev \
-udevd --daemon --resolve-names=never
-
-udevadm trigger --action=add
-udevadm settle || true
 echo "Moving root "
-
-mount -n -o move /dev /rootfs/dev
+rm -fr /rootfs/run; mkdir /rootfs/run
 mount -n -o move /run /rootfs/run
+
+udevadm control --exit
+udev_root="/rootfs/dev"
+if [ -e /etc/udev/udev.conf ]; then
+  . /etc/udev/udev.conf
+fi
+mount -n -o move /dev /rootfs/dev
+rm -fr /dev
+ln -s /rootfs/dev /dev
+
 mount -n -o move /sys /rootfs/sys
 mount -n -o move /proc /rootfs/proc
 
-exec switch_root /rootfs /sbin/init
+
+if [ ${CONFIG_init} = 'switch_root' ]; then
+	exec switch_root /rootfs /sbin/init "$@" </rootfs/dev/console >/rootfs/dev/console
+else
+	exec switch_root /rootfs ${CONFIG_init} "$@" </rootfs/dev/console >/rootfs/dev/console
+fi
 
 echo "Failed to switch_root, dropping to a shell"
 exec /bin/bash

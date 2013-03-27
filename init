@@ -68,6 +68,14 @@ do
 	export CONFIG_"${OPTIONNAME}"="$VALUE" 
 done
 
+case ${CONFIG_root} in
+	/dev/nfs|nfs)
+		export CONFIG_rootfstype='nfs'
+		;;
+	*)
+		;;
+esac
+
 case ${CONFIG_rootfstype} in
 	btrfs)
 		echo "Loading btrfs module ... "
@@ -79,6 +87,9 @@ case ${CONFIG_rootfstype} in
 		export CONFIG_rootfstype='nfs'
 		export CONFIG_rootfsopts="${CONFIG_nfsroot#*,}"
 		export CONFIG_noresizesd='1'
+		if [ ${CONFIG_rootfsopts} = ${CONFIG_root} ]; then
+			export CONFIG_rootfsopts=""
+		fi
 		;;
 	*)
 		;;

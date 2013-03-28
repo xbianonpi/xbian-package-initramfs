@@ -109,7 +109,7 @@ X=0;
 while [ ! -b "${CONFIG_root}" -a -n "${CONFIG_rootwait}" -a "${CONFIG_rootfstype}" != "nfs" ] && [ ${X} -lt 10 ]; do
 	X=$(($X+1));
 	mdev -s
-	echo "$X Waiting for root...\r"
+	echo "$X Waiting for root..."
 	sleep 1;
 done;
 
@@ -177,7 +177,7 @@ if [ -f /rootfs/root/initialboot ]; then
 	rm /rootfs/root/initialboot;
 	test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentage=15 --msgtxt="initial setup..."
 else
-	test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentage=15 --msgtxt="starting up ..."
+	test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentage=15 --msgtxt="loading ..."
 fi
 
 if [ "${CONFIG_root}" == "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${CONFIG_noresizesd} -eq 0 ]; then
@@ -245,7 +245,7 @@ d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
 	mkswap /rootfs/var/swapfile &>/dev/null
 fi
 
-test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=40 --msgtxt="trying wifi ...";
+#test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=40 --msgtxt="trying wifi ...";
 
 #if [ -d "/rootfs/lib/modules/$(uname -r)" ]; then
 #	# load rpi core module to initialize eth0
@@ -289,9 +289,9 @@ test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentag
 #
 #fi
 
-test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=60 --msgtxt="starting services and xbmc ...";
+test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=60 --msgtxt="loading...";
 
-echo "Moving root "
+echo "Moving root"
 rm -fr /rootfs/run; mkdir /rootfs/run
 mount -n -o move /run /rootfs/run
 

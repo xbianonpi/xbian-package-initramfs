@@ -96,7 +96,7 @@ case ${CONFIG_rootfstype} in
 esac
 
 echo "Loading initram modules ... "
-cat /etc/modules | grep -v ^# | /usr/bin/xargs -L1 modprobe
+cat /etc/modules | grep -v ^# | /usr/bin/xargs -L1 modprobe -q
 
 mdev -s
 
@@ -171,14 +171,13 @@ if [ $? -ne 0 ]; then
 	exit 0
 fi
 
-
 # check if we are in the initialboot
 if [ -f /rootfs/root/initialboot ]; then
 	INITIALBOOT=1;
 	rm /rootfs/root/initialboot;
-	if [ -n "${CONFIG_splash}" ]; then
-		/rootfs/usr/bin/splash --percentage=30 --msgtxt="initial setup..."
-	fi
+	test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentage=15 --msgtxt="initial setup..."
+else
+	test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentage=15 --msgtxt="starting up ..."
 fi
 
 if [ "${CONFIG_root}" == "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${CONFIG_noresizesd} -eq 0 ]; then
@@ -193,15 +192,15 @@ if [ "${CONFIG_root}" == "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${CON
 
 	# resize root partition
 	if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
-		if [ ${CONFIG['splash']} -eq 1 ]; then
+		if [ ${CONFIG_splash} -eq 1 ]; then
 			if [ $INITIALBOOT -eq 0 ]; then
-				/rootfs/usr/bin/splash --infinitebar --msgtxt="resizing sd...";
+				/rootfs/usr/bin/splash --percentage=20 --msgtxt="resizing sd...";
 			fi
 			/rootfs/sbin/resize2fs ${CONFIG_root}
 		else
 echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
-888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
+888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
 888    888 888        Y88b.        888        d88P     888   88888b  888 888    888
 888   d88P 8888888     "Y888b.     888       d88P      888   888Y88b 888 888
 8888888P"  888            "Y88b.   888      d88P       888   888 Y88b888 888  88888
@@ -228,10 +227,8 @@ fi
 
 # create swapfile
 if [ ! -f /rootfs/var/swapfile ] && [ $RESIZEERROR -eq 0 ] && [ ${CONFIG_noswapfile} -eq 0 ]; then
-	if [ -n "${CONFIG_splash}" ]; then
-		if [ $INITIALBOOT -eq 0 ]; then
-			/rootfs/usr/bin/splash --percentage=70 --msgtxt="creating swapfile..."
-		fi
+	if [ $INITIALBOOT -eq 0  ]; then
+		test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentage=25 --msgtxt="creating swapfile..."
 		dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
 	else
 echo '
@@ -248,12 +245,7 @@ d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
 	mkswap /rootfs/var/swapfile &>/dev/null
 fi
 
-# continue with normal boot
-if [ -n "${CONFIG_splash}" ]; then
-	/rootfs/usr/bin/splash --percentagebar --percentage=90 --msgtxt="loading...";
-	# give splash time to settle
-	#sleep 1;
-fi
+test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=40 --msgtxt="trying wifi ...";
 
 #if [ -d "/rootfs/lib/modules/$(uname -r)" ]; then
 #	# load rpi core module to initialize eth0
@@ -264,13 +256,13 @@ fi
 #	if [ -f /rootfs/etc/modules.wifiinit ]; then
 #		while read MODULE; do
 #			if [ ! -z $(echo $MODULE | sed -e '/^#/d') ]; then
-#				modprobe $MODULE
+#				modprobe -q $MODULE
 #			fi
 #		done < /rootfs/etc/modules.wifiinit
 #	fi
 #
 #	if [ ! -z "${CONFIG_network_wlan0_module}" ]; then
-#		modprobe ${CONFIG_network_wlan0_module}
+#		modprobe -q ${CONFIG_network_wlan0_module}
 #	fi
 #	sleep 1;
 #
@@ -296,6 +288,8 @@ fi
 #
 #
 #fi
+
+test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=60 --msgtxt="starting services and xbmc ...";
 
 echo "Moving root "
 rm -fr /rootfs/run; mkdir /rootfs/run

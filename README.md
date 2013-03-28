@@ -57,7 +57,7 @@ cp -a --parents /sbin/{rmmod,insmod,modprobe,udevd,udevadm} ./
 cp -a --parents /bin/kmod ./
 cp /usr/bin/xargs usr/bin
 cp /bin/bash bin/
-cp /sbin/MAKEDEV sbin/
+cp /sbin/fdisk sbin/
 cp /sbin/MAKEDEV sbin/
 cp /sbin/sfdisk sbin/
 cp /sbin/tune2fs sbin/

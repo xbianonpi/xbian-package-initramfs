@@ -18,6 +18,7 @@ cp --remove-destination /bin/busybox bin/
 /bin/busybox --install -s bin
 cp --remove-destination /etc/udhcpc/default.script etc/udhcpc/
 cp --remove-destination -R /etc/network etc/
+cp --remove-destination -R /etc/hostname etc/
 cp --remove-destination -R /etc/wpa_supplicant etc/
 sed -i 's/\/etc\/resolv.conf/\/rootfs\/etc\/resolv.conf/g' etc/udhcpc/default.script
 touch etc/mdev.conf

@@ -3,6 +3,8 @@
 mkdir -p /var/lock
 mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
 mount -t proc -o nodev,noexec,nosuid proc /proc
+rm -fr /etc/mtab >/dev/null 2>&1
+ln -s /proc/mounts /etc/mtab 
 
 tmpfs_size="10M"
 if [ -e /etc/udev/udev.conf ]; then
@@ -21,10 +23,17 @@ mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
 mount -t tmpfs -o "nosuid,size=20%,mode=0755" tmpfs /run
 mkdir -m 0755 /run/initramfs
 
+export MODPROBE_OPTIONS="-qb"
+
 echo > /sys/kernel/uevent_helper
 
 UDEV_ROOT=/dev \
 udevd --daemon --resolve-names=never
+  if [ -e /sbin/MAKEDEV ]; then
+    ln -sf /sbin/MAKEDEV /dev/MAKEDEV
+  else
+    ln -sf /bin/true /dev/MAKEDEV
+  fi
 
 udevadm trigger --action=add
 udevadm settle || true
@@ -33,10 +42,9 @@ if [ -d /sys/bus/scsi ]; then
         modprobe -q scsi_wait_scan && modprobe -r scsi_wait_scan || true
         udevadm settle || true
 fi
-mdev -s
 
 echo "Checking for keyboard..."
-keyboard=$(/bin/ls /dev/input/by-id/*eyboar* | grep -m1 .)
+keyboard=$(/bin/ls /dev/input | grep -m1 event)
 if [ "${keyboard}" != '' ]; then
 	echo "? boot recovery hold left shift ?"
 	sleep 2
@@ -46,16 +54,14 @@ if [ "${keyboard}" != '' ]; then
  		/bin/bash
 	fi
 fi
-
-RESIZEERROR=0
-INITIALBOOT=0
+INITIALBOOT="0"
 
 export CONFIG_rootfstype="ext4"
 export CONFIG_rootfsopts="noatime"
 export CONFIG_root="/dev/mmcblk0p2"
-export CONFIG_noresizesd=0
 export CONFIG_noswapfile=0
 export CONFIG_init='switch_root'
+export CONFIG_rootwait='0'
 
 export CMDLINE="$(cat /proc/cmdline)"
 for OPTION in ${CMDLINE}
@@ -78,9 +84,7 @@ esac
 
 case ${CONFIG_rootfstype} in
 	btrfs)
-		echo "Loading btrfs module ... "
-		modprobe btrfs
-		btrfs dev scan
+		## udev rule will deal with this
 		;;
 	/dev/nfs|nfs)
 		export CONFIG_root="${CONFIG_nfsroot%%,*}"
@@ -98,17 +102,14 @@ esac
 echo "Loading initram modules ... "
 cat /etc/modules | grep -v ^# | /usr/bin/xargs -L1 modprobe -q
 
-mdev -s
-
 if [ -z "$CONFIG_splash" ]; then 
 	touch /run/nosplash
 fi
 
 # check if new root partition exists
 X=0;
-while [ ! -b "${CONFIG_root}" -a -n "${CONFIG_rootwait}" -a "${CONFIG_rootfstype}" != "nfs" ] && [ ${X} -lt 10 ]; do
+while [ ! -b "${CONFIG_root}" -a "${CONFIG_rootwait}" -eq '1'  -a "${CONFIG_rootfstype}" != "nfs" ] && [ ${X} -lt 10 ]; do
 	X=$(($X+1));
-	mdev -s
 	echo "$X Waiting for root..."
 	sleep 1;
 done;
@@ -116,11 +117,17 @@ done;
 if [ ! -b "${CONFIG_root}" -a "${CONFIG_rootfstype}" != "nfs" ]; then
 	echo "Root partition ${CONFIG_root} missing"
 	/bin/bash
-	exit 0
 fi
 
 # resize root partition
-if [ ${CONFIG_noresizesd} -eq 0 ]; then
+if [ -z ${CONFIG_noresizesd} ]; then
+
+	if [ -e "/sbin/sfdisk" -a -e "/sbin/fdisk" -a "/sbin/tune2fs" ]; then
+		RESIZEERROR=0
+	else
+		RESIZEERROR=1
+		continue
+	fi
 
 	#Save partition table to file
 	/sbin/sfdisk -d /dev/mmcblk0 > /tmp/curpart.txt
@@ -140,7 +147,8 @@ if [ ${CONFIG_noresizesd} -eq 0 ]; then
 		sed -i "s/$PARTSIZE/$NEWSIZE/g" /tmp/part.txt
 
 		#Backup current partition
-		/sbin/sfdisk --no-reread -q -f /dev/mmcblk0 -O /tmp/part.bin < /tmp/part.txt &> /dev/null
+		/sbin/sfdisk --no-reread -q -f /dev/mmcblk0 -O /tmp/part.bin < /tmp/part.txt >/dev/null 2>&1
+		partprobe 
 
 		#Dump new partition
 		/sbin/sfdisk -d /dev/mmcblk0 > /tmp/newpart.txt
@@ -153,34 +161,33 @@ if [ ${CONFIG_noresizesd} -eq 0 ]; then
 			DIFF=$(diff /tmp/curpart.txt /tmp/newpart.txt; echo $?);
 			if [ ${DIFF} != "0" ]; then
 				#Restoring old partition table
-				/sbin/sfdisk --force -q -I /tmp/part.bin /dev/mmcblk0 &> /dev/null
+				/sbin/sfdisk --force -q -I /tmp/part.bin /dev/mmcblk0 & >/dev/null 2>&1
 			fi
 			RESIZERROR=1;
 		fi
-		mdev -s
+		partprobe
 		sleep 1
 	fi
 fi
 
 # mount root partition
 echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o rw,${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
-mount -t ${CONFIG_rootfstype} -o rw,"${CONFIG_rootfsopts}" "${CONFIG_root}" /rootfs
-if [ $? -ne 0 ]; then
+mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw$CONFIG_ro","$CONFIG_rootfsopts" "${CONFIG_root}" /rootfs
+if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"
-	exec /bin/bash
-	exit 0
+	/bin/bash
 fi
 
 # check if we are in the initialboot
 if [ -f /rootfs/root/initialboot ]; then
-	INITIALBOOT=1;
-	rm /rootfs/root/initialboot;
+	INITIALBOOT="1"
+	rm /rootfs/root/initialboot
 	test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentage=15 --msgtxt="initial setup..."
 else
 	test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentage=15 --msgtxt="loading ..."
 fi
 
-if [ "${CONFIG_root}" == "/dev/mmcblk0p2" ] && [ $RESIZEERROR -eq 0 ] && [ ${CONFIG_noresizesd} -eq 0 ]; then
+if [ "$CONFIG_root" = "/dev/mmcblk0p2" -a  "$RESIZEERROR" -eq "0" -a -z "$CONFIG_noresizesd" ]; then
 	# check if the partition needs resizing
 	FDISKBLOCKSIZE=$(/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}');
 	FDISKBLOCKCOUNT=$(/sbin/fdisk -l /dev/mmcblk0 | grep Units | sed -ne 's/\(.*= \)\([0-9]\{1,\}\)\( bytes\)/\2/p')
@@ -226,7 +233,7 @@ echo '
 fi
 
 # create swapfile
-if [ ! -f /rootfs/var/swapfile ] && [ $RESIZEERROR -eq 0 ] && [ ${CONFIG_noswapfile} -eq 0 ]; then
+if [ ! -f /rootfs/var/swapfile ] && [ "$RESIZEERROR" -eq 0 ] && [ ${CONFIG_noswapfile} -eq 0 ]; then
 	if [ $INITIALBOOT -eq 0  ]; then
 		test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentage=25 --msgtxt="creating swapfile..."
 		dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
@@ -242,7 +249,7 @@ echo '
 d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
 		dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
 	fi
-	mkswap /rootfs/var/swapfile &>/dev/null
+	mkswap /rootfs/var/swapfile >/dev/null 2>&1
 fi
 
 #test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=40 --msgtxt="trying wifi ...";
@@ -289,14 +296,16 @@ fi
 #
 #fi
 
-test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=60 --msgtxt="loading...";
+test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=60 --msgtxt="loading..."
 
+rm /etc/mtab
 echo "Moving root"
-rm -fr /rootfs/run; mkdir /rootfs/run
+rm -fr /rootfs/run 
+mkdir /rootfs/run
 mount -n -o move /run /rootfs/run
 
 udevadm control --exit
-udev_root="/rootfs/dev"
+udev_root="/dev"
 if [ -e /etc/udev/udev.conf ]; then
   . /etc/udev/udev.conf
 fi
@@ -307,11 +316,12 @@ ln -s /rootfs/dev /dev
 mount -n -o move /sys /rootfs/sys
 mount -n -o move /proc /rootfs/proc
 
-
 if [ ${CONFIG_init} = 'switch_root' ]; then
-	exec switch_root /rootfs /sbin/init "$@" </rootfs/dev/console >/rootfs/dev/console
+	exec switch_root /rootfs /sbin/init 
+#"$@" </rootfs/dev/console >/rootfs/dev/console
 else
-	exec switch_root /rootfs ${CONFIG_init} "$@" </rootfs/dev/console >/rootfs/dev/console
+	exec switch_root /rootfs ${CONFIG_init} 
+#"$@" </rootfs/dev/console >/rootfs/dev/console
 fi
 
 echo "Failed to switch_root, dropping to a shell"

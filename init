@@ -203,13 +203,13 @@ if [ -n "$CONFIG_ip" ]; then
 	esac 
 fi
 
-# # mount root partition
-# echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw$CONFIG_ro",${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
-# mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw$CONFIG_ro","$CONFIG_rootfsopts" "${CONFIG_root}" /rootfs
-# if [ "$?" -ne '0' ]; then
-	# echo "Mounting root partition ${CONFIG_root} failed"
-	# /bin/bash
-# fi
+# mount root partition
+echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw$CONFIG_ro",${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
+mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw$CONFIG_ro","$CONFIG_rootfsopts" "${CONFIG_root}" /rootfs
+if [ "$?" -ne '0' ]; then
+	echo "Mounting root partition ${CONFIG_root} failed"
+	/bin/bash
+fi
 
 # check if we are in the initialboot
 if [ -f /rootfs/root/initialboot ]; then

@@ -1,10 +1,5 @@
 #!/bin/sh
 
-. /lib/lsb/init-functions
-. /lib/init/mount-functions.sh
-. /lib/init/vars.sh
-. /lib/init/tmpfs.sh
-
 mkdir -p /var/lock
 mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
 mount -t proc -o nodev,noexec,nosuid proc /proc
@@ -22,14 +17,20 @@ if ! mount -t devtmpfs -o size=$tmpfs_size,mode=0755 udev /dev; then
         [ -e /dev/null ] || mknod /dev/null c 1 3
 fi
 
+mkdir /dev/pts
+mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
+mount -t tmpfs -o rw,nosuid,noexec,relatime,mode=755 tmpfs /run 
+mkdir -m 0755 /run/initramfs
+
 INITIALBOOT="0"
 
 export CONFIG_rootfstype="ext4"
 export CONFIG_rootfsopts="noatime"
 export CONFIG_root="/dev/mmcblk0p2"
-export CONFIG_noswapfile=0
+export CONFIG_noswapfile="0"
 export CONFIG_init='switch_root'
 export CONFIG_rootwait='0'
+export CONFIG_noresizesd='1'
 
 export CMDLINE="$(cat /proc/cmdline)"
 for OPTION in ${CMDLINE}
@@ -42,16 +43,17 @@ do
 	export CONFIG_"${OPTIONNAME}"="$VALUE" 
 done
 
-mkdir /dev/pts
-mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
-mount_run mount
+test -n "$CONFIG_debug" && unset CONFIG_splash
 test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="cool"
-mkdir -m 0755 /run/initramfs
+
+if [ -n "$CONFIG_debug" ]; then
+	exec >/run/initramfs/initramfs.debug 2>&1
+	set -x
+fi
 
 export MODPROBE_OPTIONS="-qb"
 
 echo > /sys/kernel/uevent_helper
-
 
 UDEV_ROOT=/dev \
 udevd --daemon --resolve-names=never
@@ -79,11 +81,6 @@ if [ "${keyboard}" != '' ]; then
 		echo "Dropping to initramfs on request..."
  		/bin/bash
 	fi
-fi
-
-if [ -n "$CONFIG_debug" ]; then
-	exec >/run/initramfs/initramfs.debug 2>&1
-	set -x
 fi
 
 case ${CONFIG_root} in

@@ -1,9 +1,13 @@
 #!/bin/sh
 
+. /lib/lsb/init-functions
+. /lib/init/mount-functions.sh
+. /lib/init/vars.sh
+. /lib/init/tmpfs.sh
+
 mkdir -p /var/lock
 mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
 mount -t proc -o nodev,noexec,nosuid proc /proc
-rm -fr /etc/mtab >/dev/null 2>&1
 ln -s /proc/mounts /etc/mtab 
 
 tmpfs_size="10M"
@@ -18,14 +22,36 @@ if ! mount -t devtmpfs -o size=$tmpfs_size,mode=0755 udev /dev; then
         [ -e /dev/null ] || mknod /dev/null c 1 3
 fi
 
+INITIALBOOT="0"
+
+export CONFIG_rootfstype="ext4"
+export CONFIG_rootfsopts="noatime"
+export CONFIG_root="/dev/mmcblk0p2"
+export CONFIG_noswapfile=0
+export CONFIG_init='switch_root'
+export CONFIG_rootwait='0'
+
+export CMDLINE="$(cat /proc/cmdline)"
+for OPTION in ${CMDLINE}
+do
+	OPTIONNAME=${OPTION%%=*}
+	namecheck=${OPTIONNAME##*"."}
+	test ${namecheck} = ${OPTIONNAME} || continue
+	VALUE=$(printf "%b" ${OPTION#*=})
+	test -z ${VALUE} && VALUE='1' 
+	export CONFIG_"${OPTIONNAME}"="$VALUE" 
+done
+
 mkdir /dev/pts
 mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
-mount -t tmpfs -o "nosuid,size=20%,mode=0755" tmpfs /run
+mount_run mount
+test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="cool"
 mkdir -m 0755 /run/initramfs
 
 export MODPROBE_OPTIONS="-qb"
 
 echo > /sys/kernel/uevent_helper
+
 
 UDEV_ROOT=/dev \
 udevd --daemon --resolve-names=never
@@ -54,25 +80,11 @@ if [ "${keyboard}" != '' ]; then
  		/bin/bash
 	fi
 fi
-INITIALBOOT="0"
 
-export CONFIG_rootfstype="ext4"
-export CONFIG_rootfsopts="noatime"
-export CONFIG_root="/dev/mmcblk0p2"
-export CONFIG_noswapfile=0
-export CONFIG_init='switch_root'
-export CONFIG_rootwait='0'
-
-export CMDLINE="$(cat /proc/cmdline)"
-for OPTION in ${CMDLINE}
-do
-	OPTIONNAME=${OPTION%%=*}
-	namecheck=${OPTIONNAME##*"."}
-	test ${namecheck} = ${OPTIONNAME} || continue
-	VALUE=$(printf "%b" ${OPTION#*=})
-	test -z ${VALUE} && VALUE='1' 
-	export CONFIG_"${OPTIONNAME}"="$VALUE" 
-done
+if [ -n "$CONFIG_debug" ]; then
+	exec >/run/initramfs/initramfs.debug 2>&1
+	set -x
+fi
 
 case ${CONFIG_root} in
 	/dev/nfs|nfs)
@@ -94,13 +106,16 @@ case ${CONFIG_rootfstype} in
 		if [ ${CONFIG_rootfsopts} = ${CONFIG_root} ]; then
 			export CONFIG_rootfsopts=""
 		fi
+		chmod 777 /rootfs
 		;;
 	*)
 		;;
 esac
 
 echo "Loading initram modules ... "
-cat /etc/modules | grep -v ^# | /usr/bin/xargs -L1 modprobe -q
+cat /etc/modules | grep -v ^# | /usr/bin/xargs -L1 modprobe
+udevadm settle || true
+
 
 if [ -z "$CONFIG_splash" ]; then 
 	touch /run/nosplash
@@ -119,15 +134,14 @@ if [ ! -b "${CONFIG_root}" -a "${CONFIG_rootfstype}" != "nfs" ]; then
 	/bin/bash
 fi
 
-# resize root partition
-if [ -z ${CONFIG_noresizesd} ]; then
+if [ -e "/sbin/sfdisk" -a -e "/sbin/fdisk" -a -e "/sbin/tune2fs" ]; then
+	RESIZEERROR="0"
+else
+	RESIZEERROR="1"
+fi
 
-	if [ -e "/sbin/sfdisk" -a -e "/sbin/fdisk" -a "/sbin/tune2fs" ]; then
-		RESIZEERROR=0
-	else
-		RESIZEERROR=1
-		continue
-	fi
+# resize root partition
+if [ -z "$CONFIG_noresizesd" -a "$RESIZEERROR" -eq "0" ]; then
 
 	#Save partition table to file
 	/sbin/sfdisk -d /dev/mmcblk0 > /tmp/curpart.txt
@@ -170,8 +184,27 @@ if [ -z ${CONFIG_noresizesd} ]; then
 	fi
 fi
 
+if [ -n "$CONFIG_ip" ]; then
+	case "$CONFIG_ip" in 
+		dhcp|auto|on)
+			for f in $(basename /sys/class/net/*) ; do
+				ipconfig $f
+
+				. /run/net-$(basename $f).conf
+			done
+			;;
+		off|no)
+			;;
+		*)	
+			ipconfig "$CONFIG_ip"
+
+			. /run/run-*.conf
+			;;
+	esac 
+fi
+
 # mount root partition
-echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o rw,${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
+echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw$CONFIG_ro",${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
 mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw$CONFIG_ro","$CONFIG_rootfsopts" "${CONFIG_root}" /rootfs
 if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"
@@ -207,14 +240,14 @@ if [ "$CONFIG_root" = "/dev/mmcblk0p2" -a  "$RESIZEERROR" -eq "0" -a -z "$CONFIG
 		else
 echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
-888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
+888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
 888    888 888        Y88b.        888        d88P     888   88888b  888 888    888
 888   d88P 8888888     "Y888b.     888       d88P      888   888Y88b 888 888
 8888888P"  888            "Y88b.   888      d88P       888   888 Y88b888 888  88888
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
-			/rootfs/sbin/resize2fs;
+			/rootfs/sbin/resize2fs
 		fi
 	fi
 
@@ -228,13 +261,13 @@ echo '
 
 	# check if parition was actually resized
 	if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
-		RESIZEERROR=1
+		RESIZEERROR="1"
 	fi
 fi
 
 # create swapfile
-if [ ! -f /rootfs/var/swapfile ] && [ "$RESIZEERROR" -eq 0 ] && [ ${CONFIG_noswapfile} -eq 0 ]; then
-	if [ $INITIALBOOT -eq 0  ]; then
+if [ ! -f /rootfs/var/swapfile -a "$RESIZEERROR" -eq "0" -a  "$CONFIG_noswapfile" -eq "0" ]; then
+	if [ $INITIALBOOT -eq "0"  ]; then
 		test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentage=25 --msgtxt="creating swapfile..."
 		dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
 	else
@@ -263,13 +296,13 @@ fi
 #	if [ -f /rootfs/etc/modules.wifiinit ]; then
 #		while read MODULE; do
 #			if [ ! -z $(echo $MODULE | sed -e '/^#/d') ]; then
-#				modprobe -q $MODULE
+#				modprobe  $MODULE
 #			fi
 #		done < /rootfs/etc/modules.wifiinit
 #	fi
 #
 #	if [ ! -z "${CONFIG_network_wlan0_module}" ]; then
-#		modprobe -q ${CONFIG_network_wlan0_module}
+#		modprobe ${CONFIG_network_wlan0_module}
 #	fi
 #	sleep 1;
 #
@@ -298,23 +331,23 @@ fi
 
 test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=60 --msgtxt="loading..."
 
-rm /etc/mtab
 echo "Moving root"
-rm -fr /rootfs/run 
-mkdir /rootfs/run
-mount -n -o move /run /rootfs/run
 
 udevadm control --exit
-udev_root="/dev"
+udev_root="/rootfs/dev"
 if [ -e /etc/udev/udev.conf ]; then
   . /etc/udev/udev.conf
 fi
+
+mount -n -o move /run /rootfs/run
 mount -n -o move /dev /rootfs/dev
+
 rm -fr /dev
 ln -s /rootfs/dev /dev
 
 mount -n -o move /sys /rootfs/sys
 mount -n -o move /proc /rootfs/proc
+rm -fr /rootfs/etc/mtab
 
 if [ ${CONFIG_init} = 'switch_root' ]; then
 	exec switch_root /rootfs /sbin/init 

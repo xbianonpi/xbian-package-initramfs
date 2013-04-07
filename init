@@ -30,6 +30,7 @@ export CONFIG_root="/dev/mmcblk0p2"
 export CONFIG_noswapfile="0"
 export CONFIG_init='switch_root'
 export CONFIG_rootwait='0'
+export CONFIG_rw='ro'
 export CONFIG_noresizesd='1'
 
 export CMDLINE="$(cat /proc/cmdline)"
@@ -37,13 +38,14 @@ for OPTION in ${CMDLINE}
 do
 	OPTIONNAME=${OPTION%%=*}
 	namecheck=${OPTIONNAME##*"."}
-	test ${namecheck} = ${OPTIONNAME} || continue
+	test "$namecheck" = "$OPTIONNAME" || continue
 	VALUE=$(printf "%b" ${OPTION#*=})
-	test -z ${VALUE} && VALUE='1' 
-	export CONFIG_"${OPTIONNAME}"="$VALUE" 
+	test "$VALUE" = "$OPTIONNAME" && VALUE='1' 
+	export CONFIG_"$OPTIONNAME"="$VALUE" 
 done
 
 test -n "$CONFIG_debug" && unset CONFIG_splash
+test -n "$CONFIG_rescue" && unset CONFIG_splash
 test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="cool"
 
 if [ -n "$CONFIG_debug" ]; then
@@ -119,12 +121,12 @@ if [ -z "$CONFIG_splash" ]; then
 fi
 
 # check if new root partition exists
-X=0;
-while [ ! -b "${CONFIG_root}" -a "${CONFIG_rootwait}" = '1' -a "${CONFIG_rootfstype}" != "nfs" ] && [ ${X} -lt 10 ]; do
-	X=$(($X+1));
+X='0'
+while [ ! -b "$CONFIG_root" -a "$CONFIG_rootwait" -eq '1' -a "$CONFIG_rootfstype" != "nfs" -a  "$X" -lt '10' ]; do
+	X=$(($X+1))
 	echo "$X Waiting for root..."
-	sleep 1;
-done;
+	sleep 1
+done
 
 if [ ! -b "${CONFIG_root}" -a "${CONFIG_rootfstype}" != "nfs" ]; then
 	echo "Root partition ${CONFIG_root} missing"
@@ -136,50 +138,6 @@ if [ -e "/sbin/sfdisk" -a -e "/sbin/fdisk" -a -e "/sbin/tune2fs" ]; then
 else
 	RESIZEERROR="1"
 fi
-
-# # resize root partition
-# if [ -z "$CONFIG_noresizesd" -a "$RESIZEERROR" -eq "0" ]; then
-
-	# #Save partition table to file
-	# /sbin/sfdisk -d /dev/mmcblk0 > /tmp/curpart.txt
-
-	# #Backup partition table
-	# cp /tmp/curpart.txt /tmp/part.txt
-
-	# #Read partition sizes
-	# TOTALBLOCKS=$(/sbin/fdisk -l /dev/mmcblk0 | grep total | awk '{printf "%s", $8}');
-	# LASTBLOCK=$TOTALBLOCKS;
-	# PARTSTART=$(grep Id=83 /tmp/part.txt | awk '{printf "%d", $4}');
-	# PARTSIZE=$(grep Id=83 /tmp/part.txt | awk '{printf "%d", $6}');
-	# NEWSIZE=$(($LASTBLOCK-$PARTSTART));
-
-	# if [ $PARTSIZE -lt $NEWSIZE ]; then
-		# #Change size of root partition
-		# sed -i "s/$PARTSIZE/$NEWSIZE/g" /tmp/part.txt
-
-		# #Backup current partition
-		# /sbin/sfdisk --no-reread -q -f /dev/mmcblk0 -O /tmp/part.bin < /tmp/part.txt >/dev/null 2>&1
-		# partprobe 
-
-		# #Dump new partition
-		# /sbin/sfdisk -d /dev/mmcblk0 > /tmp/newpart.txt
-
-		# #Check if the changes could be made to the partition table
-		# CHECKSIZE=$(grep Id=83 /tmp/newpart.txt | awk '{printf "%d", $6}');
-
-		# if [ $CHECKSIZE -ne $NEWSIZE ]; then
-			# #If partition table could not be changed
-			# DIFF=$(diff /tmp/curpart.txt /tmp/newpart.txt; echo $?);
-			# if [ ${DIFF} != "0" ]; then
-				# #Restoring old partition table
-				# /sbin/sfdisk --force -q -I /tmp/part.bin /dev/mmcblk0 & >/dev/null 2>&1
-			# fi
-			# RESIZERROR=1;
-		# fi
-		# partprobe
-		# sleep 1
-	# fi
-# fi
 
 if [ -n "$CONFIG_ip" ]; then
 	case "$CONFIG_ip" in 
@@ -200,9 +158,12 @@ if [ -n "$CONFIG_ip" ]; then
 	esac 
 fi
 
+test -n "$CONFIG_rescue" && /bin/bash
+
+test "$CONFIG_rw" -eq '1' && export CONFIG_rw='rw'
 # mount root partition
 echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw$CONFIG_ro",${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
-mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw$CONFIG_ro","$CONFIG_rootfsopts" "${CONFIG_root}" /rootfs
+mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw","$CONFIG_rootfsopts" "${CONFIG_root}" /rootfs
 if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"
 	/bin/bash
@@ -216,115 +177,6 @@ if [ -f /rootfs/root/initialboot ]; then
 else
 	test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentage=15 --msgtxt="loading ..."
 fi
-
-# if [ "$CONFIG_root" = "/dev/mmcblk0p2" -a  "$RESIZEERROR" -eq "0" -a -z "$CONFIG_noresizesd" ]; then
-	# # check if the partition needs resizing
-	# FDISKBLOCKSIZE=$(/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}');
-	# FDISKBLOCKCOUNT=$(/sbin/fdisk -l /dev/mmcblk0 | grep Units | sed -ne 's/\(.*= \)\([0-9]\{1,\}\)\( bytes\)/\2/p')
-	# TUNE2FS=$(/sbin/tune2fs -l /dev/mmcblk0p2);
-	# TUNEBLOCKSIZE=$(echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}');
-	# TUNEBLOCKCOUNT=$(echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}');
-	# TUNETOTALBLOCKS=$(($(($TUNEBLOCKCOUNT*$TUNEBLOCKSIZE))/1024/1024));
-	# FDISKTOTALBLOCKS=$(($(($FDISKBLOCKSIZE*$FDISKBLOCKCOUNT))/1024/1024));
-
-	# # resize root partition
-	# if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
-		# if [ ${CONFIG_splash} -eq 1 ]; then
-			# if [ $INITIALBOOT -eq 0 ]; then
-				# /rootfs/usr/bin/splash --percentage=20 --msgtxt="resizing sd...";
-			# fi
-			# /rootfs/sbin/resize2fs ${CONFIG_root}
-		# else
-# echo '
-# 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
-# 888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
-# 888    888 888        Y88b.        888        d88P     888   88888b  888 888    888
-# 888   d88P 8888888     "Y888b.     888       d88P      888   888Y88b 888 888
-# 8888888P"  888            "Y88b.   888      d88P       888   888 Y88b888 888  88888
-# 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
-# 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
-# 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
-			# /rootfs/sbin/resize2fs
-		# fi
-	# fi
-
-	# FDISKBLOCKSIZE=$(/sbin/sfdisk -d /dev/mmcblk0 | grep Id=83 | awk '{printf "%d", $6}');
-	# FDISKBLOCKCOUNT=$(/sbin/fdisk -l /dev/mmcblk0 | grep Units | sed -ne 's/\(.*= \)\([0-9]\{1,\}\)\( bytes\)/\2/p');
-	# TUNE2FS=$(/sbin/tune2fs -l /dev/mmcblk0p2);
-	# TUNEBLOCKSIZE=$(echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}');
-	# TUNEBLOCKCOUNT=$(echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}');
-	# TUNETOTALBLOCKS=$(($(($TUNEBLOCKCOUNT*$TUNEBLOCKSIZE))/1024/1024));
-	# FDISKTOTALBLOCKS=$(($(($FDISKBLOCKSIZE*$FDISKBLOCKCOUNT))/1024/1024));
-
-	# # check if parition was actually resized
-	# if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
-		# RESIZEERROR="1"
-	# fi
-# fi
-
-# # create swapfile
-# if [ ! -f /rootfs/var/swapfile -a "$RESIZEERROR" -eq "0" -a  "$CONFIG_noswapfile" -eq "0" ]; then
-	# if [ $INITIALBOOT -eq "0"  ]; then
-		# test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentage=25 --msgtxt="creating swapfile..."
-		# dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
-	# else
-# echo '
-       # d8888 8888888b.  8888888b.     .d8888b.  888       888        d8888 8888888b.
-      # d88888 888  "Y88b 888  "Y88b   d88P  Y88b 888   o   888       d88888 888   Y88b
-     # d88P888 888    888 888    888   Y88b.      888  d8b  888      d88P888 888    888
-    # d88P 888 888    888 888    888    "Y888b.   888 d888b 888     d88P 888 888   d88P
-   # d88P  888 888    888 888    888       "Y88b. 888d88888b888    d88P  888 8888888P"
-  # d88P   888 888    888 888    888         "888 88888P Y88888   d88P   888 888
- # d8888888888 888  .d88P 888  .d88P   Y88b  d88P 8888P   Y8888  d8888888888 888
-# d88P     888 8888888P"  8888888P"     "Y8888P"  888P     Y888 d88P     888 888';
-		# dd if=/dev/zero of=/rootfs/var/swapfile bs=1024 count=128000
-	# fi
-	# mkswap /rootfs/var/swapfile >/dev/null 2>&1
-# fi
-
-#test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=40 --msgtxt="trying wifi ...";
-
-#if [ -d "/rootfs/lib/modules/$(uname -r)" ]; then
-#	# load rpi core module to initialize eth0
-#	ln -s /rootfs/lib/firmware /lib/
-#
-#	# load additional user kernel modules
-#	echo "Loading other modules ... "
-#	if [ -f /rootfs/etc/modules.wifiinit ]; then
-#		while read MODULE; do
-#			if [ ! -z $(echo $MODULE | sed -e '/^#/d') ]; then
-#				modprobe  $MODULE
-#			fi
-#		done < /rootfs/etc/modules.wifiinit
-#	fi
-#
-#	if [ ! -z "${CONFIG_network_wlan0_module}" ]; then
-#		modprobe ${CONFIG_network_wlan0_module}
-#	fi
-#	sleep 1;
-#
-#	if [ "${CONFIG_network_wlan0_mode}" == "dhcp" ] && [ ! -z ${CONFIG_network_wlan0_ssid} ] && [ ! -z ${CONFIG_network_wlan0_protection} ]; then
-#		# remove wlan0 entry in network configuration
-#                awk '/wlan0/ {flag=1} /eth0/{flag=0} !flag{print}' /rootfs/etc/network/interfaces > /rootfs/etc/network/interfaces.new
-#		mv /rootfs/etc/network/interfaces.new /rootfs/etc/network/interfaces
-#
-#		# connect wlan0 to dhcp server
-#		if [ "${CONFIG_network_wlan0_protection}" == "WPA" ] || [ "${CONFIG_network_wlan0_protection}" == "WPA2" ]; then
-#	                echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwpa-ssid \"${CONFIG_network_wlan0_ssid}\"\nwpa-psk \"${CONFIG_network_wlan0_password}\"\n" >> /rootfs/etc/network/interfaces
-#			if [ ! -d /rootfs/root/wpa_supplicant ]; then
-#				mkdir /rootfs/root/wpa_supplicant;
-#			fi
-#			echo -e "ctrl_interface=/rootfs/root/wpa_supplicant\nupdate_config=1\nnetwork={\nssid=\"${CONFIG_network_wlan0_ssid}\"\npsk=\"${CONFIG_network_wlan0_password}\"\nkey_mgmt=WPA-PSK\nproto=RSN WPA\npairwise=CCMP TKIP\ngroup=CCMP TKIP\n}" > /etc/wpa_supplicant/wpa_supplicant.conf
-#			echo -e "ctrl_interface=/root/wpa_supplicant\nupdate_config=1\nnetwork={\nssid=\"${CONFIG_network_wlan0_ssid}\"\npsk=\"${CONFIG_network_wlan0_password}\"\nkey_mgmt=WPA-PSK\nproto=RSN WPA\npairwise=CCMP TKIP\ngroup=CCMP TKIP\n}" > /rootfs/etc/wpa_supplicant/wpa_supplicant.conf
-#		elif [ "${CONFIG_network_wlan0_protection}" == "WEP" ]; then
-#	                echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwireless-ssid ${CONFIG_network_wlan0_ssid}\nwireless-key ${CONFIG_network_wlan0_password}\n" >> /rootfs/etc/network/interfaces
-#		elif [ "${CONFIG_network_wlan0_protection}" == "open" ]; then
-#                	echo -e "allow-hotplug wlan0\niface wlan0 inet dhcp\nwireless-ssid ${CONFIG_network_wlan0_protection}\nwireless-mode managed\n" >> /rootfs/etc/network/interfaces
-#		fi
-#	fi
-#
-#
-#fi
 
 test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=60 --msgtxt="loading..."
 

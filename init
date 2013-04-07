@@ -3,7 +3,7 @@
 mkdir -p /var/lock
 mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
 mount -t proc -o nodev,noexec,nosuid proc /proc
-ln -s /proc/mounts /etc/mtab 
+ln -s ./proc/mounts ./etc/mtab 
 
 tmpfs_size="10M"
 if [ -e /etc/udev/udev.conf ]; then
@@ -196,7 +196,6 @@ ln -s /rootfs/dev /dev
 
 mount -n -o move /sys /rootfs/sys
 mount -n -o move /proc /rootfs/proc
-rm -fr /rootfs/etc/mtab
 
 if [ ${CONFIG_init} = 'switch_root' ]; then
 	exec switch_root /rootfs /sbin/init 

@@ -44,7 +44,7 @@ cp -d --remove-destination -a --parents /lib/*/{librt*,libpthread*,ld-*,libc-*,l
 cp -d --remove-destination -a --parents /lib/*/{libm-*,libm.so*,libpam.so*,libpam_misc*,libkmod*} ./
 cp -d --remove-destination -a --parents /lib/*/{libblkid*,libuuid*,libe2p*,libext2fs*,libcom_err*,libpthread*,libselinux*} ./
 cp -d --remove-destination -a --parents /lib/*/{libdbus-1*,libnl-genl-3*,libnl-3*,libz.so*,librt.so*,libiw.so*,libtinfo.so*} ./
-cp -d --remove-destination -a --parents /lib/*/{libparted.so*,libdevmapper*} ./
+cp -d --remove-destination -a --parents /lib/*/{libparted.so*,libdevmapper*,libreadline*,libudev*} ./
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
 cp -d --remove-destination -a --parents /usr/lib/arm-linux-gnueabihf/libcrypto.so* ./ 

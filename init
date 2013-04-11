@@ -3,7 +3,7 @@
 mkdir -p /var/lock
 mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
 mount -t proc -o nodev,noexec,nosuid proc /proc
-ln -s ./proc/mounts ./etc/mtab 
+ln -s "../proc/mounts" /etc/mtab
 
 tmpfs_size="10M"
 if [ -e /etc/udev/udev.conf ]; then
@@ -31,7 +31,7 @@ export CONFIG_noswapfile="0"
 export CONFIG_init='switch_root'
 export CONFIG_rootwait='0'
 export CONFIG_rw='ro'
-export CONFIG_noresizesd='1'
+export CONFIG_noresizesd='0'
 
 export CMDLINE="$(cat /proc/cmdline)"
 for OPTION in ${CMDLINE}
@@ -46,7 +46,7 @@ done
 
 test -n "$CONFIG_debug" && unset CONFIG_splash
 test -n "$CONFIG_rescue" && unset CONFIG_splash
-test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="cool"
+test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process..."
 
 if [ -n "$CONFIG_debug" ]; then
 	exec >/run/initramfs/initramfs.debug 2>&1
@@ -81,7 +81,7 @@ if [ "${keyboard}" != '' ]; then
 	/usr/bin/key lshift ${keyboard}
 	if [ "$?" -eq '0' ]; then 
 		echo "Dropping to initramfs on request..."
- 		/bin/bash
+		/bin/bash
 	fi
 fi
 
@@ -115,7 +115,6 @@ echo "Loading initram modules ... "
 cat /etc/modules | grep -v ^# | /usr/bin/xargs -L1 modprobe
 udevadm settle || true
 
-
 if [ -z "$CONFIG_splash" ]; then 
 	touch /run/nosplash
 fi
@@ -133,13 +132,35 @@ if [ ! -b "${CONFIG_root}" -a "${CONFIG_rootfstype}" != "nfs" ]; then
 	/bin/bash
 fi
 
-if [ -e "/sbin/sfdisk" -a -e "/sbin/fdisk" -a -e "/sbin/tune2fs" ]; then
+if [ -e "/sbin/sfdisk" -a -e "/sbin/fdisk" -a -e "/sbin/tune2fs" -a -e "/sbin/resize2fs" ]; then
 	RESIZEERROR="0"
 else
 	RESIZEERROR="1"
 fi
 
+if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfstype}" != "nfs" ]; then
+	test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
+	export DEV="${CONFIG_root%[0-9]}"
+	export PART="2"
+
+	pSIZE=`sfdisk -s ${DEV}[0-9] | awk -F'\n' '{ sum += $1 } END {print sum}'`
+
+	echo ",+,,," | sfdisk -uM -N${PART} --force --no-reread -q ${DEV}
+
+	/sbin/partprobe || true
+	nSIZE=`sfdisk -s ${DEV}[0-9] | awk -F'\n' '{ sum += $1 } END {print sum}'`
+
+	if [ $nSIZE -gt $pSIZE ]; then
+		/sbin/resize2fs "$DEV$PART"
+		mkdir /boot
+		mount -t vfat "${DEV}1" /boot
+		echo "$CMDLINE noresizesd=1" > /boot/cmdline.txt
+		umount /boot
+	fi
+fi
+
 if [ -n "$CONFIG_ip" ]; then
+	test -n "$CONFIG_splash" && /usr/bin/splash --percentagebar --percentage=10 --msgtxt="configuring network ..."
 	case "$CONFIG_ip" in 
 		dhcp|auto|on)
 			for f in $(basename /sys/class/net/*) ; do
@@ -169,16 +190,7 @@ if [ "$?" -ne '0' ]; then
 	/bin/bash
 fi
 
-# check if we are in the initialboot
-if [ -f /rootfs/root/initialboot ]; then
-	INITIALBOOT="1"
-	rm /rootfs/root/initialboot
-	test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentage=15 --msgtxt="initial setup..."
-else
-	test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentage=15 --msgtxt="loading ..."
-fi
-
-test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=60 --msgtxt="loading..."
+test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=10 --msgtxt="loading..."
 
 echo "Moving root"
 

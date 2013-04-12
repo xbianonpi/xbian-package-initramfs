@@ -62,6 +62,7 @@ cp -d --remove-destination /sbin/tune2fs sbin/
 cp -d --remove-destination /sbin/e2fsck sbin/
 cp -d --remove-destination /sbin/resize2fs sbin/
 cp -d --remove-destination /sbin/btrfs sbin/
+cp -d --remove-destination /sbin/btrfs-debug-tree sbin/
 cp -d --remove-destination /sbin/ethtool sbin/
 cp -d --remove-destination /sbin/iwconfig sbin/
 cp -d --remove-destination /sbin/wpa_supplicant sbin/

@@ -77,7 +77,7 @@ echo "Checking for keyboard..."
 keyboard=$(/bin/ls /dev/input | grep -m1 event)
 if [ "${keyboard}" != '' ]; then
 	echo "? boot recovery hold left shift ?"
-	sleep 2
+#	sleep 2
 	/usr/bin/key lshift ${keyboard}
 	if [ "$?" -eq '0' ]; then 
 		echo "Dropping to initramfs on request..."
@@ -137,55 +137,57 @@ if [ -e "/sbin/sfdisk" -a -e "/sbin/fdisk" -a -e "/sbin/tune2fs" -a -e "/sbin/re
 else
 	RESIZEERROR="1"
 fi
+RESIZEDO='0'
 
 export DEV="${CONFIG_root%[0-9]}"
-export PART="2"
+if [ ! -e ${DEV} ]; then
+	export DEV=${DEV%p}
+	export PARTdelim='p'
+else
+	export PARTdelim=''
+fi
+export PART=${CONFIG_root#${CONFIG_root%?}}
 
 if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfstype}" != "nfs" ]; then
 	
 	#Save partition table to file
-	/sbin/sfdisk -d ${DEV} > /tmp/part.txt
+	/sbin/sfdisk -u S -d ${DEV} > /tmp/part.txt
 	#Read partition sizes
-	TOTALBLOCKS=`/sbin/fdisk -l ${DEV} | grep total | awk '{printf "%s", $8}'`;
-	PARTSTART=`grep Id=83 /tmp/part.txt | awk '{printf "%d", $4}'`;
-	PARTSIZE=`grep Id=83 /tmp/part.txt | awk '{printf "%d", $6}'`;
-	NEWSIZE=$((${TOTALBLOCKS}-${PARTSTART}));
+	sectorTOTAL=`/sbin/fdisk -u sectors -l ${DEV} | grep total | awk '{printf "%s", $8}'`
+	sectorSTART=`grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $4}'`
+	sectorSIZE=`grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $6}'`
+	sectorNEW=$(( $sectorTOTAL - $sectorSTART ))
 	rm /tmp/part.txt &>/dev/null
 
-	if [ $PARTSIZE -lt $NEWSIZE ]; then
+	if [ $sectorSIZE -lt $sectorNEW ]; then
 		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
 
-		pSIZE=`sfdisk -s ${DEV}[0-9] | awk -F'\n' '{ sum += $1 } END {print sum}'`
-
-		echo ",+,,," | sfdisk -uM -N${PART} --force --no-reread -q ${DEV}
-
+		pSIZE=`sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}'`
+		echo ",${sectorNEW},,," | sfdisk -uS -N${PART} --force --no-reread -q ${DEV}
 		/sbin/partprobe || true
-		nSIZE=`sfdisk -s ${DEV}[0-9] | awk -F'\n' '{ sum += $1 } END {print sum}'`
+		nSIZE=`sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}'`
 
-		if [ $nSIZE -gt $pSIZE ]; then
-			RESIZERROR="1";
+		if [ ! $nSIZE -gt $pSIZE ]; then
+			RESIZERROR="1"
+		else
+			RESIZEDO="1"
 		fi
 	fi
 fi
 
-if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfstype}" != "nfs" ]; then
+if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype"="ext4" ]; then
 
 	# check if the partition needs resizing
-	FDISKBLOCKSIZE=`/sbin/sfdisk -d ${DEV} | grep Id=83 | awk '{printf "%d", $6}'`;
-	FDISKBLOCKCOUNT=`/sbin/fdisk -l ${DEV} | grep Units | sed -ne 's/\(.*= \)\([0-9]\{1,\}\)\( bytes\)/\2/p'`
 	TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root}`;
 	TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`;
 	TUNEBLOCKCOUNT=`echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}'`;
-	TUNETOTALBLOCKS=$(($(($TUNEBLOCKCOUNT*$TUNEBLOCKSIZE))/1024/1024));
-	FDISKTOTALBLOCKS=$(($(($FDISKBLOCKSIZE*$FDISKBLOCKCOUNT))/1024/1024));
-
+	BLOCKNEW=$(($sectorNEW / ($TUNEBLOCKSIZE / 512) ))
+	
 	# resize root partition
-	if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
-		if [ ${CONFIG_splash} -eq 1 ]; then
-			test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
-			/sbin/resize2fs ${CONFIG_root}
-		else
-echo '
+	if [ "$TUNEBLOCKCOUNT" -lt "$BLOCKNEW" ]; then
+		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
+		test -n "$CONFIG_splash" \
+|| echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
 888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
 888    888 888        Y88b.        888        d88P     888   88888b  888 888    888
@@ -194,21 +196,15 @@ echo '
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
-			/sbin/resize2fs ${CONFIG_root}
+		/sbin/resize2fs ${CONFIG_root}
+		TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root}`;
+		TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`;
+		TUNEBLOCKCOUNT=`echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}'`;
+
+		# check if parition was actually resized
+		if [ ${TUNEBLOCKCOUNT} -lt ${BLOCKNEW} ]; then
+			RESIZEERROR="1"
 		fi
-	fi
-
-	FDISKBLOCKSIZE=`/sbin/sfdisk -d ${DEV} | grep Id=83 | awk '{printf "%d", $6}'`;
-	FDISKBLOCKCOUNT=`/sbin/fdisk -l ${DEV} | grep Units | sed -ne 's/\(.*= \)\([0-9]\{1,\}\)\( bytes\)/\2/p'`
-	TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root}`;
-	TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`;
-	TUNEBLOCKCOUNT=`echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}'`;
-	TUNETOTALBLOCKS=$(($(($TUNEBLOCKCOUNT*$TUNEBLOCKSIZE))/1024/1024));
-	FDISKTOTALBLOCKS=$(($(($FDISKBLOCKSIZE*$FDISKBLOCKCOUNT))/1024/1024));
-
-	# check if parition was actually resized
-	if [ ${TUNETOTALBLOCKS} -lt ${FDISKTOTALBLOCKS} ]; then
-		RESIZEERROR="1"
 	fi
 fi
 
@@ -242,6 +238,19 @@ mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw","$CONFIG_rootfsopts" "${CONFIG_roo
 if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"
 	/bin/bash
+fi
+
+if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "btrfs" -a "$RESIZEDO" -eq '1' ]; then
+echo '
+8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
+888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
+888    888 888        Y88b.        888        d88P     888   88888b  888 888    888
+888   d88P 8888888     "Y888b.     888       d88P      888   888Y88b 888 888
+8888888P"  888            "Y88b.   888      d88P       888   888 Y88b888 888  88888
+888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
+888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
+888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88'
+	/sbin/btrfs fi resize max /
 fi
 
 test -n "${CONFIG_splash}" && /rootfs/usr/bin/splash --percentagebar --percentage=10 --msgtxt="loading..."

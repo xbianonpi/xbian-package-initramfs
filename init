@@ -95,22 +95,22 @@ case ${CONFIG_root} in
 esac
 
 case ${CONFIG_rootfstype} in
-	btrfs)
-		## udev rule will deal with this
-		;;
 	/dev/nfs|nfs)
 		export CONFIG_root="${CONFIG_nfsroot%%,*}"
 		export CONFIG_rootfstype='nfs'
 		export CONFIG_rootfsopts="${CONFIG_nfsroot#*,}"
 		export CONFIG_noresizesd='1'
-		if [ ${CONFIG_rootfsopts} = ${CONFIG_root} ]; then
-			export CONFIG_rootfsopts=""
-		fi
 		chmod 777 /rootfs
 		;;
 	*)
+		export CONFIG_rootfsopts="${CONFIG_root#*,}"
+		export CONFIG_root="${CONFIG_root%%,*}"
 		;;
 esac
+
+if [ ${CONFIG_rootfsopts} = ${CONFIG_root} ]; then
+	export CONFIG_rootfsopts=""
+fi
 
 echo "Loading initram modules ... "
 cat /etc/modules | grep -v ^# | /usr/bin/xargs -L1 modprobe

@@ -148,7 +148,8 @@ else
 fi
 export PART=${CONFIG_root#${CONFIG_root%?}}
 
-if [ "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfstype}" = "btrfs" ]; then
+# Check for the existance of tune2fs through the RESIZEERROR variable
+if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfstype}" = "btrfs" ]; then
 	TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root} &>/dev/null; echo $?`;
 
 	if [ ${TUNE2FS} -eq 0 ]; then

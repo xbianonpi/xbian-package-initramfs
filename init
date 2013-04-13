@@ -192,7 +192,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
                 sed -i "s/ oldmem256=${CONFIG_oldmem256}//g" /boot/cmdline.txt
         fi
 
-        TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root} >/dev/null 2>/dev/null 1>/dev/null;
+        TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root} >/dev/null 2>/dev/null 1>/dev/null;`
         if [ ${TUNE2FS} -eq '0' ]; then
                 CONFIG_rootfstype="ext4";
                 if [ ${CONFIG_oldmem256} -gt '0' ]; then

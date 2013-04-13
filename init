@@ -149,12 +149,12 @@ else
 fi
 export PART=${CONFIG_root#${CONFIG_root%?}}
 
-EXT4CHECK=`/sbin/tune2fs -l ${CONFIG_root} >/dev/null 1>/dev/null 2>/dev/null; echo $?`;
+FSCHECK=`blkid | grep ${CONFIG_root} | sed -ne 's/.*TYPE="\([a-z]\{1,\}\)"/\1/p'`;
 
 # Check for the existance of tune2fs through the RESIZEERROR variable
 if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfstype}" = "btrfs" ]; then
 
-	if [ ${EXT4CHECK} = '0' ]; then
+	if [ "${FSCHECK}" = 'ext4' ]; then
 		# Make sure we have enough memory available for live conversion
 		FREEMEM=`free -m | grep "Mem:" | awk '{printf "%d", $4}'`
 		if [ ${FREEMEM} -lt '128' -a ${CONFIG_oldmem256} -eq '0' ]; then
@@ -192,8 +192,8 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 			sed -i "s/ oldmem256=${CONFIG_oldmem256}//g" /boot/cmdline.txt
 	fi
 
-	EXT4CHECK=`/sbin/tune2fs -l ${CONFIG_root} >/dev/null 1>/dev/null 2>/dev/null; echo $?`;
-	if [ ${EXT4CHECK} = '0' ]; then
+	FSCHECK=`blkid | grep ${CONFIG_root} | sed -ne 's/.*TYPE="\([a-z]\{1,\}\)"/\1/p'`;
+	if [ "${FSCHECK}" = 'ext4' ]; then
 			CONFIG_rootfstype="ext4";
 			if [ ${CONFIG_oldmem256} -gt '0' ]; then
 					sed -i "s/rootfstype=btrfs/rootfstype=ext4/g" /boot/cmdline.txt
@@ -242,7 +242,7 @@ fi
 
 if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype"="ext4" ]; then
 
-	if [ ${EXT4CHECK} = '0' ]; then
+	if [ ${FSCHECK} = 'ext4' ]; then
 		# check if the partition needs resizing
 		TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root}`;
 		TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`;

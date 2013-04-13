@@ -165,6 +165,11 @@ d88P  Y88b d88P" "Y88b 8888b   888 888     888 888        888   Y88b    888
 Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
  "Y8888P"   "Y88888P"  888    Y888     Y8P     8888888888 888   T88b    888';
 		btrfs-convert ${CONFIG_root}
+		
+		TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root} >/dev/null; echo $?`;
+		if [ ${TUNE2FS} -eq '0' ]; then
+			CONFIG_rootfstype='ext4'
+		fi
 	fi
 fi
 

@@ -32,6 +32,7 @@ export CONFIG_init='switch_root'
 export CONFIG_rootwait='0'
 export CONFIG_rw='ro'
 export CONFIG_noresizesd='0'
+export CONFIG_noconvertsd='0'
 
 export CMDLINE="$(cat /proc/cmdline)"
 for OPTION in ${CMDLINE}
@@ -147,6 +148,24 @@ else
 fi
 export PART=${CONFIG_root#${CONFIG_root%?}}
 
+if [ "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfstype}" = "btrfs" ]; then
+	TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root} &>/dev/null; echo $?`;
+
+	if [ ${TUNE2FS} -eq 0 ]; then
+		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card convert..."
+		test -n "$CONFIG_splash" \
+|| echo '
+ .d8888b.   .d88888b.  888b    888 888     888 8888888888 8888888b. 88888888888
+d88P  Y88b d88P" "Y88b 8888b   888 888     888 888        888   Y88b    888
+888    888 888     888 88888b  888 888     888 888        888    888    888
+888        888     888 888Y88b 888 Y88b   d88P 8888888    888   d88P    888
+888        888     888 888 Y88b888  Y88b d88P  888        8888888P"     888
+888    888 888     888 888  Y88888   Y88o88P   888        888 T88b      888
+Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
+ "Y8888P"   "Y88888P"  888    Y888     Y8P     8888888888 888   T88b    888';
+		btrfs-convert ${CONFIG_root}
+fi
+
 if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfstype}" != "nfs" ]; then
 	
 	#Save partition table to file
@@ -160,6 +179,16 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 
 	if [ $sectorSIZE -lt $sectorNEW ]; then
 		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
+		test -n "$CONFIG_splash" \
+|| echo '
+8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
+888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
+888    888 888        Y88b.        888        d88P     888   88888b  888 888    888
+888   d88P 8888888     "Y888b.     888       d88P      888   888Y88b 888 888
+8888888P"  888            "Y88b.   888      d88P       888   888 Y88b888 888  88888
+888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
+888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
+888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88'
 
 		pSIZE=`sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}'`
 		echo ",${sectorNEW},,," | sfdisk -uS -N${PART} --force --no-reread -q ${DEV}

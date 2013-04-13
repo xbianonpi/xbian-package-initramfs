@@ -35,7 +35,6 @@ export CONFIG_noresizesd='0'
 export CONFIG_noconvertsd='0'
 export CONFIG_oldmem256='0'
 
-
 export CMDLINE="$(cat /proc/cmdline)"
 for OPTION in ${CMDLINE}
 do
@@ -97,22 +96,22 @@ case ${CONFIG_root} in
 esac
 
 case ${CONFIG_rootfstype} in
+	btrfs)
+		## udev rule will deal with this
+		;;
 	/dev/nfs|nfs)
 		export CONFIG_root="${CONFIG_nfsroot%%,*}"
 		export CONFIG_rootfstype='nfs'
 		export CONFIG_rootfsopts="${CONFIG_nfsroot#*,}"
 		export CONFIG_noresizesd='1'
+		if [ ${CONFIG_rootfsopts} = ${CONFIG_root} ]; then
+			export CONFIG_rootfsopts=""
+		fi
 		chmod 777 /rootfs
 		;;
 	*)
-		export CONFIG_rootfsopts="${CONFIG_root#*,}"
-		export CONFIG_root="${CONFIG_root%%,*}"
 		;;
 esac
-
-if [ ${CONFIG_rootfsopts} = ${CONFIG_root} ]; then
-	export CONFIG_rootfsopts=""
-fi
 
 echo "Loading initram modules ... "
 cat /etc/modules | grep -v ^# | /usr/bin/xargs -L1 modprobe
@@ -150,27 +149,27 @@ else
 fi
 export PART=${CONFIG_root#${CONFIG_root%?}}
 
+EXT4CHECK=`/sbin/tune2fs -l ${CONFIG_root} >/dev/null 1>/dev/null 2>/dev/null; echo $?`;
+
 # Check for the existance of tune2fs through the RESIZEERROR variable
 if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfstype}" = "btrfs" ]; then
 
-        TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root} >/dev/null 2>/dev/null 1>/dev/null; echo $?`;
-
-        if [ ${TUNE2FS} -eq '0' ]; then
-
+	if [ ${EXT4CHECK} = '0' ]; then
 		# Make sure we have enough memory available for live conversion
-                FREEMEM=`free -m | grep "Mem:" | awk '{printf "%d", $4}'`
-                if [ ${FREEMEM} -lt '128' -a ${CONFIG_oldmem256} -eq '0' ]; then
-                        mkdir /boot
-                        mount /dev/mmcblk0p1 /boot
-			# Save the old memory value to the cmdline.txt to restore it later on
-                        oldMEM=`sed -ne 's/gpu_mem_256=\([0-9]\{1,3\}\)/\1/p' /boot/config.txt`
-                        sed -i "s/gpu_mem_256=${oldMEM}/gpu_mem_256=32/g" /boot/config.txt
-                        sed -i "s/\$/ oldmem256=${oldMEM}/" /boot/cmdline.txt
-                        umount /boot
-                        reboot -f
-                fi
-               test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card convert..."
-               test -n "$CONFIG_splash" \
+		FREEMEM=`free -m | grep "Mem:" | awk '{printf "%d", $4}'`
+		if [ ${FREEMEM} -lt '128' -a ${CONFIG_oldmem256} -eq '0' ]; then
+				mkdir /boot
+				mount /dev/mmcblk0p1 /boot
+				# Save the old memory value to the cmdline.txt to restore it later on
+				oldMEM=`sed -ne 's/gpu_mem_256=\([0-9]\{1,3\}\)/\1/p' /boot/config.txt`
+				sed -i "s/gpu_mem_256=${oldMEM}/gpu_mem_256=32/g" /boot/config.txt
+				sed -i "s/\$/ oldmem256=${oldMEM}/" /boot/cmdline.txt
+				umount /boot
+				reboot -f
+		fi	
+	
+		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card convert..."
+		test -n "$CONFIG_splash" \
 || echo '
  .d8888b.   .d88888b.  888b    888 888     888 8888888888 8888888b. 88888888888
 d88P  Y88b d88P" "Y88b 8888b   888 888     888 888        888   Y88b    888
@@ -180,30 +179,30 @@ d88P  Y88b d88P" "Y88b 8888b   888 888     888 888        888   Y88b    888
 888    888 888     888 888  Y88888   Y88o88P   888        888 T88b      888
 Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
  "Y8888P"   "Y88888P"  888    Y888     Y8P     8888888888 888   T88b    888';
-               btrfs-convert ${CONFIG_root}
-        fi
+		btrfs-convert ${CONFIG_root}
+	fi
+	
 
-        # Restore the memory value to it's old value
-        if [ ${CONFIG_oldmem256} -gt '0' ]; then
-                mkdir /boot
-                mount /dev/mmcblk0p1 /boot
-                newMEM=`sed -ne 's/gpu_mem_256=\([0-9]\{1,3\}\)/\1/p' /boot/config.txt`
-                sed -i "s/gpu_mem_256=${newMEM}/gpu_mem_256=${CONFIG_oldmem256}/g" /boot/config.txt
-                sed -i "s/ oldmem256=${CONFIG_oldmem256}//g" /boot/cmdline.txt
-        fi
+	# Restore the memory value to it's old value
+	if [ ${CONFIG_oldmem256} -gt '0' ]; then
+			mkdir /boot
+			mount /dev/mmcblk0p1 /boot
+			newMEM=`sed -ne 's/gpu_mem_256=\([0-9]\{1,3\}\)/\1/p' /boot/config.txt`
+			sed -i "s/gpu_mem_256=${newMEM}/gpu_mem_256=${CONFIG_oldmem256}/g" /boot/config.txt
+			sed -i "s/ oldmem256=${CONFIG_oldmem256}//g" /boot/cmdline.txt
+	fi
 
-        TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root} >/dev/null 2>/dev/null 1>/dev/null;`
-        if [ ${TUNE2FS} -eq '0' ]; then
-                CONFIG_rootfstype="ext4";
-                if [ ${CONFIG_oldmem256} -gt '0' ]; then
-                        sed -i "s/rootfstype=btrfs/rootfstype=ext4/g" /boot/cmdline.txt
-                fi
-        fi
-        if [ ${CONFIG_oldmem256} -gt '0' ]; then
-                umount /boot
-                reboot -f
-        fi
-
+	EXT4CHECK=`/sbin/tune2fs -l ${CONFIG_root} >/dev/null 1>/dev/null 2>/dev/null; echo $?`;
+	if [ ${EXT4CHECK} = '0' ]; then
+			CONFIG_rootfstype="ext4";
+			if [ ${CONFIG_oldmem256} -gt '0' ]; then
+					sed -i "s/rootfstype=btrfs/rootfstype=ext4/g" /boot/cmdline.txt
+			fi
+	fi
+	if [ ${CONFIG_oldmem256} -gt '0' ]; then
+			umount /boot
+			reboot -f
+	fi	
 fi
 
 if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfstype}" != "nfs" ]; then
@@ -241,15 +240,15 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 	fi
 fi
 
-if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "ext4" ]; then
+if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype"="ext4" ]; then
 
-	# check if the partition needs resizing
-	TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root} || echo 0`;
-	if [ ${TUNE2FS} != '0' ]; then
+	if [ ${EXT4CHECK} = '0' ]; then
+		# check if the partition needs resizing
+		TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root}`;
 		TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`;
 		TUNEBLOCKCOUNT=`echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}'`;
 		BLOCKNEW=$(($sectorNEW / ($TUNEBLOCKSIZE / 512) ))
-		
+
 		# resize root partition
 		if [ "$TUNEBLOCKCOUNT" -lt "$BLOCKNEW" ]; then
 			test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
@@ -267,7 +266,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfsty
 			TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root}`;
 			TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`;
 			TUNEBLOCKCOUNT=`echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}'`;
-	
+
 			# check if parition was actually resized
 			if [ ${TUNEBLOCKCOUNT} -lt ${BLOCKNEW} ]; then
 				RESIZEERROR="1"
@@ -301,7 +300,7 @@ test -n "$CONFIG_rescue" && /bin/bash
 
 test "$CONFIG_rw" = '1' && export CONFIG_rw='rw'
 # mount root partition
-echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw",${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
+echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw$CONFIG_ro",${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
 mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw","$CONFIG_rootfsopts" "${CONFIG_root}" /rootfs
 if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"

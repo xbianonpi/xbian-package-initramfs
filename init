@@ -33,6 +33,8 @@ export CONFIG_rootwait='0'
 export CONFIG_rw='ro'
 export CONFIG_noresizesd='0'
 export CONFIG_noconvertsd='0'
+export CONFIG_oldmem256='0'
+
 
 export CMDLINE="$(cat /proc/cmdline)"
 for OPTION in ${CMDLINE}

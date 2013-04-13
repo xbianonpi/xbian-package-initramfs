@@ -169,30 +169,41 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfs
                         umount /boot
                         reboot
                 fi
-#               test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card convert..."
-#               test -n "$CONFIG_splash" \
-#|| echo '
-# .d8888b.   .d88888b.  888b    888 888     888 8888888888 8888888b. 88888888888
-#d88P  Y88b d88P" "Y88b 8888b   888 888     888 888        888   Y88b    888
-#888    888 888     888 88888b  888 888     888 888        888    888    888
-#888        888     888 888Y88b 888 Y88b   d88P 8888888    888   d88P    888
-#888        888     888 888 Y88b888  Y88b d88P  888        8888888P"     888
-#888    888 888     888 888  Y88888   Y88o88P   888        888 T88b      888
-#Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
-# "Y8888P"   "Y88888P"  888    Y888     Y8P     8888888888 888   T88b    888';
-#               btrfs-convert ${CONFIG_root}
-#       else
-		# Restore the memory value to it's old value
+               test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card convert..."
+               test -n "$CONFIG_splash" \
+|| echo '
+ .d8888b.   .d88888b.  888b    888 888     888 8888888888 8888888b. 88888888888
+d88P  Y88b d88P" "Y88b 8888b   888 888     888 888        888   Y88b    888
+888    888 888     888 88888b  888 888     888 888        888    888    888
+888        888     888 888Y88b 888 Y88b   d88P 8888888    888   d88P    888
+888        888     888 888 Y88b888  Y88b d88P  888        8888888P"     888
+888    888 888     888 888  Y88888   Y88o88P   888        888 T88b      888
+Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
+ "Y8888P"   "Y88888P"  888    Y888     Y8P     8888888888 888   T88b    888';
+               btrfs-convert ${CONFIG_root}
+        fi
+
+        # Restore the memory value to it's old value
+        if [ ${CONFIG_oldmem256} -gt '0' ]; then
+                mkdir /boot
+                mount /dev/mmcblk0p1 /boot
+                newMEM=`sed -ne 's/gpu_mem_256=\([0-9]\{1,3\}\)/\1/p' /boot/config.txt`
+                sed -i "s/gpu_mem_256=${newMEM}/gpu_mem_256=${CONFIG_oldmem256}/g" /boot/config.txt
+                sed -i "s/ oldmem256=${CONFIG_oldmem256}//g" /boot/cmdline.txt
+        fi
+
+        TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root} >/dev/null 2>/dev/null 1>/dev/null;
+        if [ ${TUNE2FS} -eq '0' ]; then
+                CONFIG_rootfstype="ext4";
                 if [ ${CONFIG_oldmem256} -gt '0' ]; then
-                        mkdir /boot
-                        mount /dev/mmcblk0p1 /boot
-                        newMEM=`sed -ne 's/gpu_mem_256=\([0-9]\{1,3\}\)/\1/p' /boot/config.txt`
-                        sed -i "s/gpu_mem_256=${newMEM}/gpu_mem_256=${CONFIG_oldmem256}/g" /boot/config.txt
-                        sed -i "s/ oldmem256=${CONFIG_oldmem256}//g" /boot/cmdline.txt
-                        umount /boot
-			reboot
+                        sed -i "s/rootfstype=btrfs/rootfstype=ext4/g" /boot/cmdline.txt
                 fi
         fi
+        if [ ${CONFIG_oldmem256} -gt '0' ]; then
+                umount /boot
+                reboot
+        fi
+
 fi
 
 if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfstype}" != "nfs" ]; then

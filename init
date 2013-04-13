@@ -242,7 +242,7 @@ fi
 
 if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype"="ext4" ]; then
 
-	if [ ${FSCHECK} = 'ext4' ]; then
+	if [ "${FSCHECK}" = 'ext4' ]; then
 		# check if the partition needs resizing
 		TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root}`;
 		TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`;
@@ -307,7 +307,7 @@ if [ "$?" -ne '0' ]; then
 	/bin/bash
 fi
 
-if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "btrfs" ]; then
+if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "btrfs" -a "${FSCHECK}" = 'btrfs' ]; then
 
 	# check if the partition needs resizing
 	sectorDF=`df -B512 -P | grep "/rootfs" | awk '{printf "%d", $2}'`

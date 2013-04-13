@@ -261,7 +261,7 @@ test -n "$CONFIG_rescue" && /bin/bash
 
 test "$CONFIG_rw" = '1' && export CONFIG_rw='rw'
 # mount root partition
-echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw$CONFIG_ro",${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
+echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw",${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
 mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw","$CONFIG_rootfsopts" "${CONFIG_root}" /rootfs
 if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"

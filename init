@@ -167,7 +167,7 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfs
                         sed -i "s/gpu_mem_256=${oldMEM}/gpu_mem_256=32/g" /boot/config.txt
                         sed -i "s/\$/ oldmem256=${oldMEM}/" /boot/cmdline.txt
                         umount /boot
-                        reboot
+                        reboot -f
                 fi
                test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card convert..."
                test -n "$CONFIG_splash" \
@@ -201,7 +201,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
         fi
         if [ ${CONFIG_oldmem256} -gt '0' ]; then
                 umount /boot
-                reboot
+                reboot -f
         fi
 
 fi
@@ -244,15 +244,16 @@ fi
 if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "ext4" ]; then
 
 	# check if the partition needs resizing
-	TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root}`;
-	TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`;
-	TUNEBLOCKCOUNT=`echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}'`;
-	BLOCKNEW=$(($sectorNEW / ($TUNEBLOCKSIZE / 512) ))
-	
-	# resize root partition
-	if [ "$TUNEBLOCKCOUNT" -lt "$BLOCKNEW" ]; then
-		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
-		test -n "$CONFIG_splash" \
+	TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root} || echo 0`;
+	if [ ${TUNE2FS} != '0' ]; then
+		TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`;
+		TUNEBLOCKCOUNT=`echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}'`;
+		BLOCKNEW=$(($sectorNEW / ($TUNEBLOCKSIZE / 512) ))
+		
+		# resize root partition
+		if [ "$TUNEBLOCKCOUNT" -lt "$BLOCKNEW" ]; then
+			test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
+			test -n "$CONFIG_splash" \
 || echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
 888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
@@ -262,14 +263,15 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfsty
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
-		/sbin/resize2fs ${CONFIG_root}
-		TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root}`;
-		TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`;
-		TUNEBLOCKCOUNT=`echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}'`;
-
-		# check if parition was actually resized
-		if [ ${TUNEBLOCKCOUNT} -lt ${BLOCKNEW} ]; then
-			RESIZEERROR="1"
+			/sbin/resize2fs ${CONFIG_root}
+			TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root}`;
+			TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`;
+			TUNEBLOCKCOUNT=`echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}'`;
+	
+			# check if parition was actually resized
+			if [ ${TUNEBLOCKCOUNT} -lt ${BLOCKNEW} ]; then
+				RESIZEERROR="1"
+			fi
 		fi
 	fi
 fi

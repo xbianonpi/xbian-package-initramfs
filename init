@@ -227,7 +227,7 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 	fi
 fi
 
-if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype"="ext4" ]; then
+if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "ext4" ]; then
 
 	if [ "${FSCHECK}" = 'ext4' ]; then
 		# check if the partition needs resizing

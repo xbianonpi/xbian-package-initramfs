@@ -87,6 +87,7 @@ cp -d --remove-destination -arv --parents /lib/udev/rules.d/{75-probe_mtd.rules,
 cp -d --remove-destination -arv --parents /lib/udev/rules.d/70-btrfs.rules ./
 
 wget -O - https://raw.github.com/xbianonpi/xbian-initramfs/master/init > init
+wget -O - https://raw.github.com/xbianonpi/xbian-initramfs/master/cnvres-code.sh > cnvres-code.sh
 chmod a+x init
 
 cat /etc/modules | grep -i evdev || echo evdev >> ./etc/modules

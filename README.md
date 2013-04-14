@@ -18,6 +18,7 @@ cp -d --remove-destination /bin/busybox bin/
 cp -d --remove-destination /etc/udhcpc/default.script etc/udhcpc/
 cp -d --remove-destination -R /etc/network etc/
 cp -d --remove-destination -R /etc/hostname etc/
+cp -d --remove-destination -R /etc/console-setup etc/
 cp -d --remove-destination -R /etc/wpa_supplicant etc/
 cp -d --remove-destination -R /etc/udev etc/
 sed -i 's/\/etc\/resolv.conf/\/rootfs\/etc\/resolv.conf/g' etc/udhcpc/default.script
@@ -45,6 +46,8 @@ cp -d --remove-destination -a --parents /lib/*/{libm-*,libm.so*,libpam.so*,libpa
 cp -d --remove-destination -a --parents /lib/*/{libblkid*,libuuid*,libe2p*,libext2fs*,libcom_err*,libpthread*,libselinux*} ./
 cp -d --remove-destination -a --parents /lib/*/{libdbus-1*,libnl-genl-3*,libnl-3*,libz.so*,librt.so*,libiw.so*,libtinfo.so*} ./
 cp -d --remove-destination -a --parents /lib/*/{libparted.so*,libdevmapper*,libreadline*,libudev*} ./
+cp -d --remove-destination -a --parents /lib/{libconsole.*,libcfont.so*,libctutils.*} ./
+
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
 cp -d --remove-destination -a --parents /usr/lib/arm-linux-gnueabihf/libcrypto.so* ./ 
@@ -54,7 +57,11 @@ cp -d --remove-destination -a --parents /usr/lib/arm-linux-gnueabihf/libssl.so* 
 cp -d --remove-destination -a --parents /sbin/{rmmod,insmod,modprobe,udevd,udevadm} ./
 cp -d --remove-destination -a --parents /bin/kmod ./
 cp -d --remove-destination /usr/bin/xargs usr/bin
+cp -d --remove-destination /bin/setfont bin
+cp -d --remove-destination /bin/setupcon bin
+cp -d --remove-destination /usr/bin/consolechars usr/bin
 cp -d --remove-destination /sbin/fdisk sbin/
+cp -d --remove-destination /sbin/findfs sbin/
 cp -d --remove-destination /sbin/blkid sbin/
 cp -d --remove-destination /sbin/MAKEDEV sbin/
 cp -d --remove-destination /sbin/sfdisk sbin/
@@ -92,5 +99,5 @@ chmod a+x init
 
 cat /etc/modules | grep -i evdev || echo evdev >> ./etc/modules
 
-find . | cpio -H newc -o | gzip -2v > /boot/initramfs.new.gz
+find . | cpio -H newc -o | gzip -2v > /boot/initramfs.gz
 ```

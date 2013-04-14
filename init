@@ -122,6 +122,8 @@ if [ -z "$CONFIG_splash" ]; then
 	touch /run/nosplash
 fi
 
+get_root
+
 # check if new root partition exists
 X='0'
 while [ ! -b "$CONFIG_root" -a "$CONFIG_rootwait" -eq '1' -a "$CONFIG_rootfstype" != "nfs" -a  "$X" -lt '10' ]; do
@@ -140,8 +142,6 @@ if [ -e "/sbin/sfdisk" -a -e "/sbin/fdisk" -a -e "/sbin/tune2fs" -a -e "/sbin/re
 else
 	RESIZEERROR="1"
 fi
-
-get_root
 
 convert_btrfs
 

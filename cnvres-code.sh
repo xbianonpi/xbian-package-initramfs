@@ -1,6 +1,9 @@
 # part of code, which is relevant to block devices ... to keep init readable
 
 get_root() {
+export CONFIG_roottxt=`echo "CONFIG_root" | awk '$1 ~ /LABEL/ || $1 ~ /UUID/ {print $1}'`
+test -n "$CONFIG_roottxt" && CONFIG_root=`findfs $CONFIG_roottxt`
+
 export DEV="${CONFIG_root%[0-9]}"
 if [ ! -e ${DEV} ]; then
 	export DEV=${DEV%p}

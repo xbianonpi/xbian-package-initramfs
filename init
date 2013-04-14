@@ -96,22 +96,22 @@ case ${CONFIG_root} in
 esac
 
 case ${CONFIG_rootfstype} in
-	btrfs)
-		## udev rule will deal with this
-		;;
 	/dev/nfs|nfs)
 		export CONFIG_root="${CONFIG_nfsroot%%,*}"
 		export CONFIG_rootfstype='nfs'
 		export CONFIG_rootfsopts="${CONFIG_nfsroot#*,}"
 		export CONFIG_noresizesd='1'
-		if [ ${CONFIG_rootfsopts} = ${CONFIG_root} ]; then
-			export CONFIG_rootfsopts=""
-		fi
 		chmod 777 /rootfs
 		;;
 	*)
+		export CONFIG_rootfsopts="${CONFIG_root#*,}"
+		export CONFIG_root="${CONFIG_root%%,*}"
 		;;
 esac
+
+if [ ${CONFIG_rootfsopts} = ${CONFIG_root} ]; then
+	export CONFIG_rootfsopts=""
+fi
 
 echo "Loading initram modules ... "
 cat /etc/modules | grep -v ^# | /usr/bin/xargs -L1 modprobe
@@ -300,7 +300,7 @@ test -n "$CONFIG_rescue" && /bin/bash
 
 test "$CONFIG_rw" = '1' && export CONFIG_rw='rw'
 # mount root partition
-echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw$CONFIG_ro",${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
+echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw",${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
 mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw","$CONFIG_rootfsopts" "${CONFIG_root}" /rootfs
 if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"

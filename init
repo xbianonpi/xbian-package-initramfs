@@ -263,18 +263,20 @@ if [ -n "$CONFIG_ip" ]; then
 	test -n "$CONFIG_splash" && /usr/bin/splash --percentagebar --percentage=10 --msgtxt="configuring network ..."
 	case "$CONFIG_ip" in 
 		dhcp|auto|on)
-			for f in $(basename /sys/class/net/*) ; do
-				ipconfig $f
-
-				. /run/net-$(basename $f).conf
+			cd /sys/class/net
+			for f in *; do
+				test $f != "lo" && ipconfig $f
 			done
+
+			. /run/net-*.conf
+			cd /
 			;;
 		off|no)
 			;;
 		*)	
 			ipconfig "$CONFIG_ip"
 
-			. /run/run-*.conf
+			. /run/net-*.conf
 			;;
 	esac 
 fi

@@ -181,11 +181,29 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
 	fi
 	
-	if [ "${FSCHECK}" = 'ext4' ]; then
-			CONFIG_rootfstype="ext4";
-			if [ ${CONFIG_oldmem256} -gt '0' ]; then
-					sed -i "s/rootfstype=btrfs/rootfstype=ext4/g" /boot/cmdline.txt
-			fi
+	test ! -d /boot && mkdir /boot
+	mount -t vfat "${DEV}${PARTdelim}1" /boot
+	test -e /boot/config.txt.convert && mv /boot/config.txt.convert /boot/config.txt
+	test "$FSCHECK" = "ext4" && sed -i "s/rootfstype=btrfs/rootfstype=ext4/g" /boot/cmdline.txt
+	if [ "$FSCHECK" = "btrfs" ]; then
+		/sbin/btrfs fi label ${CONFIG_root} xbian-root-btrfs
+		mount -t btrfs -o compress=lzo,rw,noatime,relatime LABEL=xbian-root-btrfs /rootfs
+		/sbin/btrfs sub delete /rootfs/ext2_saved
+
+		/sbin/btrfs sub create /rootfs/HOME
+		mkdir -p /rootfs/HOME/.btrfs/snapshot
+		mv /rootfs/home/* /rootfs/HOME
+		/sbin/btrfs sub snapshot /rootfs/HOME /rootfs/HOME/.btrfs/snapshot/@running
+		/sbin/btrfs sub snapshot /rootfs/HOME/.btrfs/snapshot/@running /rootfs/HOME/.btrfs/snapshot/@safe
+		printf "\nLABEL=xbian-root-btrfs\t/home\tbtrfs\tsubvol=HOME/.btrfs/snapshot/@running\t0\t0\n" >> /rootfs/etc/fstab
+
+		mkdir -p /rootfs/.btrfs/snapshot
+		/sbin/btrfs sub snapshot /rootfs /rootfs/.btrfs/snapshot/@running
+		btrfsDEF=`btrfs sub list /rootfs | grep -v HOME | grep @running | awk '{print $2}'`
+		/sbin/btrfs sub set-default "$btrfsDEF" /rootfs
+		/sbin/btrfs sub snapshot /rootfs/.btrfs/snapshot/@running /rootfs/.btrfs/snapshot/@safe
+
+		umount /rootfs
 	fi
 	umount /boot
 	sync

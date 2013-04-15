@@ -62,7 +62,8 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		mv /rootfs/home/* /rootfs/HOME
 		/sbin/btrfs sub snapshot /rootfs/HOME /rootfs/HOME/.btrfs/snapshot/@running
 		/sbin/btrfs sub snapshot /rootfs/HOME/.btrfs/snapshot/@running /rootfs/HOME/.btrfs/snapshot/@safe
-		printf "\nLABEL=xbian-root-btrfs\t/home\tbtrfs\tsubvol=HOME/.btrfs/snapshot/@running\t0\t0\n" >> /rootfs/etc/fstab
+		mv /rootfs/etc/fstab /rootfs/etc/fstab.ext4
+		mv /rootfs/etc/fstab.btrfs /rootfs/etc/fstab
 
 		mkdir -p /rootfs/.btrfs/snapshot
 		/sbin/btrfs sub snapshot /rootfs /rootfs/.btrfs/snapshot/@running

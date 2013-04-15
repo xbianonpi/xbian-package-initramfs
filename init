@@ -204,11 +204,9 @@ mount -n -o move /sys /rootfs/sys
 mount -n -o move /proc /rootfs/proc
 
 if [ ${CONFIG_init} = 'switch_root' ]; then
-	exec switch_root /rootfs /sbin/init 
-#"$@" </rootfs/dev/console >/rootfs/dev/console
+	exec switch_root /rootfs /sbin/init "$@" </rootfs/dev/console >/rootfs/dev/console
 else
-	exec switch_root /rootfs ${CONFIG_init} 
-#"$@" </rootfs/dev/console >/rootfs/dev/console
+	exec switch_root /rootfs ${CONFIG_init} "$@" </rootfs/dev/console >/rootfs/dev/console
 fi
 
 echo "Failed to switch_root, dropping to a shell"

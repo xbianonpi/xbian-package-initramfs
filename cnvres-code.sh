@@ -138,6 +138,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfsty
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
+			e2fsck -y ${CONFIG_root}
 			TUNEBLOCKCOUNT=`/sbin/resize2fs ${CONFIG_root} | grep now | rev | awk '{print $3}' | rev`
 
 			# check if parition was actually resized

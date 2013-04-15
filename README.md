@@ -3,7 +3,7 @@ cd /opt/
 mkdir initramfs
 cd initramfs
 
-apt-get install fakeroot busybox udhcpc udev makedev parted btrfs-tools klibc-utils ethtool build-essential
+apt-get install fakeroot busybox udhcpc udev makedev parted btrfs-tools klibc-utils ethtool build-essential console-tools console-setup
 
 fakeroot
 mkdir bin dev etc lib proc rootfs run sbin sys tmp usr

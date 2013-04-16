@@ -1,5 +1,18 @@
 # part of code, which is relevant to block devices ... to keep init readable
 
+cp_splash() {
+
+copyto="$1"
+
+cp -d -a --parents /usr/bin/splash "$copyto"
+mkdir -p /run/initramfs/usr/share/fonts/splash
+mkdir -p /run/initramfs/usr/share/images/splash
+cp -d -aR --parents /usr/share/fonts/splash "$copyto"
+cp -d -aR --parents /usr/share/images/splash "$copyto"
+cp -d --parents /usr/bin/splash.images "$copyto"
+cp -d --parents /usr/bin/splash.fonts "$copyto"
+}
+
 get_root() {
 export CONFIG_roottxt=`echo "CONFIG_root" | awk '$1 ~ /LABEL/ || $1 ~ /UUID/ {print $1}'`
 test -n "$CONFIG_roottxt" && CONFIG_root=`findfs $CONFIG_roottxt`
@@ -32,7 +45,7 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfs
 				reboot -f
 		fi	
 	
-		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card convert..."
+		test -n "$CONFIG_splash" && $CONFIG_splashdst/usr/bin/splash --infinitebar --msgtxt="sd card convert..."
 		test -n "$CONFIG_splash" \
 || echo '
  .d8888b.   .d88888b.  888b    888 888     888 8888888888 8888888b. 88888888888
@@ -99,7 +112,7 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 	rm /tmp/part.txt &>/dev/null
 
 	if [ $sectorSIZE -lt $sectorNEW ]; then
-		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
+		test -n "$CONFIG_splash" && $CONFIG_splashdst/usr/bin/splash --infinitebar --msgtxt="sd card resize..."
 		test -n "$CONFIG_splash" \
 || echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
@@ -135,7 +148,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfsty
 
 		# resize root partition
 		if [ "$TUNEBLOCKCOUNT" -lt "$BLOCKNEW" ]; then
-			test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
+			test -n "$CONFIG_splash" && $CONFIG_splashdst/usr/bin/splash --infinitebar --msgtxt="sd card resize..."
 			test -n "$CONFIG_splash" \
 || echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
@@ -166,7 +179,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfsty
 	
 	# resize root partition
 	if [ "$sectorDF" -lt "$sectorNEW" ]; then
-		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
+		test -n "$CONFIG_splash" && $CONFIG_splashdst/usr/bin/splash --infinitebar --msgtxt="sd card resize..."
 		test -n "$CONFIG_splash" \
 || echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.

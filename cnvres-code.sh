@@ -76,14 +76,17 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		/sbin/btrfs sub snapshot /rootfs/HOME /rootfs/HOME/.btrfs/snapshot/@running
 		/sbin/btrfs sub snapshot /rootfs/HOME/.btrfs/snapshot/@running /rootfs/HOME/.btrfs/snapshot/@safe
 		mv /rootfs/etc/fstab /rootfs/etc/fstab.ext4
-		if [ `sed -ne "s/\(.*[\ \t]\{1,\}\(\/\)[\ \t]\{1,\}.*\)/\1/p" /rootfs/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
-			sed -i "s/\(.*[\ \t]\{1,\}\(\/\)[\ \t]\{1,\}.*\)/LABEL=xbian-root-btrfs\t\/\tbtrfs\tdefaults,rw,compress=lzo,relatime,noatime\t0\t1/" /etc/fstab
+		if [ `sed -ne "s:\(.*[\ \t]\{1,\}\(/\)[\ \t]\{1,\}.*\):\1:p" /rootfs/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
+			sed -i "s:\(.*[\ \t]\{1,\}\(/\)[\ \t]\{1,\}.*\):LABEL=xbian-root-btrfs\t\/\tbtrfs\tdefaults,rw,compress=lzo,relatime,noatime\t0\t1:" /rootfs/etc/fstab
 		else
-			echo "LABEL=xbian-root-btrfs\t\/\tbtrfs\tdefaults,rw,compress=lzo,relatime,noatime\t0\t1" >> /rootfs/etc/fstab
+			sed -i $'$aLABEL=xbian-root-btrfs\t\/\tbtrfs\tdefaults,rw,compress=lzo,relatime,noatime\t0\t1' /rootfs/etc/fstab
 		fi
 		sed -i "/\(.*[\ ]\{1,\}\(\/boot\)[\ ]\{1,\}.*\)/d" /rootfs/etc/fstab
-		echo -e "LABEL=xbian-root-btrfs\t/home\tbtrfs\tsubvol=HOME/.btrfs/snapshot/@running\t0\t0" >> /rootfs/etc/fstab
-		sed -i "1i#\n#\n#" /etc/fstab
+		sed -i "/\(\/var\/swapfile\)/d" /rootfs/etc/fstab
+		sed -i $'$aLABEL=xbian-root-btrfs\t/home\tbtrfs\tsubvol=HOME/.btrfs/snapshot/@running\t0\t0' /rootfs/etc/fstab
+		sed -i '1i#' /rootfs/etc/fstab
+		sed -i '1i#' /rootfs/etc/fstab
+		sed -i '1i#' /rootfs/etc/fstab
 
 		mkdir -p /rootfs/.btrfs/snapshot
 		/sbin/btrfs sub snapshot /rootfs /rootfs/.btrfs/snapshot/@running

@@ -1,4 +1,45 @@
 ```
+
+copy_file() {
+        cp  -vd --parents "$1" ./
+        test ! -h "$1" && return
+        g=$(basename "$1")
+        d=${1%$g}
+        fl=$(ls -la $f | awk '{print $11}')
+        rm -f ".$d/$fl"
+        cp -v --parents  "$d$fl" ./
+}
+
+copy_with_libs() {
+    
+        if [ -d "$1" ]; then
+                cp -va --parents "$1"/* ./
+        fi
+        
+        if [ -f "$1" ]; then 
+                copy_file "$1"
+                oldIFS=$IFS
+                IFS=$'\n'
+                for fff in $(ldd $1 | cat ); do
+                        echo "$fff" | grep "not a dynamic exec"
+                        rc="$?"
+                        test $rc -eq 0 && continue
+
+                        f1=$(echo "$fff" | awk '{print $1}')
+                        f2=$(echo "$fff" | awk '{print $3}')
+                        f3=$(echo "$fff" | awk '{print $4}')
+                        if [ "$f3" = "" ]; then
+                                f=$f1
+                        else
+                                f=$f2
+                        fi
+                        copy_file "$f"
+                done
+                IFS=$oldIFS
+        fi
+}
+
+
 cd /opt/
 mkdir initramfs
 cd initramfs
@@ -18,15 +59,15 @@ cp -d --remove-destination /bin/busybox bin/
 cp -d --remove-destination /etc/udhcpc/default.script etc/udhcpc/
 cp -d --remove-destination -R /etc/network etc/
 cp -d --remove-destination -R /etc/hostname etc/
-cp -d --remove-destination -R /etc/console-setup etc/
 cp -d --remove-destination -R /etc/wpa_supplicant etc/
 cp -d --remove-destination -R /etc/udev etc/
+cp -d --remove-destination -R /etc/fstab etc/
 sed -i 's/\/etc\/resolv.conf/\/rootfs\/etc\/resolv.conf/g' etc/udhcpc/default.script
 touch etc/mdev.conf
 cp -d --remove-destination /etc/modules etc/
 cp -d --remove-destination -av --parents /etc/default ./
-cp -d --remove-destination -av --parents /lib/init ./
-cp -d --remove-destination -av --parents /lib/lsb ./
+copy_with_libs /lib/init
+copy_with_libs /lib/lsb
 cp -d --remove-destination -av --parents /lib/modules/$(uname -r)/kernel/fs ./
 cp -d --remove-destination -av --parents /lib/modules/$(uname -r)/kernel/lib ./
 cp -d --remove-destination -av --parents /lib/modules/$(uname -r)/kernel/drivers/usb ./
@@ -56,10 +97,15 @@ cp -d --remove-destination -a --parents /usr/lib/arm-linux-gnueabihf/libssl.so* 
 
 cp -d --remove-destination -a --parents /sbin/{rmmod,insmod,modprobe,udevd,udevadm} ./
 cp -d --remove-destination -a --parents /bin/kmod ./
+cp -d --remove-destination /usr/bin/xargs usr/bin
 cp -d --remove-destination /bin/setupcon bin
 cp -d --remove-destination /usr/bin/consolechars usr/bin
+cp -d --remove-destination /sbin/fdisk sbin/
+cp -d --remove-destination /sbin/findfs sbin/
+cp -d --remove-destination /sbin/blkid sbin/
 cp -d --remove-destination /sbin/MAKEDEV sbin/
 cp -d --remove-destination /sbin/sfdisk sbin/
+cp -d --remove-destination /sbin/tune2fs sbin/
 cp -d --remove-destination /sbin/e2fsck sbin/
 cp -d --remove-destination /sbin/resize2fs sbin/
 cp -d --remove-destination /sbin/btrfs sbin/
@@ -70,6 +116,9 @@ cp -d --remove-destination /sbin/wpa_supplicant sbin/
 cp -d --remove-destination /sbin/partprobe sbin/
 cp -d --remove-destination /usr/lib/klibc/bin/ipconfig ./bin
 cp -d --remove-destination /bin/*sh bin/
+copy_with_libs /etc/netconfig
+copy_with_libs /sbin/rpc.statd
+copy_with_libs /sbin/rpcbind
 
 cp -d --remove-destination -a --parents /usr/bin/splash ./
 mkdir -p ./usr/share/fonts/splash

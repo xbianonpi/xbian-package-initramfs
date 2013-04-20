@@ -1,8 +1,12 @@
 #!/bin/sh
 
-export TAB=$'\t'
+. /lib/lsb/init-functions
+. /lib/init/mount-functions.sh
+. /lib/init/vars.sh
 
 . /cnvres-code.sh
+
+export TAB=$'\t'
 
 mkdir -p /var/lock
 mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
@@ -23,11 +27,9 @@ fi
 
 mkdir /dev/pts
 mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
-mount -t tmpfs -o rw,nosuid,relatime,mode=755 tmpfs /run 
+test ! -d /run && mkdir /run
+mount_run mount >/dev/null 2>&1
 mkdir -m 0755 /run/initramfs
-
-CONFIG_splashdst="/run/initramfs"
-cp_splash $CONFIG_splashdst
 
 INITIALBOOT="0"
 
@@ -40,6 +42,7 @@ export CONFIG_rootwait='0'
 export CONFIG_rw='ro'
 export CONFIG_noresizesd='0'
 export CONFIG_noconvertsd='0'
+export CONFIG_newroot="/rootfs"
 
 export CMDLINE="$(cat /proc/cmdline)"
 for OPTION in ${CMDLINE}
@@ -53,8 +56,7 @@ do
 done
 
 test -n "$CONFIG_debug" && unset CONFIG_splash
-test -n "$CONFIG_rescue" && unset CONFIG_splash
-test -n "$CONFIG_splash" && $CONFIG_splashdst/usr/bin/splash --infinitebar --msgtxt="init process..."
+test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process..." 
 
 if [ -n "$CONFIG_debug" ]; then
 	exec >/run/initramfs/initramfs.debug 2>&1
@@ -89,7 +91,7 @@ if [ "${keyboard}" != '' ]; then
 	/usr/bin/key lshift ${keyboard}
 	if [ "$?" -eq '0' ]; then 
 		echo "Dropping to initramfs on request..."
-		/bin/bash
+		drop_shell
 	fi
 fi
 
@@ -107,7 +109,7 @@ case ${CONFIG_rootfstype} in
 		export CONFIG_rootfstype='nfs'
 		export CONFIG_rootfsopts="${CONFIG_nfsroot#*,}"
 		export CONFIG_noresizesd='1'
-		chmod 777 /rootfs
+		chmod 777 $CONFIG_newroot
 		;;
 	*)
 		export CONFIG_rootfsopts="${CONFIG_root#*,}"
@@ -127,35 +129,34 @@ if [ -z "$CONFIG_splash" ]; then
 	touch /run/nosplash
 fi
 
-get_root
+test "$CONFIG_rootfstype" != "nfs" && get_root
 
 # check if new root partition exists
 X='0'
-while [ ! -b "$CONFIG_root" -a "$CONFIG_rootwait" -eq '1' -a "$CONFIG_rootfstype" != "nfs" -a  "$X" -lt '10' ]; do
+if [ "$CONFIG_rootfstype" != "nfs" ]; then
+while [ ! -b "$CONFIG_root" -a "$CONFIG_rootwait" -eq '1' -a  "$X" -lt '10' ]; do
 	X=$(($X+1))
 	echo "$X Waiting for root..."
 	sleep 1
 done
-
-if [ ! -b "${CONFIG_root}" -a "${CONFIG_rootfstype}" != "nfs" ]; then
-	echo "Root partition ${CONFIG_root} missing"
-	/bin/bash
+test ! -b "${CONFIG_root}" && echo "Root partition ${CONFIG_root} missing" && drop_shell
 fi
 
 if [ -e "/sbin/sfdisk" -a -e "/sbin/fdisk" -a -e "/sbin/tune2fs" -a -e "/sbin/resize2fs" ]; then
-	RESIZEERROR="0"
+	export RESIZEERROR="0"
 else
-	RESIZEERROR="1"
+	export RESIZEERROR="1"
 fi
 
-convert_btrfs
+test -n "$CONFIG_rescue_early" && drop_shell
 
-resize_part
+test "$CONFIG_rootfstype" != "nfs" && resize_part
+test "$CONFIG_rootfstype" != "nfs" && resize_ext4
 
-resize_ext4
+test "$CONFIG_rootfstype" != "nfs" && convert_btrfs
 
 if [ -n "$CONFIG_ip" ]; then
-	test -n "$CONFIG_splash" && $CONFIG_splashdst/usr/bin/splash --percentagebar --percentage=10 --msgtxt="configuring network ..."
+	test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="configuring network ..."
 	case "$CONFIG_ip" in 
 		dhcp|auto|on)
 			cd /sys/class/net
@@ -176,43 +177,32 @@ if [ -n "$CONFIG_ip" ]; then
 	esac 
 fi
 
-test -n "$CONFIG_rescue" && /bin/bash
+test -n "$CONFIG_rescue" && drop_shell
 
 test "$CONFIG_rw" = '1' && export CONFIG_rw='rw'
 # mount root partition
-echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw",${CONFIG_rootfsopts} ${CONFIG_root} /rootfs"
-mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw","$CONFIG_rootfsopts" "${CONFIG_root}" /rootfs
+echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw",${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot"
+mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw","$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
 if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"
-	/bin/bash
+	drop_shell
 fi
 
-resize_btrfs
-
-test -n "${CONFIG_splash}" && $CONFIG_splashdst/usr/bin/splash --percentagebar --percentage=10 --msgtxt="loading..."
+test "$CONFIG_rootfstype" != "nfs" && resize_btrfs
+test -n "${CONFIG_splash}" && /usr/bin/splash --msgtxt="loading..." --percentage=15 --percentagebar
 
 echo "Moving root"
+move_root
 
-udevadm control --exit
-udev_root="/rootfs/dev"
-if [ -e /etc/udev/udev.conf ]; then
-  . /etc/udev/udev.conf
-fi
-
-mount -n -o move /run /rootfs/run
-mount -n -o move /dev /rootfs/dev
-
-rm -fr /dev
-ln -s /rootfs/dev /dev
-
-mount -n -o move /sys /rootfs/sys
-mount -n -o move /proc /rootfs/proc
+test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen 
+test -n "$CONFIG_rescue_late" && drop_shell
 
 if [ ${CONFIG_init} = 'switch_root' ]; then
-	exec switch_root /rootfs /sbin/init "$@" </rootfs/dev/console >/rootfs/dev/console
+	exec switch_root $CONFIG_newroot /sbin/init "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
 else
-	exec switch_root /rootfs ${CONFIG_init} "$@" </rootfs/dev/console >/rootfs/dev/console
+	exec switch_root $CONFIG_newroot ${CONFIG_init} "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
 fi
 
+test -n "${CONFIG_splash}" && /usr/bin/splash --exit
 echo "Failed to switch_root, dropping to a shell"
 exec /bin/bash

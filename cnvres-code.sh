@@ -4,13 +4,13 @@ cp_splash() {
 
 copyto="$1"
 
-cp -d -a --parents /usr/bin/splash "$copyto"
+cp -d -a --parents /usr/bin/splash "$copyto"/
 mkdir -p /run/initramfs/usr/share/fonts/splash
 mkdir -p /run/initramfs/usr/share/images/splash
-cp -d -aR --parents /usr/share/fonts/splash "$copyto"
-cp -d -aR --parents /usr/share/images/splash "$copyto"
-cp -d --parents /usr/bin/splash.images "$copyto"
-cp -d --parents /usr/bin/splash.fonts "$copyto"
+cp -d -aR --parents /usr/share/fonts/splash "$copyto"/
+cp -d -aR --parents /usr/share/images/splash "$copyto"/
+cp -d --parents /usr/bin/splash.images "$copyto"/
+cp -d --parents /usr/bin/splash.fonts "$copyto"/
 }
 
 get_root() {
@@ -43,9 +43,9 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfs
 				sed -i "s/gpu_mem_256=[0-9]*/gpu_mem_256=32/g" /boot/config.txt
 				umount /boot
 				reboot -f
-		fi
-
-		test -n "$CONFIG_splash" && $CONFIG_splashdst/usr/bin/splash --infinitebar --msgtxt="sd card convert..."
+		fi	
+	
+		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card convert..."
 		test -n "$CONFIG_splash" \
 || echo '
  .d8888b.   .d88888b.  888b    888 888     888 8888888888 8888888b. 88888888888
@@ -56,45 +56,45 @@ d88P  Y88b d88P" "Y88b 8888b   888 888     888 888        888   Y88b    888
 888    888 888     888 888  Y88888   Y88o88P   888        888 T88b      888
 Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
  "Y8888P"   "Y88888P"  888    Y888     Y8P     8888888888 888   T88b    888';
-		e2fsck -y ${CONFIG_root}
+		e2fsck -y -f ${CONFIG_root}
 		btrfs-convert ${CONFIG_root}
 		FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
 	fi
-
+	
 	test ! -d /boot && mkdir /boot
 	mount -t vfat "${DEV}${PARTdelim}1" /boot
 	test -e /boot/config.txt.convert && mv /boot/config.txt.convert /boot/config.txt
 	test "$FSCHECK" = "ext4" && sed -i "s/rootfstype=btrfs/rootfstype=ext4/g" /boot/cmdline.txt
 	if [ "$FSCHECK" = "btrfs" ]; then
 		/sbin/btrfs fi label ${CONFIG_root} xbian-root-btrfs
-		mount -t btrfs -o compress=lzo,rw,noatime,relatime LABEL=xbian-root-btrfs /rootfs
-		/sbin/btrfs sub delete /rootfs/ext2_saved
+		mount -t btrfs -o compress=lzo,rw,noatime,relatime LABEL=xbian-root-btrfs $CONFIG_newroot
+		/sbin/btrfs sub delete $CONFIG_newroot/ext2_saved
 
-		/sbin/btrfs sub create /rootfs/HOME
-		mkdir -p /rootfs/HOME/.btrfs/snapshot
-		mv /rootfs/home/* /rootfs/HOME
-		/sbin/btrfs sub snapshot /rootfs/HOME /rootfs/HOME/.btrfs/snapshot/@running
-		/sbin/btrfs sub snapshot /rootfs/HOME/.btrfs/snapshot/@running /rootfs/HOME/.btrfs/snapshot/@safe
-		mv /rootfs/etc/fstab /rootfs/etc/fstab.ext4
-		if [ `sed -ne "s:\(.*[\ ${TAB}]\{1,\}\(/\)[\ ${TAB}]\{1,\}.*\):\1:p" /rootfs/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
-			sed -i "s:\(.*[\ ${TAB}]\{1,\}\(/\)[\ ${TAB}]\{1,\}.*\):LABEL=xbian-root-btrfs${TAB}\/${TAB}btrfs${TAB}defaults,rw,compress=lzo,relatime,noatime${TAB}0${TAB}1:" /rootfs/etc/fstab
+		/sbin/btrfs sub create $CONFIG_newroot/HOME
+		mkdir -p $CONFIG_newroot/HOME/.btrfs/snapshot
+		mv $CONFIG_newroot/home/* $CONFIG_newroot/HOME
+		/sbin/btrfs sub snapshot $CONFIG_newroot/HOME $CONFIG_newroot/HOME/.btrfs/snapshot/@running
+		/sbin/btrfs sub snapshot $CONFIG_newroot/HOME/.btrfs/snapshot/@running $CONFIG_newroot/HOME/.btrfs/snapshot/@safe
+		cp $CONFIG_newroot/etc/fstab $CONFIG_newroot/etc/fstab.ext4
+		if [ `sed -ne "s:\(.*[\ ${TAB}]\{1,\}\(/\)[\ ${TAB}]\{1,\}.*\):\1:p" $CONFIG_newroot/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
+			sed -i "s:\(.*[\ ${TAB}]\{1,\}\(/\)[\ ${TAB}]\{1,\}.*\):LABEL=xbian-root-btrfs${TAB}\/${TAB}btrfs${TAB}defaults,rw,compress=lzo,relatime,noatime${TAB}0${TAB}1:" $CONFIG_newroot/etc/fstab
 		else
-			sed -i "\$aLABEL=xbian-root-btrfs${TAB}\/${TAB}btrfs${TAB}defaults,rw,compress=lzo,relatime,noatime${TAB}0${TAB}1" /rootfs/etc/fstab
+			sed -i "\$aLABEL=xbian-root-btrfs${TAB}\/${TAB}btrfs${TAB}defaults,rw,compress=lzo,relatime,noatime${TAB}0${TAB}1" $CONFIG_newroot/etc/fstab
 		fi
-		sed -i "/\(.*[\ ]\{1,\}\(\/boot\)[\ ]\{1,\}.*\)/d" /rootfs/etc/fstab
-		sed -i "/\(\/var\/swapfile\)/d" /rootfs/etc/fstab
-		sed -i "\$aLABEL=xbian-root-btrfs${TAB}/home${TAB}btrfs${TAB}subvol=HOME/.btrfs/snapshot/@running${TAB}0${TAB}0" /rootfs/etc/fstab
-		sed -i '1i#' /rootfs/etc/fstab
-		sed -i '1i#' /rootfs/etc/fstab
-		sed -i '1i#' /rootfs/etc/fstab
+		sed -i "/\(.*[\ ]\{1,\}\(\/boot\)[\ ]\{1,\}.*\)/d" $CONFIG_newroot/etc/fstab
+		sed -i "/\(\/var\/swapfile\)/d" $CONFIG_newroot/etc/fstab
+		sed -i "\$aLABEL=xbian-root-btrfs${TAB}/home${TAB}btrfs${TAB}subvol=HOME/.btrfs/snapshot/@running${TAB}0${TAB}0" $CONFIG_newroot/etc/fstab
+		sed -i '1i#' $CONFIG_newroot/etc/fstab
+		sed -i '1i#' $CONFIG_newroot/etc/fstab
+		sed -i '1i#' $CONFIG_newroot/etc/fstab
 
-		mkdir -p /rootfs/.btrfs/snapshot
-		/sbin/btrfs sub snapshot /rootfs /rootfs/.btrfs/snapshot/@running
-		btrfsDEF=`btrfs sub list /rootfs | grep -v HOME | grep @running | awk '{print $2}'`
-		/sbin/btrfs sub set-default "$btrfsDEF" /rootfs
-		/sbin/btrfs sub snapshot /rootfs/.btrfs/snapshot/@running /rootfs/.btrfs/snapshot/@safe
+		mkdir -p $CONFIG_newroot/.btrfs/snapshot
+		/sbin/btrfs sub snapshot $CONFIG_newroot $CONFIG_newroot/.btrfs/snapshot/@running
+		btrfsDEF=`btrfs sub list $CONFIG_newroot | grep -v HOME | grep @running | awk '{print $2}'`
+		/sbin/btrfs sub set-default "$btrfsDEF" $CONFIG_newroot
+		/sbin/btrfs sub snapshot $CONFIG_newroot/.btrfs/snapshot/@running $CONFIG_newroot/.btrfs/snapshot/@safe
 
-		umount /rootfs
+		umount $CONFIG_newroot
 	fi
 	umount /boot
 	sync
@@ -104,18 +104,18 @@ fi
 
 resize_part() {
 if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfstype}" != "nfs" ]; then
-
+	
 	#Save partition table to file
 	/sbin/sfdisk -u S -d ${DEV} > /tmp/part.txt
 	#Read partition sizes
 	sectorTOTAL=`/sbin/fdisk -u sectors -l ${DEV} | grep total | awk '{printf "%s", $8}'`
 	sectorSTART=`grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $4}'`
 	sectorSIZE=`grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $6}'`
-	sectorNEW=$(( $sectorTOTAL - $sectorSTART ))
+	export sectorNEW=$(( $sectorTOTAL - $sectorSTART ))
 	rm /tmp/part.txt &>/dev/null
 
 	if [ $sectorSIZE -lt $sectorNEW ]; then
-		test -n "$CONFIG_splash" && $CONFIG_splashdst/usr/bin/splash --infinitebar --msgtxt="sd card resize..."
+		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
 		test -n "$CONFIG_splash" \
 || echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
@@ -133,25 +133,29 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 		nSIZE=`sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}'`
 
 		if [ ! $nSIZE -gt $pSIZE ]; then
-			RESIZERROR="1"
+			echo "Resizing failed..."
+			export RESIZERROR="1"
+		else
+			echo "Partition resized..."
 		fi
 	fi
 fi
 }
 
 resize_ext4() {
-if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "ext4" ]; then
+FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
+if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$FSCHECK" = "ext4" ]; then
 
 	if [ "${FSCHECK}" = 'ext4' ]; then
 		# check if the partition needs resizing
 		TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root}`;
 		TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`;
 		TUNEBLOCKCOUNT=`echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}'`;
-		BLOCKNEW=$(($sectorNEW / ($TUNEBLOCKSIZE / 512) ))
+		export BLOCKNEW=$(($sectorNEW / ($TUNEBLOCKSIZE / 512) ))
 
 		# resize root partition
 		if [ "$TUNEBLOCKCOUNT" -lt "$BLOCKNEW" ]; then
-			test -n "$CONFIG_splash" && $CONFIG_splashdst/usr/bin/splash --infinitebar --msgtxt="sd card resize..."
+			test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
 			test -n "$CONFIG_splash" \
 || echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
@@ -162,12 +166,20 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfsty
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
-			e2fsck -y ${CONFIG_root}
+			e2fsck -y -f ${CONFIG_root}
+			mount -t ext4 ${CONFIG_root} "$CONFIG_newroot"
 			TUNEBLOCKCOUNT=`/sbin/resize2fs ${CONFIG_root} | grep now | rev | awk '{print $3}' | rev`
+			if [ "$?" -eq '0' ]; then
+				TUNEBLOCKCOUNT=${BLOCKNEW}
+			fi
+			umount ${CONFIG_root}
 
 			# check if parition was actually resized
-			if [ ${TUNEBLOCKCOUNT} -lt ${BLOCKNEW} ]; then
-				RESIZEERROR="1"
+			if [ "${TUNEBLOCKCOUNT}" -lt "${BLOCKNEW}" ]; then
+				echo "Resizing failed..."
+				export RESIZEERROR="1"
+			else
+				echo "Filesystem resized..."
 			fi
 		fi
 	fi
@@ -178,11 +190,11 @@ resize_btrfs() {
 if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "btrfs" -a "$FSCHECK" = 'btrfs' ]; then
 
 	# check if the partition needs resizing
-	sectorDF=`df -B512 -P | grep "/rootfs" | awk '{printf "%d", $2}'`
-
+	sectorDF=`df -B512 -P | grep "$CONFIG_newroot" | awk '{printf "%d", $2}'`
+	
 	# resize root partition
 	if [ "$sectorDF" -lt "$sectorNEW" ]; then
-		test -n "$CONFIG_splash" && $CONFIG_splashdst/usr/bin/splash --infinitebar --msgtxt="sd card resize..."
+		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
 		test -n "$CONFIG_splash" \
 || echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
@@ -193,14 +205,44 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfsty
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88'
-		/sbin/btrfs fi resize max /rootfs
-
-		sectorDF=`df -B512 -P | grep "/rootfs" | awk '{printf "%d", $2}'`
+		/sbin/btrfs fi resize max $CONFIG_newroot
+		
+		sectorDF=`df -B512 -P | grep "$CONFIG_newroot" | awk '{printf "%d", $2}'`
 
 		# check if parition was actually resized
 		if [ "$sectorDF" -lt "$sectorNEW" ]; then
-			RESIZEERROR="1"
+			export RESIZEERROR="1"
 		fi
 	fi
 fi
+}
+
+move_root() {
+udevadm control --exit
+
+udev_root="$CONFIG_newroot/dev"
+if [ -e /etc/udev/udev.conf ]; then
+  . /etc/udev/udev.conf
+fi
+  
+mount -n -o move /run $CONFIG_newroot/run
+rm -fr /run
+ln -s $CONFIG_newroot/run /run
+
+mount -n -o move /dev $CONFIG_newroot/dev
+rm -fr /dev
+ln -s $CONFIG_newroot/dev /dev
+  
+mount -n -o move /sys $CONFIG_newroot/sys
+rmdir /sys
+ln -s $CONFIG_newroot/sys /sys
+
+mount -n -o move /proc $CONFIG_newroot/proc
+rmdir /proc
+ln -s $CONFIG_newroot/proc /proc
+}
+
+drop_shell() {
+	test -n "$CONFIG_splash" && /bin/kill -SIGTERM $(pidof splash)
+	/bin/bash
 }

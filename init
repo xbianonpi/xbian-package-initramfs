@@ -1,6 +1,6 @@
 #!/bin/sh
 
-TAB=`printf "%b" '\011'`
+export TAB=$'\t'
 
 . /cnvres-code.sh
 

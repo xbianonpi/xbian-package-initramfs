@@ -13,6 +13,18 @@ cp -d --parents /usr/bin/splash.images "$copyto"/
 cp -d --parents /usr/bin/splash.fonts "$copyto"/
 }
 
+create_fsck() {
+
+if [ ! -e "$1"/sbin/fsck.btrfs ]; then
+echo "#!/bin/sh
+
+true
+" >> "$1"/sbin/fsck.btrfs
+chmod +x "$1"/sbin/fsck.btrfs
+fi
+
+}
+
 get_root() {
 export CONFIG_roottxt=`echo "CONFIG_root" | awk '$1 ~ /LABEL/ || $1 ~ /UUID/ {print $1}'`
 test -n "$CONFIG_roottxt" && CONFIG_root=`findfs $CONFIG_roottxt`
@@ -66,6 +78,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 	test -e /boot/config.txt.convert && mv /boot/config.txt.convert /boot/config.txt
 	test "$FSCHECK" = "ext4" && sed -i "s/rootfstype=btrfs/rootfstype=ext4/g" /boot/cmdline.txt
 	if [ "$FSCHECK" = "btrfs" ]; then
+		create_fsck $CONFIG_newroot
 		/sbin/btrfs fi label ${CONFIG_root} xbian-root-btrfs
 		mount -t btrfs -o compress=lzo,rw,noatime,relatime LABEL=xbian-root-btrfs $CONFIG_newroot
 		/sbin/btrfs sub delete $CONFIG_newroot/ext2_saved
@@ -76,14 +89,14 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		/sbin/btrfs sub snapshot $CONFIG_newroot/HOME $CONFIG_newroot/HOME/.btrfs/snapshot/@running
 		/sbin/btrfs sub snapshot $CONFIG_newroot/HOME/.btrfs/snapshot/@running $CONFIG_newroot/HOME/.btrfs/snapshot/@safe
 		cp $CONFIG_newroot/etc/fstab $CONFIG_newroot/etc/fstab.ext4
-		if [ `sed -ne "s:\(.*[\ ${TAB}]\{1,\}\(/\)[\ ${TAB}]\{1,\}.*\):\1:p" $CONFIG_newroot/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
-			sed -i "s:\(.*[\ ${TAB}]\{1,\}\(/\)[\ ${TAB}]\{1,\}.*\):LABEL=xbian-root-btrfs${TAB}\/${TAB}btrfs${TAB}defaults,rw,compress=lzo,relatime,noatime${TAB}0${TAB}1:" $CONFIG_newroot/etc/fstab
+		if [ `sed -ne "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):\1:p" $CONFIG_newroot/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
+			sed -i "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):LABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,relatime,noatime	0	1:" $CONFIG_newroot/etc/fstab
 		else
-			sed -i "\$aLABEL=xbian-root-btrfs${TAB}\/${TAB}btrfs${TAB}defaults,rw,compress=lzo,relatime,noatime${TAB}0${TAB}1" $CONFIG_newroot/etc/fstab
+			sed -i "\$aLABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,relatime,noatime	0	1" $CONFIG_newroot/etc/fstab
 		fi
 		sed -i "/\(.*[\ ]\{1,\}\(\/boot\)[\ ]\{1,\}.*\)/d" $CONFIG_newroot/etc/fstab
 		sed -i "/\(\/var\/swapfile\)/d" $CONFIG_newroot/etc/fstab
-		sed -i "\$aLABEL=xbian-root-btrfs${TAB}/home${TAB}btrfs${TAB}subvol=HOME/.btrfs/snapshot/@running${TAB}0${TAB}0" $CONFIG_newroot/etc/fstab
+		sed -i "\$aLABEL=xbian-root-btrfs	/home	btrfs	subvol=HOME/.btrfs/snapshot/@running	0	0" $CONFIG_newroot/etc/fstab
 		sed -i '1i#' $CONFIG_newroot/etc/fstab
 		sed -i '1i#' $CONFIG_newroot/etc/fstab
 		sed -i '1i#' $CONFIG_newroot/etc/fstab

@@ -78,9 +78,9 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 	test -e /boot/config.txt.convert && mv /boot/config.txt.convert /boot/config.txt
 	test "$FSCHECK" = "ext4" && sed -i "s/rootfstype=btrfs/rootfstype=ext4/g" /boot/cmdline.txt
 	if [ "$FSCHECK" = "btrfs" ]; then
-		create_fsck $CONFIG_newroot
 		/sbin/btrfs fi label ${CONFIG_root} xbian-root-btrfs
 		mount -t btrfs -o compress=lzo,rw,noatime,relatime LABEL=xbian-root-btrfs $CONFIG_newroot
+		create_fsck $CONFIG_newroot
 		/sbin/btrfs sub delete $CONFIG_newroot/ext2_saved
 
 		/sbin/btrfs sub create $CONFIG_newroot/HOME

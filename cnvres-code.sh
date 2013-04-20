@@ -79,7 +79,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		if [ `sed -ne "s:\(.*[\ ${TAB}]\{1,\}\(/\)[\ ${TAB}]\{1,\}.*\):\1:p" /rootfs/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
 			sed -i "s:\(.*[\ ${TAB}]\{1,\}\(/\)[\ ${TAB}]\{1,\}.*\):LABEL=xbian-root-btrfs${TAB}\/${TAB}btrfs${TAB}defaults,rw,compress=lzo,relatime,noatime${TAB}0${TAB}1:" /rootfs/etc/fstab
 		else
-			sed -i "\$aLABEL=xbian-root-btrfs${TAB}\/${TAB}btrfs${TAB}defaults,rw,compress=lzo,relatime,noatime${TAB}0${TAB}1' /rootfs/etc/fstab
+			sed -i "\$aLABEL=xbian-root-btrfs${TAB}\/${TAB}btrfs${TAB}defaults,rw,compress=lzo,relatime,noatime${TAB}0${TAB}1" /rootfs/etc/fstab
 		fi
 		sed -i "/\(.*[\ ]\{1,\}\(\/boot\)[\ ]\{1,\}.*\)/d" /rootfs/etc/fstab
 		sed -i "/\(\/var\/swapfile\)/d" /rootfs/etc/fstab

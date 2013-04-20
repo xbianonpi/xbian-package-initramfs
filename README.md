@@ -56,16 +56,10 @@ cp -d --remove-destination -a --parents /usr/lib/arm-linux-gnueabihf/libssl.so* 
 
 cp -d --remove-destination -a --parents /sbin/{rmmod,insmod,modprobe,udevd,udevadm} ./
 cp -d --remove-destination -a --parents /bin/kmod ./
-cp -d --remove-destination /usr/bin/xargs usr/bin
-cp -d --remove-destination /bin/setfont bin
 cp -d --remove-destination /bin/setupcon bin
 cp -d --remove-destination /usr/bin/consolechars usr/bin
-cp -d --remove-destination /sbin/fdisk sbin/
-cp -d --remove-destination /sbin/findfs sbin/
-cp -d --remove-destination /sbin/blkid sbin/
 cp -d --remove-destination /sbin/MAKEDEV sbin/
 cp -d --remove-destination /sbin/sfdisk sbin/
-cp -d --remove-destination /sbin/tune2fs sbin/
 cp -d --remove-destination /sbin/e2fsck sbin/
 cp -d --remove-destination /sbin/resize2fs sbin/
 cp -d --remove-destination /sbin/btrfs sbin/

@@ -43,8 +43,8 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfs
 				sed -i "s/gpu_mem_256=[0-9]*/gpu_mem_256=32/g" /boot/config.txt
 				umount /boot
 				reboot -f
-		fi	
-	
+		fi
+
 		test -n "$CONFIG_splash" && $CONFIG_splashdst/usr/bin/splash --infinitebar --msgtxt="sd card convert..."
 		test -n "$CONFIG_splash" \
 || echo '
@@ -60,7 +60,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		btrfs-convert ${CONFIG_root}
 		FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
 	fi
-	
+
 	test ! -d /boot && mkdir /boot
 	mount -t vfat "${DEV}${PARTdelim}1" /boot
 	test -e /boot/config.txt.convert && mv /boot/config.txt.convert /boot/config.txt
@@ -76,14 +76,14 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		/sbin/btrfs sub snapshot /rootfs/HOME /rootfs/HOME/.btrfs/snapshot/@running
 		/sbin/btrfs sub snapshot /rootfs/HOME/.btrfs/snapshot/@running /rootfs/HOME/.btrfs/snapshot/@safe
 		mv /rootfs/etc/fstab /rootfs/etc/fstab.ext4
-		if [ `sed -ne "s:\(.*[\ \t]\{1,\}\(/\)[\ \t]\{1,\}.*\):\1:p" /rootfs/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
-			sed -i "s:\(.*[\ \t]\{1,\}\(/\)[\ \t]\{1,\}.*\):LABEL=xbian-root-btrfs\t\/\tbtrfs\tdefaults,rw,compress=lzo,relatime,noatime\t0\t1:" /rootfs/etc/fstab
+		if [ `sed -ne "s:\(.*[\ ${TAB}]\{1,\}\(/\)[\ ${TAB}]\{1,\}.*\):\1:p" /rootfs/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
+			sed -i "s:\(.*[\ ${TAB}]\{1,\}\(/\)[\ ${TAB}]\{1,\}.*\):LABEL=xbian-root-btrfs${TAB}\/${TAB}btrfs${TAB}defaults,rw,compress=lzo,relatime,noatime${TAB}0${TAB}1:" /rootfs/etc/fstab
 		else
-			sed -i $'$aLABEL=xbian-root-btrfs\t\/\tbtrfs\tdefaults,rw,compress=lzo,relatime,noatime\t0\t1' /rootfs/etc/fstab
+			sed -i "\$aLABEL=xbian-root-btrfs${TAB}\/${TAB}btrfs${TAB}defaults,rw,compress=lzo,relatime,noatime${TAB}0${TAB}1' /rootfs/etc/fstab
 		fi
 		sed -i "/\(.*[\ ]\{1,\}\(\/boot\)[\ ]\{1,\}.*\)/d" /rootfs/etc/fstab
 		sed -i "/\(\/var\/swapfile\)/d" /rootfs/etc/fstab
-		sed -i $'$aLABEL=xbian-root-btrfs\t/home\tbtrfs\tsubvol=HOME/.btrfs/snapshot/@running\t0\t0' /rootfs/etc/fstab
+		sed -i "\$aLABEL=xbian-root-btrfs${TAB}/home${TAB}btrfs${TAB}subvol=HOME/.btrfs/snapshot/@running${TAB}0${TAB}0" /rootfs/etc/fstab
 		sed -i '1i#' /rootfs/etc/fstab
 		sed -i '1i#' /rootfs/etc/fstab
 		sed -i '1i#' /rootfs/etc/fstab
@@ -104,7 +104,7 @@ fi
 
 resize_part() {
 if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfstype}" != "nfs" ]; then
-	
+
 	#Save partition table to file
 	/sbin/sfdisk -u S -d ${DEV} > /tmp/part.txt
 	#Read partition sizes
@@ -179,7 +179,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfsty
 
 	# check if the partition needs resizing
 	sectorDF=`df -B512 -P | grep "/rootfs" | awk '{printf "%d", $2}'`
-	
+
 	# resize root partition
 	if [ "$sectorDF" -lt "$sectorNEW" ]; then
 		test -n "$CONFIG_splash" && $CONFIG_splashdst/usr/bin/splash --infinitebar --msgtxt="sd card resize..."
@@ -194,7 +194,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfsty
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88'
 		/sbin/btrfs fi resize max /rootfs
-		
+
 		sectorDF=`df -B512 -P | grep "/rootfs" | awk '{printf "%d", $2}'`
 
 		# check if parition was actually resized

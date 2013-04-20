@@ -1,5 +1,7 @@
 #!/bin/sh
 
+TAB=`printf "%b" '\011'`
+
 . /cnvres-code.sh
 
 mkdir -p /var/lock

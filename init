@@ -9,6 +9,7 @@
 mkdir -p /var/lock
 mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
 mount -t proc -o nodev,noexec,nosuid proc /proc
+test -e /etc/mtab && rm /etc/mtab
 ln -s "../proc/mounts" /etc/mtab
 
 tmpfs_size="10M"

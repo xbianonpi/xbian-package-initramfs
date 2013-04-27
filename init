@@ -120,7 +120,7 @@ if [ ${CONFIG_rootfsopts} = ${CONFIG_root} ]; then
 fi
 
 echo "Loading initram modules ... "
-cat /etc/modules | grep -v ^# | /usr/bin/xargs -L1 modprobe
+cat /etc/modules | grep -v ^# | xargs -n 1 modprobe
 udevadm settle || true
 
 if [ -z "$CONFIG_splash" ]; then 

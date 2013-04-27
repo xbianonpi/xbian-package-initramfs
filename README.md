@@ -91,7 +91,6 @@ copy_with_libs /sbin/modprobe ./
 copy_with_libs /sbin/udevd ./
 copy_with_libs /sbin/udevadm ./
 copy_with_libs /bin/kmod ./
-copy_with_libs /usr/bin/xargs 
 copy_with_libs /sbin/fdisk
 copy_with_libs /sbin/findfs
 copy_with_libs /sbin/blkid 

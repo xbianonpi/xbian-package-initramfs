@@ -187,12 +187,11 @@ if [ "$?" -ne '0' ]; then
 fi
 
 test "$CONFIG_rootfstype" != "nfs" && resize_btrfs
-test -n "${CONFIG_splash}" && /usr/bin/splash --msgtxt="loading..." --percentage=15 --percentagebar
 
 echo "Moving root"
 move_root
 
-test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen 
+test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --msgtxt="loading..." --percentagebar --percentage=15
 test -n "$CONFIG_rescue_late" && drop_shell
 
 if [ ${CONFIG_init} = 'switch_root' ]; then

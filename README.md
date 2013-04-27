@@ -1,23 +1,26 @@
 ```
 
 copy_file() {
-        cp  -vd --parents "$1" ./
+        cp  -vd --parents "$1" "$2"
         test ! -h "$1" && return
         g=$(basename "$1")
         d=${1%$g}
         fl=$(ls -la $f | awk '{print $11}')
         rm -f ".$d/$fl"
-        cp -v --parents  "$d$fl" ./
+        cp -v --parents  "$d$fl" "$2"
 }
 
 copy_with_libs() {
     
+        dst="$2"
+        test -z "$dst" && dst="./"
+
         if [ -d "$1" ]; then
-                cp -va --parents "$1"/* ./
+                cp -va --parents "$1"/* "$dst"
         fi
         
         if [ -f "$1" ]; then 
-                copy_file "$1"
+                copy_file "$1" "$dst"
                 oldIFS=$IFS
                 IFS=$'\n'
                 for fff in $(ldd $1 | cat ); do
@@ -33,7 +36,7 @@ copy_with_libs() {
                         else
                                 f=$f2
                         fi
-                        copy_file "$f"
+                        copy_file "$f" "$dst"
                 done
                 IFS=$oldIFS
         fi
@@ -80,47 +83,33 @@ cp -d --remove-destination -av --parents /lib/modules/$(uname -r)/modules.order 
 cp -d --remove-destination -av --parents /lib/firmware ./
 depmod -ab ./
 
-mkdir -p lib/arm-linux-gnueabihf
-cp -d --remove-destination /lib/ld-linux-armhf.so.3 lib/
-cp -d --remove-destination -a --parents /lib/*/{librt*,libpthread*,ld-*,libc-*,libgcc_s.so*,libc.so*,libdl*} ./
-cp -d --remove-destination -a --parents /lib/*/{libm-*,libm.so*,libpam.so*,libpam_misc*,libkmod*} ./
-cp -d --remove-destination -a --parents /lib/*/{libblkid*,libuuid*,libe2p*,libext2fs*,libcom_err*,libpthread*,libselinux*} ./
-cp -d --remove-destination -a --parents /lib/*/{libdbus-1*,libnl-genl-3*,libnl-3*,libz.so*,librt.so*,libiw.so*,libtinfo.so*} ./
-cp -d --remove-destination -a --parents /lib/*/{libparted.so*,libdevmapper*,libreadline*,libudev*} ./
-cp -d --remove-destination -a --parents /lib/{libconsole.*,libcfont.so*,libctutils.*} ./
-
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
-cp -d --remove-destination -a --parents /usr/lib/arm-linux-gnueabihf/libcrypto.so* ./ 
-cp -d --remove-destination -a --parents /usr/lib/arm-linux-gnueabihf/libpcsclite.so* ./ 
-cp -d --remove-destination -a --parents /usr/lib/arm-linux-gnueabihf/libssl.so* ./ 
+copy_with_libs /sbin/rmmod ./
+copy_with_libs /sbin/insmod ./
+copy_with_libs /sbin/modprobe ./
+copy_with_libs /sbin/udevd ./
+copy_with_libs /sbin/udevadm ./
+copy_with_libs /bin/kmod ./
+copy_with_libs /usr/bin/xargs 
+copy_with_libs /sbin/fdisk
+copy_with_libs /sbin/findfs
+copy_with_libs /sbin/blkid 
+copy_with_libs /sbin/MAKEDEV 
+copy_with_libs /sbin/sfdisk
+copy_with_libs /sbin/tune2fs
+copy_with_libs /sbin/e2fsck 
+copy_with_libs /sbin/resize2fs 
+copy_with_libs /sbin/btrfs 
+copy_with_libs /sbin/btrfs-convert 
+copy_with_libs /sbin/ethtool 
+copy_with_libs /sbin/iwconfig 
+copy_with_libs /sbin/wpa_supplicant 
+copy_with_libs /sbin/partprobe 
+cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin
+copy_with_libs /bin/bash 
 
-cp -d --remove-destination -a --parents /sbin/{rmmod,insmod,modprobe,udevd,udevadm} ./
-cp -d --remove-destination -a --parents /bin/kmod ./
-cp -d --remove-destination /usr/bin/xargs usr/bin
-cp -d --remove-destination /bin/setupcon bin
-cp -d --remove-destination /usr/bin/consolechars usr/bin
-cp -d --remove-destination /sbin/fdisk sbin/
-cp -d --remove-destination /sbin/findfs sbin/
-cp -d --remove-destination /sbin/blkid sbin/
-cp -d --remove-destination /sbin/MAKEDEV sbin/
-cp -d --remove-destination /sbin/sfdisk sbin/
-cp -d --remove-destination /sbin/tune2fs sbin/
-cp -d --remove-destination /sbin/e2fsck sbin/
-cp -d --remove-destination /sbin/resize2fs sbin/
-cp -d --remove-destination /sbin/btrfs sbin/
-cp -d --remove-destination /sbin/btrfs-convert sbin/
-cp -d --remove-destination /sbin/ethtool sbin/
-cp -d --remove-destination /sbin/iwconfig sbin/
-cp -d --remove-destination /sbin/wpa_supplicant sbin/
-cp -d --remove-destination /sbin/partprobe sbin/
-cp -d --remove-destination /usr/lib/klibc/bin/ipconfig ./bin
-cp -d --remove-destination /bin/*sh bin/
-copy_with_libs /etc/netconfig
-copy_with_libs /sbin/rpc.statd
-copy_with_libs /sbin/rpcbind
-
-cp -d --remove-destination -a --parents /usr/bin/splash ./
+copy_with_libs /usr/bin/splash
 mkdir -p ./usr/share/fonts/splash
 mkdir -p ./usr/share/images/splash
 cp -d --remove-destination -aR --parents /usr/share/fonts/splash ./
@@ -142,5 +131,5 @@ chmod a+x init
 
 cat /etc/modules | grep -i evdev || echo evdev >> ./etc/modules
 
-find . | cpio -H newc -o | gzip -2v > /boot/initramfs.gz
+find . | cpio -H newc -o | gzip -9v > /boot/initramfs.gz
 ```

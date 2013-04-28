@@ -87,7 +87,7 @@ keyboard=$(/bin/ls /dev/input | grep -m1 event)
 if [ "${keyboard}" != '' ]; then
 	echo "? boot recovery hold left shift ?"
 #	sleep 2
-	/usr/bin/key lshift ${keyboard} >/dev/null 2>&1
+	/usr/bin/key lshift /dev/input/${keyboard} >/dev/null 2>&1
 	if [ "$?" -eq '0' ]; then 
 		echo "Dropping to initramfs on request..."
 		drop_shell

@@ -106,7 +106,7 @@ copy_with_libs /sbin/iwconfig
 copy_with_libs /sbin/wpa_supplicant 
 copy_with_libs /sbin/partprobe 
 cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin
-copy_with_libs /bin/bash 
+cp --remove-destination /usr/lib/klibc/bin/run-init ./sbin
 
 copy_with_libs /usr/bin/splash
 mkdir -p ./usr/share/fonts/splash

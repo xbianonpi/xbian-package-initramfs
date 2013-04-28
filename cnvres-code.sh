@@ -257,5 +257,9 @@ ln -s $CONFIG_newroot/proc /proc
 
 drop_shell() {
 	test -n "$CONFIG_splash" && /bin/kill -SIGTERM $(pidof splash)
-	/bin/bash
+	if [ -e /bin/bash ]; then
+		/bin/bash
+	else 
+		/bin/sh
+	fi
 }

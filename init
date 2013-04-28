@@ -196,9 +196,9 @@ test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --
 test -n "$CONFIG_rescue_late" && drop_shell
 
 if [ ${CONFIG_init} = 'switch_root' ]; then
-	exec switch_root $CONFIG_newroot /sbin/init "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
+	exec run-init $CONFIG_newroot /sbin/init "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
 else
-	exec switch_root $CONFIG_newroot ${CONFIG_init} "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
+	exec run-init $CONFIG_newroot ${CONFIG_init} "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
 fi
 
 test -n "${CONFIG_splash}" && /usr/bin/splash --exit

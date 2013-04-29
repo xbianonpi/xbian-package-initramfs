@@ -130,10 +130,11 @@ fi
 
 test "$CONFIG_rootfstype" != "nfs" && get_root
 
+test "$CONFIG_rootwait" -lt '10' && export CONFIG_rootwait='10'
 # check if new root partition exists
 X='0'
 if [ "$CONFIG_rootfstype" != "nfs" ]; then
-while [ ! -b "$CONFIG_root" -a "$CONFIG_rootwait" -eq '1' -a  "$X" -lt '10' ]; do
+while [ ! -b "$CONFIG_root" -a -n "$CONFIG_rootwait"  -a  "$X" -lt "$CONFIG_rootwait" ]; do
 	X=$(($X+1))
 	echo "$X Waiting for root..."
 	sleep 1

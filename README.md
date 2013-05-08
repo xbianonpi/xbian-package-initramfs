@@ -58,15 +58,18 @@ cd initramfs
 apt-get install fakeroot busybox udhcpc udev makedev parted btrfs-tools klibc-utils ethtool build-essential
 
 fakeroot
-mkdir bin dev etc lib proc rootfs run sbin sys tmp usr
+mkdir bin dev etc lib proc rootfs run sbin sys tmp usr mnt
 mkdir usr/bin
 mkdir etc/udhcpc etc/network etc/wpa_supplicant
 mkdir etc/network/if-down.d etc/network/if-up.d etc/network/if-post-down.d etc/network/if-pre-up.d
 mkdir lib/modules
 mkdir -p usr/bin
 mkdir -p usr/lib/arm-linux-gnueabihf
-cp -d --remove-destination /bin/busybox bin/
+copy_with_libs /bin/busybox 
 /bin/busybox --install -s bin/
+cp -d bin/modprobe sbin
+cp -d bin/insmod sbin
+cp -d bin/rmmod sbin
 cp -d --remove-destination /etc/udhcpc/default.script etc/udhcpc/
 cp -d --remove-destination -R /etc/network etc/
 cp -d --remove-destination -R /etc/hostname etc/
@@ -79,26 +82,24 @@ cp -d --remove-destination /etc/modules etc/
 cp -d --remove-destination -av --parents /etc/default ./
 copy_with_libs /lib/init
 copy_with_libs /lib/lsb
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/fs ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/fs/btrfs ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/lib ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/crypto ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/md ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/scsi ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/net ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/hid ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/block ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/storage ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/class ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/net/usb ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/wireless ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/mac80211 ./
 cp -d --remove-destination --parents /lib/modules/$MODVER/* ./
 cp -d --remove-destination -av --parents /lib/firmware ./
-depmod -ab ./
+#depmod -ab ./
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
-copy_with_libs /sbin/rmmod ./
-copy_with_libs /sbin/insmod ./
-copy_with_libs /sbin/modprobe ./
 copy_with_libs /sbin/udevd ./
 copy_with_libs /sbin/udevadm ./
-copy_with_libs /bin/kmod ./
 copy_with_libs /sbin/fdisk
 copy_with_libs /sbin/findfs
 copy_with_libs /sbin/blkid 
@@ -109,7 +110,7 @@ copy_with_libs /sbin/e2fsck
 copy_with_libs /sbin/resize2fs 
 copy_with_libs /sbin/btrfs 
 copy_with_libs /sbin/btrfs-convert 
-copy_with_libs /sbin/ethtool 
+#copy_with_libs /sbin/ethtool 
 copy_with_libs /sbin/iwconfig 
 copy_with_libs /sbin/wpa_supplicant 
 copy_with_libs /sbin/partprobe 
@@ -139,6 +140,6 @@ chmod a+x init
 cat /etc/modules | grep -i evdev || echo evdev >> ./etc/modules
 
 mount /boot
-find . | cpio -H newc -o | gzip -9v > /boot/initramfs.gz
+find . | cpio -H newc -o | lzma -v > /boot/initramfs.gz
 umount /boot
 ```

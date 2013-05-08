@@ -1,24 +1,32 @@
 ```
 
+MODVER=$(uname -r)
+
 copy_file() {
-        cp  -vd --parents "$1" "$2"
-        test ! -h "$1" && return
+        cp -d --parents $3 "$1" "$2"
+        test -h "$1" || return
         g=$(basename "$1")
         d=${1%$g}
-        fl=$(ls -la $f | awk '{print $11}')
-        rm -f ".$d/$fl"
-        cp -v --parents  "$d$fl" "$2"
+        fl=$(ls -la "$1" | awk '{print $11}')
+        tmp1=${fl##/*}
+        if [ -n "$tmp1" ]; then
+                test -h ".$2/$fl" || rm -f ".$2/$fl"
+                cp --parents $3 "$d$fl" "$2"
+        else
+                test -h ".$fl" || rm -f ".$fl"
+                cp --parents $3 "$fl" "./"
+        fi
 }
 
 copy_with_libs() {
-    
+
         dst="$2"
         test -z "$dst" && dst="./"
 
         if [ -d "$1" ]; then
-                cp -va --parents "$1"/* "$dst"
+                cp -a --parents "$1"/* "$dst"
         fi
-        
+
         if [ -f "$1" ]; then 
                 copy_file "$1" "$dst"
                 oldIFS=$IFS
@@ -36,7 +44,7 @@ copy_with_libs() {
                         else
                                 f=$f2
                         fi
-                        copy_file "$f" "$dst"
+                        copy_file "$f" "$dst" "-n"
                 done
                 IFS=$oldIFS
         fi
@@ -71,15 +79,15 @@ cp -d --remove-destination /etc/modules etc/
 cp -d --remove-destination -av --parents /etc/default ./
 copy_with_libs /lib/init
 copy_with_libs /lib/lsb
-cp -d --remove-destination -av --parents /lib/modules/$(uname -r)/kernel/fs ./
-cp -d --remove-destination -av --parents /lib/modules/$(uname -r)/kernel/lib ./
-cp -d --remove-destination -av --parents /lib/modules/$(uname -r)/kernel/drivers/usb ./
-cp -d --remove-destination -av --parents /lib/modules/$(uname -r)/kernel/drivers/scsi ./
-cp -d --remove-destination -av --parents /lib/modules/$(uname -r)/kernel/drivers/net ./
-cp -d --remove-destination -av --parents /lib/modules/$(uname -r)/kernel/drivers/hid ./
-cp -d --remove-destination -av --parents /lib/modules/$(uname -r)/kernel/drivers/block ./
-cp -d --remove-destination -av --parents /lib/modules/$(uname -r)/modules.builtin ./
-cp -d --remove-destination -av --parents /lib/modules/$(uname -r)/modules.order ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/fs ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/lib ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/crypto ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/scsi ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/net ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/hid ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/block ./
+cp -d --remove-destination --parents /lib/modules/$MODVER/* ./
 cp -d --remove-destination -av --parents /lib/firmware ./
 depmod -ab ./
 
@@ -121,7 +129,7 @@ cc -o usr/bin/key /home/xbian/key.c
 
 cp -d --remove-destination -arv --parents /lib/udev/*_id ./
 cp -d --remove-destination -arv --parents /lib/udev/{mtd_probe,net.agent,keyboard-force-release.sh,findkeyboards,keymaps} ./
-cp -d --remove-destination -arv --parents /lib/udev/rules.d/{75-probe_mtd.rules,99-local-xbian.rules,95-keymap.rules,95-keyboard-force-release.rules,80-networking.rules,80-drivers.rules,60-persistent-input.rules,42-qemu-usb.rules,10-local-rpi.rules,60-persistent-storage.rules} ./
+cp -d --remove-destination -arv --parents /lib/udev/rules.d/{75-probe_mtd.rules,95-keyboard-force-release.rules,80-networking.rules,80-drivers.rules,60-persistent-input.rules,60-persistent-storage.rules} ./
 cp -d --remove-destination -arv --parents /lib/udev/rules.d/70-btrfs.rules ./
 
 wget -O - https://raw.github.com/xbianonpi/xbian-initramfs/master/init > init
@@ -130,5 +138,7 @@ chmod a+x init
 
 cat /etc/modules | grep -i evdev || echo evdev >> ./etc/modules
 
+mount /boot
 find . | cpio -H newc -o | gzip -9v > /boot/initramfs.gz
+umount /boot
 ```

@@ -47,8 +47,7 @@ export CMDLINE="$(cat /proc/cmdline)"
 for OPTION in ${CMDLINE}
 do
 	OPTIONNAME=${OPTION%%=*}
-	namecheck=${OPTIONNAME##*"."}
-	test "$namecheck" = "$OPTIONNAME" || continue
+	echo $OPTIONNAME | grep '^[a-zA-Z][a-zA-Z0-9_]*$' > /dev/null || continue
 	VALUE=$(printf "%b" ${OPTION#*=})
 	test "$VALUE" = "$OPTIONNAME" && VALUE='1' 
 	export CONFIG_"$OPTIONNAME"="$VALUE" 

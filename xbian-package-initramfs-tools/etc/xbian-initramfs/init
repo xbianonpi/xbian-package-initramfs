@@ -50,7 +50,7 @@ do
 	echo $OPTIONNAME | grep '^[a-zA-Z][a-zA-Z0-9_]*$' > /dev/null || continue
 	VALUE=$(printf "%b" ${OPTION#*=})
 	test "$VALUE" = "$OPTIONNAME" && VALUE='1' 
-	export CONFIG_"$OPTIONNAME"="$VALUE" 
+	export CONFIG_"$OPTIONNAME"="$VALUE"
 done
 
 test -n "$CONFIG_debug" && unset CONFIG_splash

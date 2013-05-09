@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if [ $1 == "remove" ]; then
+        true
+fi
+
+if [ $1 == "upgrade" ]; then
+        true
+fi

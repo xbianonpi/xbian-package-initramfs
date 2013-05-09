@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [ "$1" == "remove" ]; then
+
+        mountpoint -q /boot || mount /boot
+        cat /boot/config.txt | grep -v initramfs.gz > /boot/config.txt.new
+        mv /boot/config.txt.new /boot/config.txt
+        umount /boot
+
+fi

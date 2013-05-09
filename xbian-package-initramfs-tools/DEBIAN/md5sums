@@ -1,5 +1,5 @@
 fba2ae1975a815d18b4e2774e0c4df5f  ./xbian-package-initramfs-tools/etc/default/xbian-initramfs
 3905467f7a8212647ff2ffad7abb1113  ./xbian-package-initramfs-tools/etc/xbian-initramfs/cnvres-code.sh
-e5bd71587a997e15827f360486801bfa  ./xbian-package-initramfs-tools/etc/xbian-initramfs/update-initramfs.sh
+0cf6717b3d04831d9b95631c11e82751  ./xbian-package-initramfs-tools/etc/xbian-initramfs/update-initramfs.sh
 e61ca4322ceaaaa052c337400b395729  ./xbian-package-initramfs-tools/etc/xbian-initramfs/init
 e7fdcd1edcbaf1d4107bc20c182b0ec6  ./xbian-package-initramfs-tools/usr/bin/key

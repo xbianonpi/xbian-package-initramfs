@@ -134,3 +134,5 @@ cat /etc/modules | grep -i evdev || echo evdev >> ./etc/modules
 
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
 find . | cpio -H newc -o | lzma > /boot/initramfs.gz
+
+rm -fr $TMPDIR

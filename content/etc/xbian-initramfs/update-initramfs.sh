@@ -145,7 +145,7 @@ cat /etc/modules | grep -i evdev || echo evdev >> ./etc/modules
 copy_modules
 
 mountpoint -q /boot 
-if [ ! $? ]; then
+if [ $? ]; then
         mount /boot
         need_umount="yes"
 fi

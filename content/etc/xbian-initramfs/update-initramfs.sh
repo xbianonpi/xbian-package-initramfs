@@ -5,6 +5,15 @@
 test -z "$1" && MODVER=$(uname -r)
 test -z "$MODVER" && MODVER="$1"
 
+copy_modules() {
+
+        list=$(cat /etc/modules | grep -v ^# )
+        for f in $list; do 
+                find /lib/modules/$MODVER -iname $f.ko | xargs -L 1 cp -av --parents -t ./
+        done
+
+}
+
 copy_file() {
         cp -d --parents $3 "$1" "$2"
         test -h "$1" || return
@@ -110,7 +119,6 @@ copy_with_libs /sbin/btrfs-convert
 copy_with_libs /sbin/iwconfig 
 copy_with_libs /sbin/wpa_supplicant 
 copy_with_libs /sbin/partprobe 
-copy_with_libs /usr/bin/key
 cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin
 cp --remove-destination /usr/lib/klibc/bin/run-init ./sbin
 
@@ -122,6 +130,8 @@ cp -d --remove-destination -aR --parents /usr/share/images/splash ./
 cp -d --remove-destination --parents /usr/bin/splash.images ./
 cp -d --remove-destination --parents /usr/bin/splash.fonts ./
 
+copy_with_libs /usr/bin/key
+
 cp -d --remove-destination -arv --parents /lib/udev/*_id ./
 cp -d --remove-destination -arv --parents /lib/udev/{mtd_probe,net.agent,keyboard-force-release.sh,findkeyboards,keymaps} ./
 cp -d --remove-destination -arv --parents /lib/udev/rules.d/{75-probe_mtd.rules,95-keyboard-force-release.rules,80-networking.rules,80-drivers.rules,60-persistent-input.rules,60-persistent-storage.rules} ./
@@ -132,7 +142,20 @@ cp /etc/xbian-initramfs/cnvres-code.sh ./
 
 cat /etc/modules | grep -i evdev || echo evdev >> ./etc/modules
 
+copy_modules
+
+mountpoint -q /boot 
+if [ ! $? ]; then
+        mount /boot
+        need_umount="yes"
+fi
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
 find . | cpio -H newc -o | lzma > /boot/initramfs.gz
+if [ "$need_umount" = "yes" ]; then
+        umount /boot
+fi
 
 rm -fr $TMPDIR
+
+exit 0
+

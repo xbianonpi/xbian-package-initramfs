@@ -65,7 +65,8 @@ copy_with_libs() {
 TMPDIR=$(mktemp -d)
 cd $TMPDIR
 
-mkdir bin dev etc lib proc rootfs run sbin sys tmp usr mnt
+mkdir bin dev etc lib proc rootfs run sbin sys tmp usr mnt var
+ln -s /run ./var/run
 mkdir usr/bin
 mkdir etc/udhcpc etc/network etc/wpa_supplicant
 mkdir etc/network/if-down.d etc/network/if-up.d etc/network/if-post-down.d etc/network/if-pre-up.d

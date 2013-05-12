@@ -1,7 +1,8 @@
 fba2ae1975a815d18b4e2774e0c4df5f  ./content/etc/default/xbian-initramfs
 07803525e8ad37f2603df9d098436533  ./content/etc/xbian-initramfs/cnvres-code.sh
-b4edb0efef90419e6359bc6da76b3798  ./content/etc/xbian-initramfs/update-initramfs.sh
+de78bf493835d056b8adcf26a46ef523  ./content/etc/xbian-initramfs/update-initramfs.sh
 f7718f526162d9b3d0d25d70728de98d  ./content/etc/xbian-initramfs/init
+e51b234ddae7822deb0c3549e6955420  ./content/etc/init/xbian-udpate-reboot.conf
 e7fdcd1edcbaf1d4107bc20c182b0ec6  ./content/usr/bin/key
 01647dc3eaa6a16d34fb012ab4c52768  ./content/usr/local/sbin/xbian-resize
-b4edb0efef90419e6359bc6da76b3798  ./content/usr/local/sbin/update-initramfs
+de78bf493835d056b8adcf26a46ef523  ./content/usr/local/sbin/xbian-update-initramfs

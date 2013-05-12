@@ -2,6 +2,8 @@
 
 if [ $1 == "configure" ]; then
 
+	echo $(date) >> /home/xbian/xbian-initramfs-update.log
+
         mountpoint -q /boot || mount /boot
         /etc/xbian-initramfs/update-initramfs.sh > /dev/null 2>&1
         cat /boot/config.txt | grep -v initramfs.gz > /boot/config.txt.new
@@ -10,4 +12,21 @@ if [ $1 == "configure" ]; then
         rm /boot/config.txt.new
         umount /boot
 
+	echo "Disabling system initramfs-update process" >> /home/xbian/xbian-initramfs-update.log
+	if [ $(grep -c "update_initramfs=no" /etc/initramfs-tools/update-initramfs.conf) -eq '1' ];
+	then
+		echo "Already diasbled" >> /home/xbian/xbian-initramfs-update.log
+	else
+		sed 's/update_initramfs=yes/update_initramfs=no/' /etc/initramfs-tools/update-initramfs.conf \
+			> /etc/initramfs-tools/update-initramfs.conf.new
+		if [ $(grep -c "update_initramfs=no" /etc/initramfs-tools/update-initramfs.conf) -eq '1' ];
+		then
+			echo "Disabled" >> /home/xbian/xbian-initramfs-update.log
+			mv /etc/initramfs-tools/update-initramfs.conf.new /etc/initramfs-tools/update-initramfs.conf
+		else
+			echo "ERROR disabling system initramfs-update process" >> /home/xbian/xbian-initramfs-update.log
+		fi
+	fi
+
 fi
+

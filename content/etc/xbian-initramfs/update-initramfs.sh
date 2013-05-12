@@ -5,6 +5,11 @@
 test -z "$1" && MODVER=$(uname -r)
 test -z "$MODVER" && MODVER="$1"
 
+USETRIGGERS=true
+
+#echo $(date) >> /var/run/vypis.txt
+#echo $(env) >> /var/run/vypis.txt
+
 copy_modules() {
 
         list=$(cat /etc/modules | grep -v ^# )

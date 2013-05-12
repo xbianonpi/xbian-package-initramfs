@@ -7,6 +7,7 @@ Priority: standard
 Codename: wheezy
 Architecture: armhf
 Installed-Size: 28000
-Depends: xbian-package-splash, busybox, udhcpc, udev, parted, btrfs-tools, klibc-utils 
+Pre-Depends: initramfs-tools
+Depends: xbian-package-splash, busybox, udhcpc, udev, parted, btrfs-tools, klibc-utils
 Maintainer: mk01 <development@xbian.org>
 Description: Initramfs handling tools.

@@ -90,10 +90,11 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		/sbin/btrfs sub snapshot $CONFIG_newroot/HOME/.btrfs/snapshot/@running $CONFIG_newroot/HOME/.btrfs/snapshot/@safe
 		cp $CONFIG_newroot/etc/fstab $CONFIG_newroot/etc/fstab.ext4
 		if [ `sed -ne "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):\1:p" $CONFIG_newroot/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
-			sed -i "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):LABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,relatime,noatime	0	1:" $CONFIG_newroot/etc/fstab
+			sed -i "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):LABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,relatime,noatime,autodefrag	0	0:" $CONFIG_newroot/etc/fstab
 		else
-			sed -i "\$aLABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,relatime,noatime	0	1" $CONFIG_newroot/etc/fstab
+			sed -i "\$aLABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,relatime,noatime,autodefrag	0	0" $CONFIG_newroot/etc/fstab
 		fi
+		sed -i "/\(.*[\ ]\{1,\}\(\/boot\)[\ ]\{1,\}.*\)/d" $CONFIG_newroot/etc/fstab
 		sed -i "/\(\/var\/swapfile\)/d" $CONFIG_newroot/etc/fstab
 		sed -i "\$aLABEL=xbian-root-btrfs	/home	btrfs	subvol=HOME/.btrfs/snapshot/@running	0	0" $CONFIG_newroot/etc/fstab
 		sed -i '1i#' $CONFIG_newroot/etc/fstab
@@ -117,6 +118,13 @@ fi
 resize_part() {
 if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfstype}" != "nfs" ]; then
 	
+	nrpart=$(sfdisk -s $DEV$PARTdelim? | grep -c .)
+	if [ "$nrpart" -gt "$PART" ]; then
+		echo "FATAL: only the last partition can be resized"
+		export RESIZEERROR='1'
+		return 1
+	fi
+
 	#Save partition table to file
 	/sbin/sfdisk -u S -d ${DEV} > /tmp/part.txt
 	#Read partition sizes
@@ -146,11 +154,13 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 
 		if [ ! $nSIZE -gt $pSIZE ]; then
 			echo "Resizing failed..."
-			export RESIZERROR="1"
+			export RESIZEERROR="1"
 		else
 			echo "Partition resized..."
 		fi
 	fi
+
+	return $RESIZEERROR
 fi
 }
 

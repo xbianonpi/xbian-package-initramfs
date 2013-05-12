@@ -9,7 +9,7 @@ copy_modules() {
 
         list=$(cat /etc/modules | grep -v ^# )
         for f in $list; do 
-                find /lib/modules/$MODVER -iname $f.ko | xargs -L 1 cp -av --parents -t ./
+                find /lib/modules/$MODVER -iname $f.ko | xargs -L 1 --no-run-if-empty cp -a --parents -t ./
         done
 
 }
@@ -146,8 +146,8 @@ cat /etc/modules | grep -i evdev || echo evdev >> ./etc/modules
 copy_modules
 
 need_umount=''
-mountpoint -q /boot 
-if [ "$?" -nq '0' ]; then
+mountpoint -q /boot
+if [ "$?" != '0' ]; then
         mount /boot
         need_umount="yes"
 fi

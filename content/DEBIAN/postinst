@@ -19,14 +19,17 @@ if [ $1 == "configure" ]; then
 	else
 		sed 's/update_initramfs=yes/update_initramfs=no/' /etc/initramfs-tools/update-initramfs.conf \
 			> /etc/initramfs-tools/update-initramfs.conf.new
-		if [ $(grep -c "update_initramfs=no" /etc/initramfs-tools/update-initramfs.conf) -eq '1' ];
+		if [ $(grep -c "update_initramfs=no" /etc/initramfs-tools/update-initramfs.conf.new) -eq '1' ];
 		then
-			echo "Disabled" >> /home/xbian/xbian-initramfs-update.log
+			echo "Disabled successfully" >> /home/xbian/xbian-initramfs-update.log
 			mv /etc/initramfs-tools/update-initramfs.conf.new /etc/initramfs-tools/update-initramfs.conf
 		else
 			echo "ERROR disabling system initramfs-update process" >> /home/xbian/xbian-initramfs-update.log
 		fi
 	fi
+
+        echo "---UPDATE LOG---"
+        cat "/home/xbian/xbian-initramfs-update.log"
 
 fi
 

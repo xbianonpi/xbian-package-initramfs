@@ -94,7 +94,6 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		else
 			sed -i "\$aLABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,relatime,noatime	0	1" $CONFIG_newroot/etc/fstab
 		fi
-		sed -i "/\(.*[\ ]\{1,\}\(\/boot\)[\ ]\{1,\}.*\)/d" $CONFIG_newroot/etc/fstab
 		sed -i "/\(\/var\/swapfile\)/d" $CONFIG_newroot/etc/fstab
 		sed -i "\$aLABEL=xbian-root-btrfs	/home	btrfs	subvol=HOME/.btrfs/snapshot/@running	0	0" $CONFIG_newroot/etc/fstab
 		sed -i '1i#' $CONFIG_newroot/etc/fstab

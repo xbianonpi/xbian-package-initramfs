@@ -160,7 +160,7 @@ if [ -n "$CONFIG_ip" ]; then
 		dhcp|auto|on)
 			cd /sys/class/net
 			for f in *; do
-				test $f != "lo" && ipconfig $f
+				test $f != "lo" && test $f != "wlan0" && ipconfig $f
 			done
 
 			. /run/net-*.conf

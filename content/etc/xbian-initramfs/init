@@ -20,8 +20,12 @@ fi
 if ! mount -t devtmpfs -o size=$tmpfs_size,mode=0755 udev /dev; then
         echo "W: devtmpfs not available, falling back to tmpfs for /dev"
         mount -t tmpfs -o size=$tmpfs_size,mode=0755 udev /dev
+        mdev -s
+        export CONFIG_nodevtmpfs='1'
         [ -e /dev/console ] || mknod -m 0600 /dev/console c 5 1
         [ -e /dev/null ] || mknod /dev/null c 1 3
+else
+        export CONFIG_nodevtmpfs=''
 fi
 
 mkdir /dev/pts
@@ -81,6 +85,8 @@ if [ -d /sys/bus/scsi ]; then
         udevadm settle || true
 fi
 
+test -z "$CONFIG_nodevtmpfs" && mdev -s
+
 echo "Checking for keyboard..."
 keyboard=$(/bin/ls /dev/input | grep -m1 event)
 if [ "${keyboard}" != '' ]; then
@@ -122,6 +128,7 @@ fi
 echo "Loading initram modules ... "
 cat /etc/modules | grep -v ^# | xargs -n 1 modprobe -q > /dev/null  2>&1
 udevadm settle || true
+test -z "$CONFIG_nodevtmpfs" && mdev -s
 
 if [ -z "$CONFIG_splash" ]; then 
 	touch /run/nosplash
@@ -136,7 +143,8 @@ if [ "$CONFIG_rootfstype" != "nfs" ]; then
 while [ ! -b "$CONFIG_root" -a -n "$CONFIG_rootwait"  -a  "$X" -lt "$CONFIG_rootwait" ]; do
 	X=$(($X+1))
 	echo "$X Waiting for root..."
-	sleep 1
+	test -z "$CONFIG_nodevtmpfs" && mdev -s
+        sleep 1
 done
 test ! -b "${CONFIG_root}" && echo "Root partition ${CONFIG_root} missing" && drop_shell
 fi

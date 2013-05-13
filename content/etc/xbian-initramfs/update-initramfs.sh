@@ -5,10 +5,9 @@
 test -z "$1" && MODVER=$(uname -r)
 test -z "$MODVER" && MODVER="$1"
 
-USETRIGGERS=true
+test -e /run/trigger-xbian-update-initramfs && MODVER=$(cat /run/trigger-xbian-update-initramfs)
 
-#echo $(date) >> /var/run/vypis.txt
-#echo $(env) >> /var/run/vypis.txt
+echo "Updating initramfs as requested by trigger $MODVER"
 
 copy_modules() {
 

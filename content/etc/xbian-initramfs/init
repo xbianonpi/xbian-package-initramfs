@@ -200,6 +200,10 @@ test "$CONFIG_rootfstype" != "nfs" && resize_btrfs
 echo "Moving root"
 move_root
 
+test -e "/run/net-*.conf" && \
+	{ rm /etc/resolv.conf; for f in `ls /run/net-*.conf`; do cat $f | grep IPV.DNS | tr -d "'"| awk -F'=' '{print "nameserver "$2}' > /etc/resolv.conf; done } \
+		&& { for f in `ls /run/net-*.conf`; do cat $f | grep DOMAINSEARCH | tr -d "'"| awk -F'=' '{print "search "$2}' > /etc/resolv.conf; done }
+
 test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --msgtxt="loading..." --percentagebar --percentage=15
 test -n "$CONFIG_rescue_late" && drop_shell
 

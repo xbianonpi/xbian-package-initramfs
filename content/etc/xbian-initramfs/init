@@ -78,12 +78,11 @@ udevd --daemon --resolve-names=never
   fi
 
 udevadm trigger --action=add
-udevadm settle || true
 
 if [ -d /sys/bus/scsi ]; then
         modprobe -q scsi_wait_scan && modprobe -r scsi_wait_scan || true
-        udevadm settle || true
 fi
+udevadm settle || true
 
 test -z "$CONFIG_nodevtmpfs" && mdev -s
 
@@ -183,6 +182,10 @@ if [ -n "$CONFIG_ip" ]; then
 			;;
 	esac 
 fi
+test -e /run/net-*.conf \
+	&& { for f in `ls /run/net-*.conf`; do cat $f | grep IPV.DNS | tr -d "'"| awk -F'=' '{print "nameserver "$2}' > /etc/resolv.conf; done } \
+	&& { for f in `ls /run/net-*.conf`; do cat $f | grep DOMAINSEARCH | tr -d "'"| awk -F'=' '{print "search "$2}' >> /etc/resolv.conf; done } \
+	&& { for f in `ls /run/net-*.conf`; do cat $f | grep DNSDOMAIN | tr -d "'"| awk -F'=' '{print "domain "$2}' >> /etc/resolv.conf; done }
 
 test -n "$CONFIG_rescue" && drop_shell
 
@@ -194,15 +197,12 @@ if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"
 	drop_shell
 fi
+cp /etc/resolv.conf "${CONFIG_newroot}/etc/"
 
 test "$CONFIG_rootfstype" != "nfs" && resize_btrfs
 
 echo "Moving root"
 move_root
-
-test -e "/run/net-*.conf" && \
-	{ rm /etc/resolv.conf; for f in `ls /run/net-*.conf`; do cat $f | grep IPV.DNS | tr -d "'"| awk -F'=' '{print "nameserver "$2}' > /etc/resolv.conf; done } \
-		&& { for f in `ls /run/net-*.conf`; do cat $f | grep DOMAINSEARCH | tr -d "'"| awk -F'=' '{print "search "$2}' > /etc/resolv.conf; done }
 
 test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --msgtxt="loading..." --percentagebar --percentage=15
 test -n "$CONFIG_rescue_late" && drop_shell

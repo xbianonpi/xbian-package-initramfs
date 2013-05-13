@@ -202,6 +202,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$FSCHECK" = "ext
 			else
 				echo "Filesystem resized..."
 			fi
+			e2fsck -y -f ${CONFIG_root}
 		fi
 	fi
 fi

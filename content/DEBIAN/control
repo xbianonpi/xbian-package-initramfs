@@ -4,7 +4,6 @@ Version: 1.0-0.2
 Section: kernel
 Essential: Yes
 Priority: standard
-Codename: wheezy
 Architecture: armhf
 Installed-Size: 28000
 Pre-Depends: initramfs-tools

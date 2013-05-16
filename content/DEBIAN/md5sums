@@ -1,5 +1,5 @@
 fba2ae1975a815d18b4e2774e0c4df5f  ./content/etc/default/xbian-initramfs
-e51b234ddae7822deb0c3549e6955420  ./content/etc/init/xbian-udpate-reboot.conf
+2be89c0a0115363565d5db81590ca897  ./content/etc/init/xbian-udpate-reboot.conf
 a0788dae639d55a993abe5fab6ad9039  ./content/etc/xbian-initramfs/cnvres-code.sh
 5133a29282dfd16e8e837d38eccca507  ./content/etc/xbian-initramfs/init
 efd5f38a2d37c76f3f1e0dde95312e72  ./content/etc/xbian-initramfs/update-initramfs.sh

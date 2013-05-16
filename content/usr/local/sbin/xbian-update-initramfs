@@ -1,0 +1,5 @@
+#!/bin/sh
+
+echo "Xbian-update-initramfs called directly. Saving kernel version and triggering."
+echo "$1" > /run/trigger-xbian-update-initramfs
+dpkg-trigger --no-await trigger-xbian-update-initramfs

@@ -5,4 +5,4 @@ a0788dae639d55a993abe5fab6ad9039  ./content/etc/xbian-initramfs/cnvres-code.sh
 efd5f38a2d37c76f3f1e0dde95312e72  ./content/etc/xbian-initramfs/update-initramfs.sh
 e7fdcd1edcbaf1d4107bc20c182b0ec6  ./content/usr/bin/key
 01647dc3eaa6a16d34fb012ab4c52768  ./content/usr/local/sbin/xbian-resize
-efd5f38a2d37c76f3f1e0dde95312e72  ./content/usr/local/sbin/xbian-update-initramfs
+d5d40c6128bd7bff275bd4b98151542c  ./content/usr/local/sbin/xbian-update-initramfs

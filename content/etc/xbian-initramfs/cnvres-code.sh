@@ -92,7 +92,7 @@ d88P  Y88b d88P" "Y88b 8888b   888 888     888 888        888   Y88b    888
 888    888 888     888 888  Y88888   Y88o88P   888        888 T88b      888
 Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
  "Y8888P"   "Y88888P"  888    Y888     Y8P     8888888888 888   T88b    888';
-		e2fsck -y -f ${CONFIG_root}
+		e2fsck -p -f ${CONFIG_root}
 		/splash_updater.sh &
 		stdbuf -o 0 -e 0 btrfs-convert ${CONFIG_root} 2>&1 > /tmp/output.grab
 		touch /run/splash_updater.kill
@@ -216,7 +216,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$FSCHECK" = "ext
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
-			e2fsck -y -f ${CONFIG_root}
+			e2fsck -p -f ${CONFIG_root}
 			mount -t ext4 ${CONFIG_root} "$CONFIG_newroot"
 			TUNEBLOCKCOUNT=`/sbin/resize2fs ${CONFIG_root} | grep now | rev | awk '{print $3}' | rev`
 			if [ "$?" -eq '0' ]; then
@@ -231,7 +231,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$FSCHECK" = "ext
 			else
 				echo "Filesystem resized..."
 			fi
-			#e2fsck -y -f ${CONFIG_root}
+			#e2fsck -p -f ${CONFIG_root}
 		fi
 	fi
 fi

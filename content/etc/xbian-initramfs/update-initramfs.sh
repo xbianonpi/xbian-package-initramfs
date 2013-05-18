@@ -161,7 +161,7 @@ if [ "$?" != '0' ]; then
         need_umount="yes"
 fi
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
-find . | cpio -H newc -o | lzma > /boot/initramfs.gz
+find . | cpio -H newc -o | lzma -1v > /boot/initramfs.gz
 test "$need_umount" = "yes" && umount /boot
 
 rm -fr $TMPDIR

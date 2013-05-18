@@ -67,7 +67,9 @@ d88P  Y88b d88P" "Y88b 8888b   888 888     888 888        888   Y88b    888
 Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
  "Y8888P"   "Y88888P"  888    Y888     Y8P     8888888888 888   T88b    888';
 		e2fsck -y -f ${CONFIG_root}
-		btrfs-convert ${CONFIG_root}
+		/splash_updater.sh &
+		stdbuf -o 0 -e 0 btrfs-convert ${CONFIG_root} 2>&1 > /tmp/output.grab
+		touch /run/splash_updater.kill
 		FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
 	fi
 	

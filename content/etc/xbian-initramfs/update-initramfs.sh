@@ -144,6 +144,9 @@ cp -d --remove-destination -arv --parents /lib/udev/rules.d/70-btrfs.rules ./
 
 cp /etc/xbian-initramfs/init ./
 cp /etc/xbian-initramfs/cnvres-code.sh ./
+cp /etc/xbian-initramfs/splash_updater.sh ./
+copy_with_libs /usr/bin/stdbuf
+copy_with_libs /usr/lib/coreutils/libstdbuf.so
 
 cat /etc/modules | grep -i evdev || echo evdev >> ./etc/modules
 

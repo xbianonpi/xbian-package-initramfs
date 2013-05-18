@@ -59,6 +59,7 @@ done
 
 test -n "$CONFIG_debug" && unset CONFIG_splash
 test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process..." 
+splash_identity=$(md5sum /usr/bin/splash)
 
 if [ -n "$CONFIG_debug" ]; then
 	exec >/run/initramfs/initramfs.debug 2>&1
@@ -206,7 +207,11 @@ test "$CONFIG_rootfstype" != "nfs" && resize_btrfs
 echo "Moving root"
 move_root
 
-test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --msgtxt="loading..." --percentagebar --percentage=15
+if [ "$splash_identity" = "$(md5sum $CONFIG_newroot/usr/bin/splash)" ]; then
+	test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --msgtxt="loading..." --percentagebar --percentage=15
+else
+	kill_splash
+fi
 test -n "$CONFIG_rescue_late" && drop_shell
 
 if [ ${CONFIG_init} = 'switch_root' ]; then

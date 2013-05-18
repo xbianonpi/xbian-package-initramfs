@@ -2,12 +2,14 @@
 
 . /etc/default/xbian-initramfs
 
-test -z "$1" && MODVER=$(uname -r)
-test -z "$MODVER" && MODVER="$1"
-
 test -e /run/trigger-xbian-update-initramfs && MODVER=$(cat /run/trigger-xbian-update-initramfs)
 
-echo "Updating initramfs as requested by trigger $MODVER"
+if [ -z "$MODVER" ]; then
+	test -z "$1" && MODVER=$(uname -r)
+	test -z "$MODVER" && MODVER="$1"
+fi
+
+echo "Updating initramfs as requested by trigger. Kernel modules $MODVER."
 
 copy_modules() {
 

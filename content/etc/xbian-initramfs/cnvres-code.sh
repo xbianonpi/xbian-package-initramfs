@@ -1,7 +1,33 @@
 # part of code, which is relevant to block devices ... to keep init readable
 
-cp_splash() {
+update_resolv() {
+for f in `ls /run/net-*.conf`; do cat $f | grep IPV.DNS | tr -d "'"| awk -F'=' '{print "nameserver "$2}' > /etc/resolv.conf; done
+for f in `ls /run/net-*.conf`; do cat $f | grep DOMAINSEARCH | tr -d "'"| awk -F'=' '{print "search "$2}' >> /etc/resolv.conf; done
+for f in `ls /run/net-*.conf`; do cat $f | grep DNSDOMAIN | tr -d "'"| awk -F'=' '{print "domain "$2}' >> /etc/resolv.conf; done
+}
 
+update_interfaces() {
+if [ "$1" = "rollback" ]; then
+	test -e "${CONFIG_newroot}/etc/network/interfaces.initramfs.autoconfig" && mv "${CONFIG_newroot}/etc/network/interfaces.initramfs.autoconfig" "${CONFIG_newroot}/etc/network/interfaces"
+	return
+fi
+test "$CONFIG_ip" = "dhcp" || return
+
+for f in `ls /run/net-eth?.conf`; do
+	f=${f%%.conf}; f=${f##/run/net-};
+	if [ "$(cat ${CONFIG_newroot}/etc/network/interfaces | grep $f | grep inet | grep -c iface)" -eq '1' ]; then
+		grep -v  "$(cat ${CONFIG_newroot}/etc/network/interfaces | grep $f | grep inet | grep  iface)" "${CONFIG_newroot}/etc/network/interfaces" > "${CONFIG_newroot}/etc/network/interfaces.new"
+		if [ "$(cat ${CONFIG_newroot}/etc/network/interfaces | grep $f | grep -c auto)" -eq '0' ]; then
+			printf "%s\n" "auto $f" >> "${CONFIG_newroot}/etc/network/interfaces.new"
+		fi
+		printf "%s\n" "iface $f inet manual" >> "${CONFIG_newroot}/etc/network/interfaces.new"
+		test -e "${CONFIG_newroot}/etc/network/interfaces.initramfs.autoconfig" || mv "${CONFIG_newroot}/etc/network/interfaces" "${CONFIG_newroot}/etc/network/interfaces.initramfs.autoconfig"
+		mv "${CONFIG_newroot}/etc/network/interfaces.new" "${CONFIG_newroot}/etc/network/interfaces"
+	fi
+done
+}
+
+cp_splash() {
 copyto="$1"
 
 cp -d -a --parents /usr/bin/splash "$copyto"/

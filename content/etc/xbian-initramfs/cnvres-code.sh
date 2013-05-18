@@ -104,7 +104,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 	test -e /boot/config.txt.convert && mv /boot/config.txt.convert /boot/config.txt
 	test "$FSCHECK" = "ext4" && sed -i "s/rootfstype=btrfs/rootfstype=ext4/g" /boot/cmdline.txt
 	if [ "$FSCHECK" = "btrfs" ]; then
-		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="post-conversion tasks..."
+		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="post conversion tasks..."
 		/sbin/btrfs fi label ${CONFIG_root} xbian-root-btrfs
 		mount -t btrfs -o compress=lzo,rw,noatime,relatime LABEL=xbian-root-btrfs $CONFIG_newroot
 		create_fsck $CONFIG_newroot
@@ -295,6 +295,7 @@ ln -s $CONFIG_newroot/proc /proc
 
 kill_splash() {
 	test -n "$CONFIG_splash" && /bin/kill -SIGTERM $(pidof splash)
+	rm -fr /run/splash
 }
 
 drop_shell() {

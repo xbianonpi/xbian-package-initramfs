@@ -14,7 +14,6 @@ cp -d --parents /usr/bin/splash.fonts "$copyto"/
 }
 
 create_fsck() {
-
 if [ ! -e "$1"/sbin/fsck.btrfs ]; then
 echo "#!/bin/sh
 
@@ -22,7 +21,6 @@ true
 " >> "$1"/sbin/fsck.btrfs
 chmod +x "$1"/sbin/fsck.btrfs
 fi
-
 }
 
 get_root() {
@@ -204,7 +202,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$FSCHECK" = "ext
 			else
 				echo "Filesystem resized..."
 			fi
-			e2fsck -y -f ${CONFIG_root}
+			#e2fsck -y -f ${CONFIG_root}
 		fi
 	fi
 fi

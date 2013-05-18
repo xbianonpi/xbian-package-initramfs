@@ -29,10 +29,10 @@ copy_file() {
         tmp1=${fl##/*}
         if [ -n "$tmp1" ]; then
                 test -h ".$2/$fl" && rm -f ".$2/$fl"
-                cp --parents $3 "$d$fl" "$2"
+                cp -d --parents $3 "$d$fl" "$2"
         else
                 test -h ".$fl" && rm -f ".$fl"
-                cp --parents $3 "$fl" "./"
+                cp -d --parents $3 "$fl" "./"
         fi
 }
 
@@ -63,6 +63,7 @@ copy_with_libs() {
                                 f=$f2
                         fi
                         copy_file "$f" "$dst" "-n"
+                        [ -e "$f1" ] && copy_file "$f1" "$dst" "-n"
                 done
                 IFS=$oldIFS
         fi

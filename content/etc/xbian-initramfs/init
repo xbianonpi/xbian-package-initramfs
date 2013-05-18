@@ -175,6 +175,7 @@ if [ -n "$CONFIG_ip" ]; then
 
 			. /run/net-*.conf
 			cd /
+			export CONFIG_ip="dhcp"
 			;;
 		off|no)
 			;;

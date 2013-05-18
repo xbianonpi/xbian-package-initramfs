@@ -128,6 +128,7 @@ copy_with_libs /sbin/iwconfig
 copy_with_libs /sbin/wpa_supplicant 
 copy_with_libs /sbin/partprobe 
 copy_with_libs /usr/bin/pkill
+copy_with_libs /usr/bin/pgrep
 cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin
 cp --remove-destination /usr/lib/klibc/bin/run-init ./sbin
 

@@ -212,9 +212,10 @@ test -n "$CONFIG_rescue_late" && drop_shell
 if [ ${CONFIG_init} = 'switch_root' ]; then
 	exec run-init $CONFIG_newroot /sbin/init "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
 else
+	kill_splash
 	exec run-init $CONFIG_newroot ${CONFIG_init} "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
 fi
 
-test -n "${CONFIG_splash}" && /usr/bin/splash --exit
+kill_splash
 echo "Failed to switch_root, dropping to a shell"
 exec /bin/bash

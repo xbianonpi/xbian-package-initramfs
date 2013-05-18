@@ -162,6 +162,8 @@ test "$CONFIG_rootfstype" != "nfs" && resize_ext4
 
 test "$CONFIG_rootfstype" != "nfs" && convert_btrfs
 
+{ test -e /etc/hostname && hostname -F /etc/hostname; } || hostname xbian
+
 if [ -n "$CONFIG_ip" ]; then
 	test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="configuring network ..."
 	case "$CONFIG_ip" in 

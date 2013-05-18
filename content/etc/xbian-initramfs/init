@@ -213,6 +213,7 @@ if [ "$splash_identity" = "$(md5sum $CONFIG_newroot/usr/bin/splash)" ]; then
 	test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --msgtxt="loading..." --percentagebar --percentage=15
 else
 	kill_splash
+	test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --msgtxt="loading..." --percentagebar --percentage=15
 fi
 test -n "$CONFIG_rescue_late" && drop_shell
 

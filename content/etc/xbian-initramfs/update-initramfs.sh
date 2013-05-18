@@ -28,10 +28,10 @@ copy_file() {
         fl=$(ls -la "$1" | awk '{print $11}')
         tmp1=${fl##/*}
         if [ -n "$tmp1" ]; then
-                test -h ".$2/$fl" || rm -f ".$2/$fl"
+                test -h ".$2/$fl" && rm -f ".$2/$fl"
                 cp --parents $3 "$d$fl" "$2"
         else
-                test -h ".$fl" || rm -f ".$fl"
+                test -h ".$fl" && rm -f ".$fl"
                 cp --parents $3 "$fl" "./"
         fi
 }

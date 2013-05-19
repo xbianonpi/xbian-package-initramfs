@@ -198,7 +198,7 @@ if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"
 	drop_shell
 fi
-cp /etc/resolv.conf "${CONFIG_newroot}/etc/"
+[ -e /etc/resolv.conf ] && cp /etc/resolv.conf "${CONFIG_newroot}/etc/"
 if [ -e /run/net-eth?.conf ]; then
 	update_interfaces
 else

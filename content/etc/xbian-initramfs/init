@@ -190,7 +190,8 @@ test -e /run/net-*.conf && update_resolv
 
 test -n "$CONFIG_rescue" && drop_shell
 
-test "$CONFIG_rw" = '1' && export CONFIG_rw='rw'
+# root needs to be rw for network settings update
+export CONFIG_rw='rw'
 # mount root partition
 echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw",${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot"
 mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw","$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot

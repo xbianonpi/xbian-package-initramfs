@@ -110,28 +110,30 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		create_fsck $CONFIG_newroot
 		/sbin/btrfs sub delete $CONFIG_newroot/ext2_saved
 
+		/sbin/btrfs sub create $CONFIG_newroot/ROOT
+		mv $CONFIG_newroot/* $CONFIG_newroot/ROOT
 		/sbin/btrfs sub create $CONFIG_newroot/HOME
+		mv $CONFIG_newroot/ROOT/home/* $CONFIG_newroot/HOME
 		mkdir -p $CONFIG_newroot/HOME/.btrfs/snapshot
-		mv $CONFIG_newroot/home/* $CONFIG_newroot/HOME
-		/sbin/btrfs sub snapshot $CONFIG_newroot/HOME $CONFIG_newroot/HOME/.btrfs/snapshot/@running
-		/sbin/btrfs sub snapshot $CONFIG_newroot/HOME/.btrfs/snapshot/@running $CONFIG_newroot/HOME/.btrfs/snapshot/@safe
-		cp $CONFIG_newroot/etc/fstab $CONFIG_newroot/etc/fstab.ext4
-		if [ `sed -ne "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):\1:p" $CONFIG_newroot/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
-			sed -i "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):LABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,relatime,noatime,autodefrag	0	0:" $CONFIG_newroot/etc/fstab
+		/sbin/btrfs sub snapshot $CONFIG_newroot/HOME $CONFIG_newroot/HOME/.btrfs/snapshot/@safe
+		/sbin/btrfs sub snapshot $CONFIG_newroot/HOME/.btrfs/snapshot/@safe $CONFIG_newroot/HOME/.btrfs/snapshot/@running
+		cp $CONFIG_newroot/ROOT/etc/fstab $CONFIG_newroot/ROOT/etc/fstab.ext4
+		if [ `sed -ne "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):\1:p" $CONFIG_newroot/ROOT/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
+			sed -i "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):LABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,relatime,noatime,autodefrag	0	0:" $CONFIG_newroot/ROOT/etc/fstab
 		else
-			sed -i "\$aLABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,relatime,noatime,autodefrag	0	0" $CONFIG_newroot/etc/fstab
+			sed -i "\$aLABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,relatime,noatime,autodefrag	0	0" $CONFIG_newroot/ROOT/etc/fstab
 		fi
-		sed -i "/\(\/var\/swapfile\)/d" $CONFIG_newroot/etc/fstab
-		sed -i "\$aLABEL=xbian-root-btrfs	/home	btrfs	subvol=HOME/.btrfs/snapshot/@running	0	0" $CONFIG_newroot/etc/fstab
-		sed -i '1i#' $CONFIG_newroot/etc/fstab
-		sed -i '1i#' $CONFIG_newroot/etc/fstab
-		sed -i '1i#' $CONFIG_newroot/etc/fstab
+		sed -i "/\(\/var\/swapfile\)/d" $CONFIG_newroot/ROOT/etc/fstab
+		sed -i "\$aLABEL=xbian-root-btrfs	/home	btrfs	subvol=HOME/.btrfs/snapshot/@running	0	0" $CONFIG_newroot/ROOT/etc/fstab
+		sed -i '1i#' $CONFIG_newroot/ROOT/etc/fstab
+		sed -i '1i#' $CONFIG_newroot/ROOT/etc/fstab
+		sed -i '1i#' $CONFIG_newroot/ROOT/etc/fstab
 
-		mkdir -p $CONFIG_newroot/.btrfs/snapshot
-		/sbin/btrfs sub snapshot $CONFIG_newroot $CONFIG_newroot/.btrfs/snapshot/@running
+		mkdir -p $CONFIG_newroot/ROOT/.btrfs/snapshot
+		/sbin/btrfs sub snapshot $CONFIG_newroot/ROOT $CONFIG_newroot/ROOT/.btrfs/snapshot/@safe
+		/sbin/btrfs sub snapshot $CONFIG_newroot/ROOT/.btrfs/snapshot/@safe $CONFIG_newroot/ROOT/.btrfs/snapshot/@running
 		btrfsDEF=`btrfs sub list $CONFIG_newroot | grep -v HOME | grep @running | awk '{print $2}'`
 		/sbin/btrfs sub set-default "$btrfsDEF" $CONFIG_newroot
-		/sbin/btrfs sub snapshot $CONFIG_newroot/.btrfs/snapshot/@running $CONFIG_newroot/.btrfs/snapshot/@safe
 
 		umount $CONFIG_newroot
 	fi

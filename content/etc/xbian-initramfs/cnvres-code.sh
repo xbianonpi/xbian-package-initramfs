@@ -135,6 +135,8 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		btrfsDEF=`btrfs sub list $CONFIG_newroot | grep -v HOME | grep @running | awk '{print $2}'`
 		/sbin/btrfs sub set-default "$btrfsDEF" $CONFIG_newroot
 
+		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="rebalancing filesystem..."
+		btrfs fi bal /
 		umount $CONFIG_newroot
 	fi
 	umount /boot

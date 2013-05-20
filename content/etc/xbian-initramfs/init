@@ -116,7 +116,7 @@ case ${CONFIG_rootfstype} in
 		chmod 777 $CONFIG_newroot
 		;;
 	*)
-		export CONFIG_rootfsopts="${CONFIG_root#*,}"
+		[ -z "$CONFIG_rootfsopts" ] && export CONFIG_rootfsopts="${CONFIG_root#*,}"
 		export CONFIG_root="${CONFIG_root%%,*}"
 		;;
 esac

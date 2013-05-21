@@ -33,7 +33,7 @@ elif [ $1 == "triggered" ]; then
         echo "initramfs initramfs.gz  0x00a00000" > /boot/config.txt
         cat /boot/config.txt.new >> /boot/config.txt
         rm /boot/config.txt.new
-        umount /boot
+        umount /boot || exit 1
 
 fi
 

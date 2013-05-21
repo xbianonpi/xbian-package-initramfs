@@ -160,14 +160,13 @@ cat /etc/modules | grep -i evdev || echo evdev >> ./etc/modules
 copy_modules
 
 need_umount=''
-mountpoint -q /boot
-if [ "$?" != '0' ]; then
+if ! mountpoint -q /boot; then
         mount /boot
         need_umount="yes"
 fi
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
 find . | cpio -H newc -o | lzma -1v > /boot/initramfs.gz
-test "$need_umount" = "yes" && umount /boot
+[ "$need_umount" = "yes" ] && umount /boot
 
 rm -fr $TMPDIR
 

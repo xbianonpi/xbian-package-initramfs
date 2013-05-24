@@ -140,7 +140,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 
 		echo "rebalancing filesystem..."
 		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="rebalancing filesystem..."
-		btrfs fi bal /
+		btrfs fi bal "$CONFIG_newroot"
 		umount $CONFIG_newroot
 	fi
 	umount /boot

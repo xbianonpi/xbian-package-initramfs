@@ -111,6 +111,8 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		/sbin/btrfs sub delete $CONFIG_newroot/ext2_saved
 
 		/sbin/btrfs sub create $CONFIG_newroot/ROOT
+		echo "relocating root..."
+		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="relocating root..."
 		mv $CONFIG_newroot/* $CONFIG_newroot/ROOT
 		/sbin/btrfs sub create $CONFIG_newroot/HOME
 		mv $CONFIG_newroot/ROOT/home/* $CONFIG_newroot/HOME
@@ -136,6 +138,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		btrfsDEF=`btrfs sub list $CONFIG_newroot | grep -v HOME | grep @running | awk '{print $2}'`
 		/sbin/btrfs sub set-default "$btrfsDEF" $CONFIG_newroot
 
+		echo "rebalancing filesystem..."
 		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="rebalancing filesystem..."
 		btrfs fi bal /
 		umount $CONFIG_newroot

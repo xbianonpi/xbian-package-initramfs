@@ -37,7 +37,6 @@ mkdir -m 0755 /run/initramfs
 INITIALBOOT="0"
 
 export CONFIG_rootfstype="ext4"
-export CONFIG_rootfsopts="noatime"
 export CONFIG_root="/dev/mmcblk0p2"
 export CONFIG_noswapfile="0"
 export CONFIG_init='switch_root'
@@ -62,6 +61,8 @@ test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process
 splash_identity=$(cat  /usr/bin/splash | md5sum )
 
 if [ -n "$CONFIG_debug" ]; then
+	unset CONFIG_rescue
+	unset CONFIG_rescue_late
 	exec >/run/initramfs/initramfs.debug 2>&1
 	set -x
 fi

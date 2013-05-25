@@ -1,0 +1,4 @@
+#!/bin/sh
+
+mountpoint -q /boot || { mount /boot; touch /run/bootumount; }
+

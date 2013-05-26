@@ -163,7 +163,7 @@ copy_with_libs /usr/lib/coreutils/libstdbuf.so
 
 cp /etc/hostname ./etc
 
-cat /etc/modules | grep -i evdev || echo evdev >> ./etc/modules
+cat /etc/modules | grep -i evdev || printf "\nevdev" >> ./etc/modules
 
 copy_modules "$(cat /etc/modules | grep -v ^# )"
 copy_modules "btrfs nfs ext4 vfat"

@@ -13,9 +13,18 @@ echo "Updating initramfs as requested by trigger. Kernel modules $MODVER."
 
 copy_modules() {
 
-        list=$(cat /etc/modules | grep -v ^# )
+        list="$1" 
         for f in $list; do 
-                find /lib/modules/$MODVER -iname $f.ko | xargs -L 1 --no-run-if-empty cp -a --parents -t ./
+                modname=$(find /lib/modules/$MODVER -iname $f.ko -printf '%P') 
+                [ -z "$modname" ] && continue
+                echo "requested /lib/modules/$MODVER/$modname"
+                cp -a --parents "/lib/modules/$MODVER/$modname" ./
+                depends=$(grep "$modname" "/lib/modules/$MODVER/modules.dep" | awk -F':' '{print $2}')
+                [ -z "$depends" ] && continue
+                for g in $depends; do
+                        echo "for dependencies /lib/modules/$MODVER/$g"
+                        cp -a --parents "/lib/modules/$MODVER/$g" ./
+                done
         done
 
 }
@@ -34,6 +43,7 @@ copy_file() {
                 test -h ".$fl" && rm -f ".$fl"
                 cp -d --parents $3 "$fl" "./"
         fi
+        echo "$fl"
 }
 
 copy_with_libs() {
@@ -97,9 +107,6 @@ cp -d --remove-destination /etc/modules etc/
 cp -d --remove-destination -av --parents /etc/default ./
 copy_with_libs /lib/init
 copy_with_libs /lib/lsb
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/fs/btrfs ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/lib ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/crypto ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/md ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/scsi ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/storage ./
@@ -107,8 +114,9 @@ cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/net/usb ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/wireless ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/mac80211 ./
-cp -d --remove-destination --parents /lib/modules/$MODVER/* ./
 cp -d --remove-destination -av --parents /lib/firmware ./
+cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
+cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
@@ -157,7 +165,9 @@ cp /etc/hostname ./etc
 
 cat /etc/modules | grep -i evdev || echo evdev >> ./etc/modules
 
-copy_modules
+copy_modules "$(cat /etc/modules | grep -v ^# )"
+copy_modules "btrfs nfs ext4 vfat"
+depmod -b ./ $MODVER
 
 need_umount=''
 if ! mountpoint -q /boot; then

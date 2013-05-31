@@ -184,7 +184,7 @@ if ! mountpoint -q /boot; then
         need_umount="yes"
 fi
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
-find . | cpio -H newc -o | xz -c -v > /boot/initramfs.gz
+find . | cpio -H newc -o | lzma -1v > /boot/initramfs.gz
 [ "$need_umount" = "yes" ] && umount /boot
 
 exit 0

@@ -10,21 +10,29 @@ if [ -z "$MODVER" ]; then
 fi
 
 echo "Updating initramfs as requested by trigger. Kernel modules $MODVER."
+mod_done=''
 
 copy_modules() {
 
-        list="$1" 
-        for f in $list; do 
-                modname=$(find /lib/modules/$MODVER -iname $f.ko -printf '%P') 
+        list="$1"
+        for f in $list; do
+                f=$(basename $f)
+                f="${f%'.ko'}.ko"
+                case $mod_done in
+                        *"/$f "*)
+                                continue
+                                ;;
+                        *)
+                                ;;
+                esac
+                modname=$(find /lib/modules/$MODVER -iname $f -printf '%P') 
                 [ -z "$modname" ] && continue
-                echo "requested /lib/modules/$MODVER/$modname"
+                echo "copying module /lib/modules/$MODVER/$modname"
                 cp -a --parents "/lib/modules/$MODVER/$modname" ./
-                depends=$(grep "$modname" "/lib/modules/$MODVER/modules.dep" | awk -F':' '{print $2}')
+                mod_done="$mod_done $modname "
+                depends=$(grep "$modname:" "/lib/modules/$MODVER/modules.dep" | awk -F': ' '{print $2}')
                 [ -z "$depends" ] && continue
-                for g in $depends; do
-                        echo "for dependencies /lib/modules/$MODVER/$g"
-                        cp -a --parents "/lib/modules/$MODVER/$g" ./
-                done
+                copy_modules "$depends"
         done
 
 }
@@ -81,6 +89,7 @@ copy_with_libs() {
 
 TMPDIR=$(mktemp -d)
 cd $TMPDIR
+trap "{ cd ..; rm -fr '${TMPDIR}'; exit 0; }" INT TERM EXIT
 
 mkdir bin dev etc lib proc rootfs run sbin sys tmp usr mnt var
 ln -s /run ./var/run
@@ -114,9 +123,16 @@ cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/net/usb ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/wireless ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/mac80211 ./
-cp -d --remove-destination -av --parents /lib/firmware ./
+#cp -d --remove-destination -av --parents /lib/firmware ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
+
+cat /etc/modules | grep -i evdev || printf "\nevdev" >> ./etc/modules
+
+copy_modules "$(cat /etc/modules | grep -v ^# )" 
+copy_modules "btrfs nfs ext4 vfat" 
+depmod -b ./ $MODVER
+
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
@@ -162,23 +178,14 @@ copy_with_libs /usr/bin/stdbuf
 copy_with_libs /usr/lib/coreutils/libstdbuf.so
 
 cp /etc/hostname ./etc
-
-cat /etc/modules | grep -i evdev || printf "\nevdev" >> ./etc/modules
-
-copy_modules "$(cat /etc/modules | grep -v ^# )"
-copy_modules "btrfs nfs ext4 vfat"
-depmod -b ./ $MODVER
-
 need_umount=''
 if ! mountpoint -q /boot; then
         mount /boot
         need_umount="yes"
 fi
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
-find . | cpio -H newc -o | lzma -1v > /boot/initramfs.gz
+find . | cpio -H newc -o | xz -c -v > /boot/initramfs.gz
 [ "$need_umount" = "yes" ] && umount /boot
-
-rm -fr $TMPDIR
 
 exit 0
 

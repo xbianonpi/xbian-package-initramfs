@@ -34,6 +34,11 @@ test ! -d /run && mkdir /run
 mount_run mount >/dev/null 2>&1
 mkdir -m 0755 /run/initramfs
 
+export MODPROBE_OPTIONS="-qb"
+
+echo "Loading initram modules ... "
+cat /etc/modules | grep -v ^# | xargs -n 1 modprobe -q > /dev/null  2>&1
+
 INITIALBOOT="0"
 
 export CONFIG_rootfstype="ext4"
@@ -66,8 +71,6 @@ if [ -n "$CONFIG_debug" ]; then
 	exec >/run/initramfs/initramfs.debug 2>&1
 	set -x
 fi
-
-export MODPROBE_OPTIONS="-qb"
 
 echo > /sys/kernel/uevent_helper
 
@@ -126,10 +129,6 @@ if [ ${CONFIG_rootfsopts} = ${CONFIG_root} ]; then
 	export CONFIG_rootfsopts=""
 fi
 
-echo "Loading initram modules ... "
-cat /etc/modules | grep -v ^# | xargs -n 1 modprobe -q > /dev/null  2>&1
-udevadm settle || true
-test -z "$CONFIG_nodevtmpfs" && mdev -s
 
 if [ -z "$CONFIG_splash" ]; then 
 	touch /run/nosplash

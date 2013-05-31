@@ -143,11 +143,9 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		btrfs fi bal "$CONFIG_newroot"
 		umount $CONFIG_newroot
 	fi
+	test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="rebooting..."
 	umount /boot
 	sync
-	test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="rebooting..."
-	echo "reboot in 30s"
-	sleep 30
 	reboot -f
 fi
 }

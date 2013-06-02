@@ -119,24 +119,25 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		mv $CONFIG_newroot/ROOT/home/* $CONFIG_newroot/HOME
 		mkdir -p $CONFIG_newroot/HOME/.btrfs/snapshot
 		/sbin/btrfs sub snapshot $CONFIG_newroot/HOME $CONFIG_newroot/HOME/.btrfs/snapshot/@safe
-		/sbin/btrfs sub snapshot $CONFIG_newroot/HOME/.btrfs/snapshot/@safe $CONFIG_newroot/HOME/.btrfs/snapshot/@running
+#		/sbin/btrfs sub snapshot $CONFIG_newroot/HOME/.btrfs/snapshot/@safe $CONFIG_newroot/HOME/.btrfs/snapshot/@running
 		cp $CONFIG_newroot/ROOT/etc/fstab $CONFIG_newroot/ROOT/etc/fstab.ext4
 		if [ `sed -ne "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):\1:p" $CONFIG_newroot/ROOT/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
-			sed -i "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):LABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,relatime,noatime,autodefrag	0	0:" $CONFIG_newroot/ROOT/etc/fstab
+			sed -i "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):LABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,noatime,autodefrag	0	0:" $CONFIG_newroot/ROOT/etc/fstab
 		else
-			sed -i "\$aLABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,relatime,noatime,autodefrag	0	0" $CONFIG_newroot/ROOT/etc/fstab
+			sed -i "\$aLABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,noatime,autodefrag	0	0" $CONFIG_newroot/ROOT/etc/fstab
 		fi
 		rm -f $CONFIG_newroot/ROOT/var/swapfile
 		sed -i "/\(\/var\/swapfile\)/d" $CONFIG_newroot/ROOT/etc/fstab
-		sed -i "\$aLABEL=xbian-root-btrfs	/home	btrfs	subvol=HOME/.btrfs/snapshot/@running	0	0" $CONFIG_newroot/ROOT/etc/fstab
+#		sed -i "\$aLABEL=xbian-root-btrfs	/home	btrfs	subvol=HOME/.btrfs/snapshot/@running	0	0" $CONFIG_newroot/ROOT/etc/fstab
+		sed -i "\$aLABEL=xbian-root-btrfs	/home	btrfs	subvol=HOME	0	0" $CONFIG_newroot/ROOT/etc/fstab
 		sed -i '1i#' $CONFIG_newroot/ROOT/etc/fstab
 		sed -i '1i#' $CONFIG_newroot/ROOT/etc/fstab
 		sed -i '1i#' $CONFIG_newroot/ROOT/etc/fstab
 
 		mkdir -p $CONFIG_newroot/ROOT/.btrfs/snapshot
 		/sbin/btrfs sub snapshot $CONFIG_newroot/ROOT $CONFIG_newroot/ROOT/.btrfs/snapshot/@safe
-		/sbin/btrfs sub snapshot $CONFIG_newroot/ROOT/.btrfs/snapshot/@safe $CONFIG_newroot/ROOT/.btrfs/snapshot/@running
-		btrfsDEF=`btrfs sub list $CONFIG_newroot | grep -v HOME | grep @running | awk '{print $2}'`
+#		/sbin/btrfs sub snapshot $CONFIG_newroot/ROOT/.btrfs/snapshot/@safe $CONFIG_newroot/ROOT/.btrfs/snapshot/@running
+		btrfsDEF=`btrfs sub list $CONFIG_newroot | grep ROOT | grep -v @safe | awk '{print $2}'`
 		/sbin/btrfs sub set-default "$btrfsDEF" $CONFIG_newroot
 
 		echo "rebalancing filesystem..."

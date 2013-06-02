@@ -94,7 +94,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
  "Y8888P"   "Y88888P"  888    Y888     Y8P     8888888888 888   T88b    888';
 		e2fsck -p -f ${CONFIG_root}
 		/splash_updater.sh &
-		stdbuf -o 0 -e 0 btrfs-convert ${CONFIG_root} 2>&1 > /tmp/output.grab
+		stdbuf -o 0 -e 0 btrfs-convert -d ${CONFIG_root} 2>&1 > /tmp/output.grab
 		touch /run/splash_updater.kill
 		FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
 	fi
@@ -106,14 +106,15 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 	if [ "$FSCHECK" = "btrfs" ]; then
 		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="post conversion tasks..."
 		/sbin/btrfs fi label ${CONFIG_root} xbian-root-btrfs
-		mount -t btrfs -o compress=lzo,rw,noatime,relatime LABEL=xbian-root-btrfs $CONFIG_newroot
+		mount -t btrfs -o compress=zlib,rw,noatime,autodefrag,space_cache,nodatacow,notreelog,thread_pool=1 LABEL=xbian-root-btrfs $CONFIG_newroot
 		create_fsck $CONFIG_newroot
 		/sbin/btrfs sub delete $CONFIG_newroot/ext2_saved
+		btrfs fi bal "$CONFIG_newroot"
 
 		/sbin/btrfs sub create $CONFIG_newroot/ROOT
-		echo "relocating root..."
-		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="relocating root..."
-		mv $CONFIG_newroot/* $CONFIG_newroot/ROOT
+		echo "Moving root..."
+		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="moving root..."
+		mv $CONFIG_newroot/* $CONFIG_newroot/ROOT > /dev/null 2>&1
 		/sbin/btrfs sub create $CONFIG_newroot/HOME
 		mv $CONFIG_newroot/ROOT/home/* $CONFIG_newroot/HOME
 		mkdir -p $CONFIG_newroot/HOME/.btrfs/snapshot

@@ -58,6 +58,8 @@ mntd=$(mktemp -d)
 mount -t $(blkid -p -s TYPE -o value "$choice") $choice $mntd
 . $mntd/boot.cfg
 
+[ "$choice" = "/dev/mmcblk0p1" ] && { append=''; for p in $(cat /proc/cmdline); do [ $p != "bootmenu" ] && append="$append $p"; done; }
+
 /sbin/kexec  --initrd=$mntd/$initramfs --command-line=\"$append root=$choice\" -l $mntd/$kernel
 umount $mntd
 umount -a

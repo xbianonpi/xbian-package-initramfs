@@ -188,6 +188,12 @@ if ! mountpoint -q /boot; then
 fi
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
 find . | cpio -H newc -o | lzma -1v > /boot/initramfs.gz
+if [ ! -e /boot/boot.cfg ]; then
+        touch /boot/boot.cfg
+        echo "name=Standard\ Xbian\ boot" >> /boot/boot.cfg
+        echo "kernel=/kernel.img" >> /boot/boot.cfg
+        echo "initrd=/initramfs.gz" >> /boot/boot.cfg
+fi
 [ "$need_umount" = "yes" ] && umount /boot
 
 exit 0

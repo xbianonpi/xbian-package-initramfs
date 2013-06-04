@@ -1,0 +1,64 @@
+#!/bin/sh
+
+devices=$(blkid -u filesystem -o device | awk 'ORS=" "{print $1}')
+filesystems=$(blkid -u filesystem -k | awk 'ORS=" "{print $1}')
+boottargets=''
+
+in_list() 
+{
+
+        case $filesystems in
+                *" $1 "*)
+                        return 0
+                        ;;
+        esac
+
+        return 1
+
+}
+
+f()
+{
+        mount -t $1 -o ro $3 $2 > /dev/null 2>&1|| return 0
+
+        [ -e $2/boot.cfg ] && . $2/boot.cfg || return 0
+
+        [ -z "$name" -o -z "$kernel" -o -z "$initramfs" -o -z "$append" ] && return 0
+
+        printf "%s" "$3 $name"
+}
+
+check_devices()
+{
+
+for dev in $devices; do
+        o=''
+        typed=$(blkid -s TYPE -o value $dev)
+        in_list $typed || continue
+
+        mntd=$(mktemp -d)
+
+        o=$(f $typed $mntd $dev)
+        [ -n "$o" ] && boottargets="$o $boottargets"
+
+        [ '1' = "$(grep -c $mntd  /proc/mounts)" ] && umount $mntd
+        rmdir $mntd
+done
+
+        echo $boottargets
+}
+
+opt=$(check_devices)
+./bootmenu_timeout &
+choice=$(whiptail --menu Choose\ your\ boot\ partition 25 60 10 $opt 3>&1 1>&2 2>&3)
+
+[ -z "$choice" -o "$choice" = "-" ] && exit 1
+
+mntd=$(mktemp -d)
+mount -t $(blkid -p -s TYPE -o value "$choice") $choice $mntd
+. $mntd/boot.cfg
+
+/sbin/kexec  --initrd=$mntd/$initramfs --command-line=\"$append root=$choice\" -l $mntd/$kernel
+umount $mntd
+umount -a
+exec /sbin/kexec -e -reset-vga

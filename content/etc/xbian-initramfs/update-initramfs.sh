@@ -133,9 +133,10 @@ copy_modules "$(cat /etc/modules | grep -v ^# )"
 copy_modules "btrfs nfs ext4 vfat" 
 depmod -b ./ $MODVER
 
-
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
+copy_with_libs /usr/bin/whiptail ./
+copy_with_libs /sbin/kexec ./
 copy_with_libs /sbin/udevd ./
 copy_with_libs /sbin/udevadm ./
 copy_with_libs /sbin/fdisk
@@ -172,6 +173,8 @@ cp -d --remove-destination -arv --parents /lib/udev/rules.d/{75-probe_mtd.rules,
 cp -d --remove-destination -arv --parents /lib/udev/rules.d/70-btrfs.rules ./
 
 cp /etc/xbian-initramfs/init ./
+cp /etc/xbian-initramfs/bootmenu ./
+cp /etc/xbian-initramfs/bootmenu_timeout ./
 cp /etc/xbian-initramfs/cnvres-code.sh ./
 cp /etc/xbian-initramfs/splash_updater.sh ./
 copy_with_libs /usr/bin/stdbuf

@@ -1,3 +1,4 @@
 #!/bin/sh
 
+test "$CONFIG_bootmenu" -le 10 && $CONFIG_bootmenu=10
 sleep $CONFIG_bootmenu; pkill whiptail > /dev/null 2>&1

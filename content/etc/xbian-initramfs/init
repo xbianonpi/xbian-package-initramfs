@@ -34,8 +34,11 @@ test ! -d /run && mkdir /run
 mount_run mount >/dev/null 2>&1
 mkdir -m 0755 /run/initramfs
 
-export MODPROBE_OPTIONS="-qb"
+echo > /sys/kernel/uevent_helper
+udevd --daemon --resolve-names=late
+udevadm trigger --action=add 
 
+export MODPROBE_OPTIONS="-qb"
 echo "Loading initram modules ... "
 cat /etc/modules | grep -v ^# | xargs -n 1 modprobe -q > /dev/null  2>&1
 
@@ -73,22 +76,11 @@ if [ -n "$CONFIG_debug" ]; then
 	set -x
 fi
 
-echo > /sys/kernel/uevent_helper
-
-UDEV_ROOT=/dev \
-udevd --daemon --resolve-names=never
-  if [ -e /sbin/MAKEDEV ]; then
-    ln -sf /sbin/MAKEDEV /dev/MAKEDEV
-  else
-    ln -sf /bin/true /dev/MAKEDEV
-  fi
-
-udevadm trigger --action=add
 
 if [ -d /sys/bus/scsi ]; then
         modprobe -q scsi_wait_scan && modprobe -r scsi_wait_scan || true
 fi
-udevadm settle || true
+udevadm settle --action=add --action=change || true
 
 test -z "$CONFIG_nodevtmpfs" && mdev -s
 
@@ -106,8 +98,6 @@ if [ -z "$CONFIG_bootmenu" ]; then
         fi
 fi
 
-test -n "$CONFIG_bootmenu" && /bootmenu
-
 case ${CONFIG_root} in
 	/dev/nfs|nfs)
 		export CONFIG_rootfstype='nfs'
@@ -115,7 +105,6 @@ case ${CONFIG_root} in
 	*)
 		;;
 esac
-
 case ${CONFIG_rootfstype} in
 	/dev/nfs|nfs)
 		export CONFIG_root="${CONFIG_nfsroot%%,*}"
@@ -129,7 +118,6 @@ case ${CONFIG_rootfstype} in
 		export CONFIG_root="${CONFIG_root%%,*}"
 		;;
 esac
-
 if [ ${CONFIG_rootfsopts} = ${CONFIG_root} ]; then
 	export CONFIG_rootfsopts=""
 fi
@@ -139,11 +127,12 @@ if [ -z "$CONFIG_splash" ]; then
 	touch /run/nosplash
 fi
 
-test "$CONFIG_rootfstype" != "nfs" && get_root
+udevadm trigger --action=add
+udevadm settle || true
+test -n "$CONFIG_bootmenu" && /bootmenu
 
-test "$CONFIG_rootwait" -lt '10' && export CONFIG_rootwait='10'
-# check if new root partition exists
-X='0'
+test "$CONFIG_rootfstype" != "nfs" && get_root
+test "$CONFIG_rootwait" -lt '10' && export CONFIG_rootwait='10'; X='0'
 if [ "$CONFIG_rootfstype" != "nfs" ]; then
 while [ ! -b "$CONFIG_root" -a -n "$CONFIG_rootwait"  -a  "$X" -lt "$CONFIG_rootwait" ]; do
 	X=$(($X+1))

@@ -11,6 +11,7 @@ fi
 
 echo "Updating initramfs as requested by trigger. Kernel modules $MODVER."
 mod_done=''
+lib_done=''
 
 copy_modules() {
 
@@ -44,6 +45,16 @@ copy_file() {
         d=${1%$g}
         fl=$(ls -la "$1" | awk '{print $11}')
         tmp1=${fl##/*}
+
+        lib_done="$lib_done $fl"
+        case $lib_done in
+                *" $fl "*)
+                        return 
+                        ;;
+                *)
+                        ;;
+        esac
+
         if [ -n "$tmp1" ]; then
                 test -h ".$2/$fl" && rm -f ".$2/$fl"
                 cp -d --parents $3 "$d$fl" "$2"
@@ -117,12 +128,19 @@ cp -d --remove-destination -av --parents /etc/default ./
 copy_with_libs /lib/init
 copy_with_libs /lib/lsb
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/md ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/arch ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/block ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/ata ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/mmc ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/scsi ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/memstick ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/storage ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/class ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/net/usb ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/wireless ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/mac80211 ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/hid ./
+cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/misc ./
+#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/net/usb ./
+#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/wireless ./
+#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/mac80211 ./
 #cp -d --remove-destination -av --parents /lib/firmware ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
@@ -130,7 +148,7 @@ cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 cat /etc/modules | grep -i evdev || printf "\nevdev" >> ./etc/modules
 
 copy_modules "$(cat /etc/modules | grep -v ^# )" 
-copy_modules "btrfs nfs ext4 vfat" 
+copy_modules "btrfs nfs ext4 vfat hfs ntfs fuse reiserfs"
 depmod -b ./ $MODVER
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
@@ -149,8 +167,8 @@ copy_with_libs /sbin/e2fsck
 copy_with_libs /sbin/resize2fs 
 copy_with_libs /sbin/btrfs 
 copy_with_libs /sbin/btrfs-convert 
-copy_with_libs /sbin/iwconfig 
-copy_with_libs /sbin/wpa_supplicant 
+#copy_with_libs /sbin/iwconfig 
+#copy_with_libs /sbin/wpa_supplicant 
 copy_with_libs /sbin/partprobe 
 copy_with_libs /usr/bin/pkill
 copy_with_libs /usr/bin/pgrep
@@ -167,10 +185,9 @@ cp -d --remove-destination --parents /usr/bin/splash.fonts ./
 
 copy_with_libs /usr/bin/key
 
-cp -d --remove-destination -arv --parents /lib/udev/*_id ./
-cp -d --remove-destination -arv --parents /lib/udev/{mtd_probe,net.agent,keyboard-force-release.sh,findkeyboards,keymaps} ./
-cp -d --remove-destination -arv --parents /lib/udev/rules.d/{75-probe_mtd.rules,95-keyboard-force-release.rules,80-networking.rules,80-drivers.rules,60-persistent-input.rules,60-persistent-storage.rules} ./
-cp -d --remove-destination -arv --parents /lib/udev/rules.d/70-btrfs.rules ./
+cp -d --remove-destination -v --parents /lib/udev/* ./
+cp -d --remove-destination -v --parents /lib/udev/keymaps/* ./
+for f in "$(grep -rilve 'owner|run=+' /lib/udev/rules.d)"; do cp --parents -av --remove-destination $f ./; done
 
 cp /etc/xbian-initramfs/init ./
 cp /etc/xbian-initramfs/bootmenu ./

@@ -2,6 +2,9 @@
 
 devices=$(blkid -u filesystem -o device | awk 'ORS=" "{print $1}')
 filesystems=$(blkid -u filesystem -k | awk 'ORS=" "{print $1}')
+# wait for triggered events to be processed 
+udevadm trigger --action=add
+udevadm settle
 boottargets=''
 
 in_list() 
@@ -19,7 +22,12 @@ in_list()
 
 f()
 {
-        mount -t $1 -o ro $3 $2 > /dev/null 2>&1|| return 0
+        am=$(findmnt -n -f -o target $3)
+        if [ -n "$am" ]; then
+                mount -o bind $am $2
+        else
+                mount -t $1 -o ro $3 $2 > /dev/null 2>&1|| return 0
+        fi
 
         [ -e $2/boot.cfg ] && . $2/boot.cfg || return 0
 
@@ -50,6 +58,7 @@ done
 
 opt=$(check_devices)
 ./bootmenu_timeout &
+echo $opt > /run/bootmenu
 choice=$(whiptail --menu Choose\ your\ boot\ partition 25 60 10 $opt 3>&1 1>&2 2>&3)
 
 [ -z "$choice" -o "$choice" = "-" ] && exit 1
@@ -58,7 +67,7 @@ mntd=$(mktemp -d)
 mount -t $(blkid -p -s TYPE -o value "$choice") $choice $mntd
 . $mntd/boot.cfg
 
-[ "$choice" = "/dev/mmcblk0p1" ] && { append=''; for p in $(cat /proc/cmdline); do [ $p != "bootmenu" ] && append="$append $p"; done; }
+[ "$choice" = "/dev/mmcblk0p1" ] && { append=''; for p in $(cat /proc/cmdline); do test ${bla%=*} != bootmenu && append="$append $p"; done; }
 
 /sbin/kexec  --initrd=$mntd/$initramfs --command-line=\"$append root=$choice\" -l $mntd/$kernel
 umount $mntd

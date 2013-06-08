@@ -165,11 +165,13 @@ copy_with_libs /sbin/sfdisk
 copy_with_libs /sbin/tune2fs
 copy_with_libs /sbin/e2fsck 
 copy_with_libs /sbin/resize2fs 
+copy_with_libs /sbin/modprobe
 copy_with_libs /sbin/btrfs 
 copy_with_libs /sbin/btrfs-convert 
 #copy_with_libs /sbin/iwconfig 
 #copy_with_libs /sbin/wpa_supplicant 
-copy_with_libs /sbin/partprobe 
+copy_with_libs /sbin/partprobe
+copy_with_libs /sbin/dmsetup 
 copy_with_libs /usr/bin/pkill
 copy_with_libs /usr/bin/pgrep
 cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin

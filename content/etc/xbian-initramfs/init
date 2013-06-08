@@ -35,8 +35,8 @@ mount_run mount >/dev/null 2>&1
 mkdir -m 0755 /run/initramfs
 
 echo > /sys/kernel/uevent_helper
-udevd --daemon --resolve-names=late
-udevadm trigger --action=add 
+udevd --daemon --resolve-names=late > /dev/null 2>&1
+udevadm trigger --action=add > /dev/null 2>&1
 
 export MODPROBE_OPTIONS="-qb"
 echo "Loading initram modules ... "
@@ -80,7 +80,7 @@ fi
 if [ -d /sys/bus/scsi ]; then
         modprobe -q scsi_wait_scan && modprobe -r scsi_wait_scan || true
 fi
-udevadm settle --action=add --action=change || true
+udevadm settle --action=add --action=change || true > /dev/null 2>&1
 
 test -z "$CONFIG_nodevtmpfs" && mdev -s
 
@@ -127,8 +127,8 @@ if [ -z "$CONFIG_splash" ]; then
 	touch /run/nosplash
 fi
 
-udevadm trigger --action=add
-udevadm settle || true
+udevadm trigger --action=add > /dev/null 2>&1
+udevadm settle || true > /dev/null 2>&1
 test -n "$CONFIG_bootmenu" && /bootmenu
 
 test "$CONFIG_rootfstype" != "nfs" && get_root

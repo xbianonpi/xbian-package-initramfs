@@ -3,8 +3,8 @@
 devices=$(blkid -u filesystem -o device | awk 'ORS=" "{print $1}')
 filesystems=$(blkid -u filesystem -k | awk 'ORS=" "{print $1}')
 # wait for triggered events to be processed 
-udevadm trigger --action=add
-udevadm settle
+udevadm trigger --action=add > /dev/null 2>&1
+udevadm settle > /dev/null 2>&1
 boottargets=''
 
 in_list() 

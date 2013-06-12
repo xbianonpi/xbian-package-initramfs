@@ -119,7 +119,8 @@ cp -d --remove-destination /etc/udhcpc/default.script etc/udhcpc/
 cp -d --remove-destination -R /etc/network etc/
 cp -d --remove-destination -R /etc/hostname etc/
 cp -d --remove-destination -R /etc/wpa_supplicant etc/
-cp -d --remove-destination -R /etc/udev etc/
+cp -d --remove-destination /etc/udev etc/
+mkdir etc/udev/.dev
 cp -d --remove-destination -R /etc/fstab etc/
 sed -i 's/\/etc\/resolv.conf/\/rootfs\/etc\/resolv.conf/g' etc/udhcpc/default.script
 touch etc/mdev.conf

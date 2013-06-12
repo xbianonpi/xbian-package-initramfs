@@ -106,7 +106,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 	if [ "$FSCHECK" = "btrfs" ]; then
 		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="post conversion tasks..."
 		/sbin/btrfs fi label ${CONFIG_root} xbian-root-btrfs
-		mount -t btrfs -o compress=zlib,rw,noatime,autodefrag,space_cache,nodatacow,notreelog,thread_pool=1 LABEL=xbian-root-btrfs $CONFIG_newroot
+		mount -t btrfs -o compress=lzo,rw,noatime,autodefrag,space_cache,thread_pool=1 LABEL=xbian-root-btrfs $CONFIG_newroot
 		create_fsck $CONFIG_newroot
 		/sbin/btrfs sub delete $CONFIG_newroot/ext2_saved
 		btrfs fi bal "$CONFIG_newroot"
@@ -124,7 +124,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		if [ `sed -ne "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):\1:p" $CONFIG_newroot/ROOT/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
 			sed -i "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):LABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,noatime,autodefrag	0	0:" $CONFIG_newroot/ROOT/etc/fstab
 		else
-			sed -i "\$aLABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,noatime,autodefrag	0	0" $CONFIG_newroot/ROOT/etc/fstab
+			sed -i "\$aLABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,noatime,autodefrag,thread_pool=1,space_cache	0	0" $CONFIG_newroot/ROOT/etc/fstab
 		fi
 		rm -f $CONFIG_newroot/ROOT/var/swapfile
 		sed -i "/\(\/var\/swapfile\)/d" $CONFIG_newroot/ROOT/etc/fstab

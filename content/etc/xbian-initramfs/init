@@ -35,8 +35,8 @@ mount_run mount >/dev/null 2>&1
 mkdir -m 0755 /run/initramfs
 
 echo > /sys/kernel/uevent_helper
-udevd --daemon --resolve-names=late > /dev/null 2>&1
-udevadm trigger --action=add > /dev/null 2>&1
+udevd --daemon --resolve-names=never
+udevadm trigger --action=add 
 
 export MODPROBE_OPTIONS="-qb"
 echo "Loading initram modules ... "
@@ -80,22 +80,20 @@ fi
 if [ -d /sys/bus/scsi ]; then
         modprobe -q scsi_wait_scan && modprobe -r scsi_wait_scan || true
 fi
-udevadm settle --action=add --action=change || true > /dev/null 2>&1
+udevadm settle  || true
 
 test -z "$CONFIG_nodevtmpfs" && mdev -s
 
-if [ -z "$CONFIG_bootmenu" ]; then
-        echo "Checking for keyboard..."
-        keyboard=$(/bin/ls /dev/input | grep -m1 event)
-        if [ "${keyboard}" != '' ]; then
-        	echo "? boot recovery hold left shift ?"
-        	sleep 2
-        	/usr/bin/key lshift /dev/input/${keyboard} >/dev/null 2>&1
-        	if [ "$?" -eq '0' ]; then 
-        		echo "Dropping to initramfs on request..."
-        		drop_shell
-        	fi
-        fi
+echo "Checking for keyboard..."
+keyboard=$(/bin/ls /dev/input | grep -m1 event)
+if [ "${keyboard}" != '' ]; then
+	echo "? boot recovery hold left shift ?"
+	sleep 2
+	/usr/bin/key lshift /dev/input/${keyboard} >/dev/null 2>&1
+	if [ "$?" -eq '0' ]; then 
+		echo "Dropping to initramfs on request..."
+		drop_shell
+	fi
 fi
 
 case ${CONFIG_root} in
@@ -127,8 +125,7 @@ if [ -z "$CONFIG_splash" ]; then
 	touch /run/nosplash
 fi
 
-udevadm trigger --action=add > /dev/null 2>&1
-udevadm settle || true > /dev/null 2>&1
+udevadm settle || true 
 test -n "$CONFIG_bootmenu" && /bootmenu
 
 test "$CONFIG_rootfstype" != "nfs" && get_root

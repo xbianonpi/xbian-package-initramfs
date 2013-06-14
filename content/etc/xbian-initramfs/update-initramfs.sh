@@ -190,7 +190,8 @@ copy_with_libs /usr/bin/key
 
 cp -d --remove-destination -v --parents /lib/udev/* ./
 cp -d --remove-destination -v --parents /lib/udev/keymaps/* ./
-for f in "$(grep -rilve 'owner|run=+' /lib/udev/rules.d)"; do cp --parents -av --remove-destination $f ./; done
+cp -d --remove-destination -arv --parents /lib/udev/rules.d/{75-probe_mtd.rules,95-keyboard-force-release.rules,80-networking.rules,80-drivers.rules,60-persistent-input.rules,60-persistent-storage.rules} ./
+cp -d --remove-destination -arv --parents /lib/udev/rules.d/70-btrfs.rules ./
 
 cp /etc/xbian-initramfs/init ./
 cp /etc/xbian-initramfs/bootmenu ./

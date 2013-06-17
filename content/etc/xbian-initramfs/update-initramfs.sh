@@ -112,33 +112,30 @@ mkdir -p usr/bin
 mkdir -p usr/lib/arm-linux-gnueabihf
 copy_with_libs /bin/busybox 
 /bin/busybox --install -s bin/
-cp -d bin/modprobe sbin
-cp -d bin/insmod sbin
-cp -d bin/rmmod sbin
 cp -d --remove-destination /etc/udhcpc/default.script etc/udhcpc/
 cp -d --remove-destination -R /etc/network etc/
 cp -d --remove-destination -R /etc/hostname etc/
 cp -d --remove-destination -R /etc/wpa_supplicant etc/
-cp -d --remove-destination /etc/udev etc/
-mkdir etc/udev/.dev
-cp -d --remove-destination -R /etc/fstab etc/
+cp -d --remove-destination --parents /etc/udev/* ./
+mkdir -p etc/udev/.dev
+#cp -d --remove-destination -R /etc/fstab etc/
 sed -i 's/\/etc\/resolv.conf/\/rootfs\/etc\/resolv.conf/g' etc/udhcpc/default.script
-touch etc/mdev.conf
+#touch etc/mdev.conf
 cp -d --remove-destination /etc/modules etc/
-cp -d --remove-destination -av --parents /etc/default ./
+#cp -d --remove-destination -av --parents /etc/default ./
 copy_with_libs /lib/init
 copy_with_libs /lib/lsb
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/md ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/arch ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/block ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/ata ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/mmc ./
+#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/arch ./
+#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/block ./
+#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/ata ./
+#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/mmc ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/scsi ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/memstick ./
+#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/memstick ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/storage ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/class ./
+#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/class ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/hid ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/misc ./
+#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/misc ./
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/net/usb ./
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/wireless ./
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/mac80211 ./
@@ -146,32 +143,40 @@ cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 
-cat /etc/modules | grep -i evdev || printf "\nevdev" >> ./etc/modules
-
 copy_modules "$(cat /etc/modules | grep -v ^# )" 
-copy_modules "btrfs nfs ext4 vfat hfs ntfs fuse reiserfs"
+copy_modules "btrfs ext4 vfat reiserfs"
 depmod -b ./ $MODVER
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
 copy_with_libs /usr/bin/whiptail ./
 copy_with_libs /sbin/kexec ./
+copy_with_libs /sbin/reboot ./
+copy_with_libs /sbin/shutdown ./
+copy_with_libs /sbin/sulogin ./
+copy_with_libs /sbin/coldreboot ./
 copy_with_libs /sbin/udevd ./
 copy_with_libs /sbin/udevadm ./
 copy_with_libs /sbin/fdisk
 copy_with_libs /sbin/findfs
 copy_with_libs /sbin/blkid 
-copy_with_libs /sbin/MAKEDEV 
+#copy_with_libs /sbin/MAKEDEV 
 copy_with_libs /sbin/sfdisk
 copy_with_libs /sbin/tune2fs
 copy_with_libs /sbin/e2fsck 
 copy_with_libs /sbin/resize2fs 
+copy_with_libs /bin/kmod
 copy_with_libs /sbin/modprobe
+rm ./bin/modprobe
+copy_with_libs /sbin/killall5
+copy_with_libs /sbin/rmmod
+copy_with_libs /sbin/insmod
 copy_with_libs /sbin/btrfs 
 copy_with_libs /sbin/btrfs-convert 
 #copy_with_libs /sbin/iwconfig 
 #copy_with_libs /sbin/wpa_supplicant 
 copy_with_libs /sbin/partprobe
+copy_with_libs /bin/findmnt 
 copy_with_libs /sbin/dmsetup 
 copy_with_libs /usr/bin/pkill
 copy_with_libs /usr/bin/pgrep
@@ -188,10 +193,10 @@ cp -d --remove-destination --parents /usr/bin/splash.fonts ./
 
 copy_with_libs /usr/bin/key
 
-cp -d --remove-destination -v --parents /lib/udev/* ./
-cp -d --remove-destination -v --parents /lib/udev/keymaps/* ./
-cp -d --remove-destination -arv --parents /lib/udev/rules.d/{75-probe_mtd.rules,95-keyboard-force-release.rules,80-networking.rules,80-drivers.rules,60-persistent-input.rules,60-persistent-storage.rules} ./
-cp -d --remove-destination -arv --parents /lib/udev/rules.d/70-btrfs.rules ./
+cp -d --remove-destination -v --parents /lib/udev/{hotplug.functions,firmware.agent,ata_id,edd_id,scsi_id,vio_type,findkeyboards,keymap,keyboard-force-release.sh} ./
+#cp -d --remove-destination -v --parents -R /lib/udev/keymaps/* ./
+cp -d --remove-destination -av --parents /lib/udev/rules.d/{50-udev-default.rules,60-persistent-storage.rules,80-drivers.rules,91-permissions.rules,60-persistent-storage-lvm.rules,60-persistent-input.rules,55-dm.rules,60-persistent-storage-dm.rules} ./
+cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,70-btrfs.rules} ./
 
 cp /etc/xbian-initramfs/init ./
 cp /etc/xbian-initramfs/bootmenu ./
@@ -209,12 +214,12 @@ if ! mountpoint -q /boot; then
 fi
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
 find . | cpio -H newc -o | lzma -1v > /boot/initramfs.gz
-if [ ! -e /boot/boot.cfg ]; then
-        touch /boot/boot.cfg
-        echo "name=Standard\ Xbian\ boot" >> /boot/boot.cfg
-        echo "kernel=/kernel.img" >> /boot/boot.cfg
-        echo "initrd=/initramfs.gz" >> /boot/boot.cfg
-fi
+#if [ ! -e /boot.cfg ]; then
+#        touch /boot.cfg
+#        echo "name=Standard\ Xbian\ boot" >> /boot.cfg
+#        echo "kernel=/kernel.img" >> /boot.cfg
+#        echo "initrd=/initramfs.gz" >> /boot.cfg
+#fi
 [ "$need_umount" = "yes" ] && umount /boot
 
 exit 0

@@ -2,10 +2,41 @@
 
 devices=$(blkid -u filesystem -o device | awk 'ORS=" "{print $1}')
 filesystems=$(blkid -u filesystem -k | awk 'ORS=" "{print $1}')
-# wait for triggered events to be processed 
-udevadm trigger --action=add > /dev/null 2>&1
-udevadm settle > /dev/null 2>&1
 boottargets=''
+
+umount_all()
+{
+nets=$(ls /sys/class/net/)
+mods=$(lsmod | cut -f1 -d' ' )
+
+cat /proc/mounts | cut -f2 -d' '| uniq | sort -b -f -r \
+        | while read mountpnt; do
+                echo "umounting $mountpnt"
+                if [ -z "$1" ]; then
+                         umount $mountpnt || umount -l $mountpnt
+                fi
+        done
+}
+
+net_down()
+{
+        for n in $nets; do 
+                echo "taking down $n"
+                if [ -z "$1" ]; then
+                         ifconfig $n down
+                fi
+        done
+}
+
+modules_down()
+{
+        for m in $mods; do 
+                echo "removing module $m"
+                if [ -z "$1" ]; then
+                         /sbin/modprobe -r --remove-dependencies $m
+                fi
+        done
+}
 
 in_list() 
 {
@@ -57,19 +88,29 @@ done
 }
 
 opt=$(check_devices)
-./bootmenu_timeout &
+[ -e /bootmenu_timeout ] && /bootmenu_timeout &
 echo $opt > /run/bootmenu
 choice=$(whiptail --menu Choose\ your\ boot\ partition 25 60 10 $opt 3>&1 1>&2 2>&3)
 
+pkill bootmenu_timeout
 [ -z "$choice" -o "$choice" = "-" ] && exit 1
 
 mntd=$(mktemp -d)
-mount -t $(blkid -p -s TYPE -o value "$choice") $choice $mntd
+fm=$(findmnt -n -f -o target $choice)
+if [ -n "$fm" ]; then
+        mount -o bind $fm $mntd
+else
+        mount -t $(blkid -p -s TYPE -o value "$choice") $choice $mntd
+fi
+
 . $mntd/boot.cfg
 
-[ "$choice" = "/dev/mmcblk0p1" ] && { append=''; for p in $(cat /proc/cmdline); do test ${bla%=*} != bootmenu && append="$append $p"; done; }
-
-/sbin/kexec  --initrd=$mntd/$initramfs --command-line=\"$append root=$choice\" -l $mntd/$kernel
-umount $mntd
-umount -a
-exec /sbin/kexec -e -reset-vga
+echo "loading kernel"
+eval /sbin/kexec --initrd=$mntd/$initramfs --append="\"$append root=$choice\"" -l $mntd/$kernel
+echo "stopping processes"
+/sbin/killall5 -15
+sleep 10
+umount_all 
+net_down 
+modules_down 
+exec /sbin/kexec -e

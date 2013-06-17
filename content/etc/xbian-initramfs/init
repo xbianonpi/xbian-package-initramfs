@@ -1,5 +1,10 @@
 #!/bin/sh
 
+unset $(env)
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+export TERM=linux
+
 . /lib/lsb/init-functions
 . /lib/init/mount-functions.sh
 . /lib/init/vars.sh
@@ -9,8 +14,7 @@
 mkdir -p /var/lock
 mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
 mount -t proc -o nodev,noexec,nosuid proc /proc
-test -e /etc/mtab && rm /etc/mtab
-ln -s "../proc/mounts" /etc/mtab
+
 
 tmpfs_size="10M"
 if [ -e /etc/udev/udev.conf ]; then
@@ -20,7 +24,6 @@ fi
 if ! mount -t devtmpfs -o size=$tmpfs_size,mode=0755 udev /dev; then
         echo "W: devtmpfs not available, falling back to tmpfs for /dev"
         mount -t tmpfs -o size=$tmpfs_size,mode=0755 udev /dev
-        mdev -s
         export CONFIG_nodevtmpfs='1'
         [ -e /dev/console ] || mknod -m 0600 /dev/console c 5 1
         [ -e /dev/null ] || mknod /dev/null c 1 3
@@ -28,21 +31,29 @@ else
         export CONFIG_nodevtmpfs=''
 fi
 
-mkdir /dev/pts
-mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
 test ! -d /run && mkdir /run
 mount_run mount >/dev/null 2>&1
-mkdir -m 0755 /run/initramfs
 
 echo > /sys/kernel/uevent_helper
-udevd --daemon --resolve-names=never
-udevadm trigger --action=add 
+udev_root=/dev udevd --daemon --resolve-names=never
+udevadm trigger --action=add
+udevadm settle || true
+
+{ test -e /etc/hostname && hostname -F /etc/hostname; } || hostname xbian
+
+test -e /etc/mtab && rm /etc/mtab
+ln -s "../proc/mounts" /etc/mtab
+
+mkdir /dev/pts
+mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
+mkdir -m 0755 /run/initramfs
 
 export MODPROBE_OPTIONS="-qb"
 echo "Loading initram modules ... "
-cat /etc/modules | grep -v ^# | xargs -n 1 modprobe -q > /dev/null  2>&1
+cat /etc/modules | grep -v ^# | xargs -n 1 -r modprobe -q > /dev/null  2>&1
 
 INITIALBOOT="0"
+RESIZEERROR="0"
 
 export CONFIG_rootfstype="ext4"
 export CONFIG_root="/dev/mmcblk0p2"
@@ -57,6 +68,7 @@ export CONFIG_newroot="/rootfs"
 export CMDLINE="$(cat /proc/cmdline)"
 for OPTION in ${CMDLINE}
 do
+	shift
 	OPTIONNAME=${OPTION%%=*}
 	echo $OPTIONNAME | grep '^[a-zA-Z][a-zA-Z0-9_]*$' > /dev/null || continue
 	VALUE=$(printf "%b" ${OPTION#*=})
@@ -64,36 +76,40 @@ do
 	export CONFIG_"$OPTIONNAME"="$VALUE"
 done
 
-test -n "$CONFIG_bootmenu" && unset CONFIG_splash
-test -n "$CONFIG_debug" && unset CONFIG_splash
+[ -n "$CONFIG_bootmenu" -o -n "$CONFIG_debug" ] && unset CONFIG_splash
 test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process..." 
-splash_identity=$(cat  /usr/bin/splash | md5sum )
+#splash_identity=$(cat  /usr/bin/splash | md5sum )
+
+if [ -n "$CONFIG_ip" ]; then
+	test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="configuring network ..."
+	case "$CONFIG_ip" in 
+		dhcp|auto|on)
+			cd /sys/class/net
+			for f in *; do
+				test $f != "lo" && test $f != "wlan0" && ipconfig $f
+			done
+
+			. /run/net-*.conf
+			cd /
+			export CONFIG_ip="dhcp"
+			;;
+		off|no)
+			;;
+		*)	
+			ipconfig "$CONFIG_ip"
+
+			. /run/net-*.conf
+			;;
+	esac 
+fi
+test -e /run/net-*.conf && update_resolv
+
 
 if [ -n "$CONFIG_debug" ]; then
 	unset CONFIG_rescue
 	unset CONFIG_rescue_late
 	exec >/run/initramfs/initramfs.debug 2>&1
 	set -x
-fi
-
-
-if [ -d /sys/bus/scsi ]; then
-        modprobe -q scsi_wait_scan && modprobe -r scsi_wait_scan || true
-fi
-udevadm settle  || true
-
-test -z "$CONFIG_nodevtmpfs" && mdev -s
-
-echo "Checking for keyboard..."
-keyboard=$(/bin/ls /dev/input | grep -m1 event)
-if [ "${keyboard}" != '' ]; then
-	echo "? boot recovery hold left shift ?"
-	sleep 2
-	/usr/bin/key lshift /dev/input/${keyboard} >/dev/null 2>&1
-	if [ "$?" -eq '0' ]; then 
-		echo "Dropping to initramfs on request..."
-		drop_shell
-	fi
 fi
 
 case ${CONFIG_root} in
@@ -125,59 +141,39 @@ if [ -z "$CONFIG_splash" ]; then
 	touch /run/nosplash
 fi
 
-udevadm settle || true 
-test -n "$CONFIG_bootmenu" && /bootmenu
+udevadm trigger --action=add --property-match=ID_INPUT_KEYBOARD=1
+udevadm settle --timeout=5
+while test ! -d /dev/input; do sleep 0.1; done
+echo "Checking for keyboard..."
+for keyboard in $(find /dev/input ! -type d); do
+if [ -n "$keyboard" ]; then
+        echo "? boot recovery hold left shift (on $keyboard)"
+        /usr/bin/key lshift $keyboard >/dev/null 2>&1
+        if [ "$?" -eq '0' ]; then
+                echo "Dropping to initramfs on request..."
+                drop_shell
+        fi
+fi; done
+test -n "$CONFIG_rescue_early" && drop_shell
 
-test "$CONFIG_rootfstype" != "nfs" && get_root
-test "$CONFIG_rootwait" -lt '10' && export CONFIG_rootwait='10'; X='0'
+{ [ -z "$CONFIG_rootwait" ] || [ "$CONFIG_rootwait" -lt '10' ]; } && export CONFIG_rootwait='10'; X='0'
+test -n "$CONFIG_bootmenu" && { sleep "$CONFIG_rootwait"; /bootmenu; }
+
 if [ "$CONFIG_rootfstype" != "nfs" ]; then
-while [ ! -b "$CONFIG_root" -a -n "$CONFIG_rootwait"  -a  "$X" -lt "$CONFIG_rootwait" ]; do
+while get_root && [ ! -b "$CONFIG_root" -a -n "$CONFIG_rootwait"  -a  "$X" -lt "$CONFIG_rootwait" ]; do
 	X=$(($X+1))
 	echo "$X Waiting for root..."
-	test -z "$CONFIG_nodevtmpfs" && mdev -s
         sleep 1
 done
 test ! -b "${CONFIG_root}" && echo "Root partition ${CONFIG_root} missing" && drop_shell
 fi
 
-if [ -e "/sbin/sfdisk" -a -e "/sbin/fdisk" -a -e "/sbin/tune2fs" -a -e "/sbin/resize2fs" ]; then
-	export RESIZEERROR="0"
-else
-	export RESIZEERROR="1"
-fi
-
-test -n "$CONFIG_rescue_early" && drop_shell
-
+export FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
 test "$CONFIG_rootfstype" != "nfs" && resize_part
 test "$CONFIG_rootfstype" != "nfs" && resize_ext4
 
 test "$CONFIG_rootfstype" != "nfs" && convert_btrfs
 
-{ test -e /etc/hostname && hostname -F /etc/hostname; } || hostname xbian
-
-if [ -n "$CONFIG_ip" ]; then
-	test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="configuring network ..."
-	case "$CONFIG_ip" in 
-		dhcp|auto|on)
-			cd /sys/class/net
-			for f in *; do
-				test $f != "lo" && test $f != "wlan0" && ipconfig $f
-			done
-
-			. /run/net-*.conf
-			cd /
-			export CONFIG_ip="dhcp"
-			;;
-		off|no)
-			;;
-		*)	
-			ipconfig "$CONFIG_ip"
-
-			. /run/net-*.conf
-			;;
-	esac 
-fi
-test -e /run/net-*.conf && update_resolv
 
 test -n "$CONFIG_rescue" && drop_shell
 
@@ -202,12 +198,12 @@ test "$CONFIG_rootfstype" != "nfs" && resize_btrfs
 echo "Moving root"
 move_root
 
-if [ "$splash_identity" = "$(cat $CONFIG_newroot/usr/bin/splash | md5sum)" ]; then
+#if [ "$splash_identity" = "$(cat $CONFIG_newroot/usr/bin/splash | md5sum)" ]; then
 	test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --msgtxt="loading..." --percentagebar --percentage=15
-else
-	kill_splash
-	test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --msgtxt="loading..." --percentagebar --percentage=15
-fi
+#else
+#	kill_splash
+#	test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --msgtxt="loading..." --percentagebar --percentage=15
+#fi
 test -n "$CONFIG_rescue_late" && drop_shell
 
 if [ ${CONFIG_init} = 'switch_root' ]; then

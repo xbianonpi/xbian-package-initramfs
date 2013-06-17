@@ -51,7 +51,7 @@ fi
 
 get_root() {
 export CONFIG_roottxt=`echo "$CONFIG_root" | awk '$1 ~ /LABEL/ || $1 ~ /UUID/ {print $1}'`
-test -n "$CONFIG_roottxt" && CONFIG_root=`findfs $CONFIG_roottxt`
+[ -n "$CONFIG_roottxt" ] && { CONFIG_roottxt=`findfs $CONFIG_roottxt 2>/dev/null` || return 1; CONFIG_root="$CONFIG_roottxt"; }
 
 export DEV="${CONFIG_root%[0-9]}"
 if [ ! -e ${DEV} ]; then
@@ -61,10 +61,11 @@ else
 	export PARTdelim=''
 fi
 export PART=${CONFIG_root#${CONFIG_root%?}}
+
+return 0
 }
 
 convert_btrfs() {
-FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
 # Check for the existance of tune2fs through the RESIZEERROR variable
 if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfstype}" = "btrfs" -a "$FSCHECK" != "btrfs" ]; then
 
@@ -96,7 +97,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		/splash_updater.sh &
 		stdbuf -o 0 -e 0 btrfs-convert -d ${CONFIG_root} 2>&1 > /tmp/output.grab
 		touch /run/splash_updater.kill
-		FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
+		export FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
 	fi
 	
 	test ! -d /boot && mkdir /boot
@@ -202,7 +203,6 @@ fi
 }
 
 resize_ext4() {
-FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
 if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$FSCHECK" = "ext4" ]; then
 
 	if [ "${FSCHECK}" = 'ext4' ]; then
@@ -280,7 +280,7 @@ fi
 move_root() {
 udevadm control --exit
 
-udev_root="$CONFIG_newroot/dev"
+udev_root="/dev"
 if [ -e /etc/udev/udev.conf ]; then
   . /etc/udev/udev.conf
 fi

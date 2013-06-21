@@ -3,6 +3,8 @@
 . /etc/default/xbian-initramfs
 
 test -e /run/trigger-xbian-update-initramfs && MODVER=$(cat /run/trigger-xbian-update-initramfs)
+grep -q initramfs.gz /var/lib/dpkg/info/xbian-update.list && sed -i "/\(\/boot\/initramfs.gz\)/d" /var/lib/dpkg/info/xbian-update.list
+
 
 if [ -z "$MODVER" ]; then
 	test -z "$1" && MODVER=$(uname -r)

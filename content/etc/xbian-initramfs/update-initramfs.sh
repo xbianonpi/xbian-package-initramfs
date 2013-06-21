@@ -211,7 +211,7 @@ copy_with_libs /usr/lib/coreutils/libstdbuf.so
 cp /etc/hostname ./etc
 need_umount=''
 if ! mountpoint -q /boot; then
-        mount /boot
+        mount /boot || { echo "FATAL: /boot can't be mounted"; exit 1; }
         need_umount="yes"
 fi
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old

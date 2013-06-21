@@ -27,7 +27,8 @@ if [ $1 == "configure" ]; then
 
 elif [ $1 == "triggered" ]; then
 
-        mountpoint -q /boot || { needumount=yes; mount /boot; }
+        needumount=''
+        mountpoint -q /boot || { needumount=yes; mount /boot || exit 1; }
         /etc/xbian-initramfs/update-initramfs.sh > /dev/null 2>&1
         cat /boot/config.txt | grep -v initramfs > /boot/config.txt.new
         echo "initramfs initramfs.gz  0x00a00000" > /boot/config.txt

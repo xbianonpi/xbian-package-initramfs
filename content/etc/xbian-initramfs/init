@@ -18,32 +18,23 @@ if [ -e /etc/udev/udev.conf ]; then
         . /etc/udev/udev.conf
 fi
 
-if ! mount -t devtmpfs -o size=$tmpfs_size,mode=0755 udev /dev; then
-        echo "W: devtmpfs not available, falling back to tmpfs for /dev"
-        mount -t tmpfs -o size=$tmpfs_size,mode=0755 udev /dev
-        export CONFIG_nodevtmpfs='1'
-        [ -e /dev/console ] || mknod -m 0600 /dev/console c 5 1
-        [ -e /dev/null ] || mknod /dev/null c 1 3
-else
-        export CONFIG_nodevtmpfs=''
-fi
+mount -t devtmpfs -o size=$tmpfs_size,mode=0755 udev /dev
+mkdir /dev/pts
+mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
 
 test ! -d /run && mkdir /run
 mount_run mount >/dev/null 2>&1
+mkdir -m 0755 /run/initramfs
 
 echo > /sys/kernel/uevent_helper
 udev_root=/dev udevd --daemon --resolve-names=never
 udevadm trigger --action=add
-udevadm settle || true
+udevadm settle
 
 { test -e /etc/hostname && hostname -F /etc/hostname; } || hostname xbian
 
 test -e /etc/mtab && rm /etc/mtab
 ln -s "../proc/mounts" /etc/mtab
-
-mkdir /dev/pts
-mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
-mkdir -m 0755 /run/initramfs
 
 export MODPROBE_OPTIONS="-qb"
 echo "Loading initram modules ... "
@@ -75,7 +66,6 @@ done
 
 [ -n "$CONFIG_bootmenu" -o -n "$CONFIG_debug" ] && unset CONFIG_splash
 test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process..." 
-#splash_identity=$(cat  /usr/bin/splash | md5sum )
 
 if [ -n "$CONFIG_ip" ]; then
 	test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="configuring network ..."
@@ -139,10 +129,10 @@ if [ -z "$CONFIG_splash" ]; then
 fi
 
 udevadm trigger --action=add --property-match=ID_INPUT_KEYBOARD=1
-udevadm settle --timeout=5
-while test ! -d /dev/input; do sleep 0.1; done
+udevadm settle
+X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.2; X=$(($X+1)); done
 echo "Checking for keyboard..."
-for keyboard in $(find /dev/input ! -type d); do
+for keyboard in $(find /dev/input ! -type d 2>/dev/null); do
 if [ -n "$keyboard" ]; then
         echo "? boot recovery hold left shift (on $keyboard)"
         /usr/bin/key lshift $keyboard >/dev/null 2>&1
@@ -166,11 +156,7 @@ test ! -b "${CONFIG_root}" && echo "Root partition ${CONFIG_root} missing" && dr
 fi
 
 export FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
-test "$CONFIG_rootfstype" != "nfs" && resize_part
-test "$CONFIG_rootfstype" != "nfs" && resize_ext4
-
-test "$CONFIG_rootfstype" != "nfs" && convert_btrfs
-
+test "$CONFIG_rootfstype" != "nfs" && { resize_part; resize_ext4; convert_btrfs; }
 
 test -n "$CONFIG_rescue" && drop_shell
 
@@ -195,12 +181,7 @@ test "$CONFIG_rootfstype" != "nfs" && resize_btrfs
 echo "Moving root"
 move_root
 
-#if [ "$splash_identity" = "$(cat $CONFIG_newroot/usr/bin/splash | md5sum)" ]; then
-	test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --msgtxt="loading..." --percentagebar --percentage=15
-#else
-#	kill_splash
-#	test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --msgtxt="loading..." --percentagebar --percentage=15
-#fi
+test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --msgtxt="loading..." --percentagebar --percentage=15
 test -n "$CONFIG_rescue_late" && drop_shell
 
 echo "at initramfs/init end: $(cat $CONFIG_newroot/proc/uptime)" > /run/uptime_start.log; chmod 666 /run/uptime_start.log

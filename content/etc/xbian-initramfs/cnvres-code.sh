@@ -11,7 +11,7 @@ if [ "$1" = "rollback" ]; then
 	test -e "${CONFIG_newroot}/etc/network/interfaces.initramfs.autoconfig" && mv "${CONFIG_newroot}/etc/network/interfaces.initramfs.autoconfig" "${CONFIG_newroot}/etc/network/interfaces"
 	return
 fi
-test "$CONFIG_ip" = "dhcp" || return
+#test "$CONFIG_ip" = "dhcp" || return
 
 for f in `ls /run/net-eth?.conf`; do
 	f=${f%%.conf}; f=${f##/run/net-};

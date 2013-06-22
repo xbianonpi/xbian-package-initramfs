@@ -60,9 +60,11 @@ copy_file() {
         if [ -n "$tmp1" ]; then
 #                test -h ".$2/$fl" && rm -f ".$2/$fl"
                 cp -d --parents $3 "$d$fl" "$2"
+                strip ".$d$fl"
         else
 #                test -h ".$fl" && rm -f ".$fl"
                 cp -d --parents $3 "$fl" "./"
+                strip ".$fl"
         fi
         echo "$fl"
 }
@@ -102,7 +104,7 @@ copy_with_libs() {
 
 TMPDIR=$(mktemp -d)
 cd $TMPDIR
-trap "{ cd ..; rm -fr '${TMPDIR}'; exit 0; }" INT TERM EXIT
+trap "{ cd ..; { rm -fr '${TMPDIR}' & }; exit 0; }" INT TERM EXIT
 
 mkdir bin dev etc lib proc rootfs run sbin sys tmp usr mnt var
 ln -s /run ./var/run
@@ -146,7 +148,7 @@ cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 
 copy_modules "$(cat /etc/modules | grep -v ^# )" 
-copy_modules "btrfs ext4 vfat reiserfs"
+copy_modules "btrfs ext4 vfat crc32c"
 depmod -b ./ $MODVER
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
@@ -155,7 +157,6 @@ copy_with_libs /usr/bin/whiptail ./
 copy_with_libs /sbin/kexec ./
 copy_with_libs /sbin/reboot ./
 copy_with_libs /sbin/shutdown ./
-copy_with_libs /sbin/sulogin ./
 copy_with_libs /sbin/coldreboot ./
 copy_with_libs /sbin/udevd ./
 copy_with_libs /sbin/udevadm ./
@@ -179,7 +180,6 @@ copy_with_libs /sbin/btrfs-convert
 #copy_with_libs /sbin/wpa_supplicant 
 copy_with_libs /sbin/partprobe
 copy_with_libs /bin/findmnt 
-copy_with_libs /sbin/dmsetup 
 copy_with_libs /usr/bin/pkill
 copy_with_libs /usr/bin/pgrep
 cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin

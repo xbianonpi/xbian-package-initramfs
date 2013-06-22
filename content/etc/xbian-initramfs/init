@@ -203,6 +203,7 @@ move_root
 #fi
 test -n "$CONFIG_rescue_late" && drop_shell
 
+echo "at initramfs/init end: $(cat $CONFIG_newroot/proc/uptime)" > /run/uptime_start.log; chmod 666 /run/uptime_start.log
 if [ ${CONFIG_init} = 'switch_root' ]; then
 	exec run-init $CONFIG_newroot /sbin/init "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
 else

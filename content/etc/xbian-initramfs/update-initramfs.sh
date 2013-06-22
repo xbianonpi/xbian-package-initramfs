@@ -58,10 +58,10 @@ copy_file() {
         esac
 
         if [ -n "$tmp1" ]; then
-                test -h ".$2/$fl" && rm -f ".$2/$fl"
+#                test -h ".$2/$fl" && rm -f ".$2/$fl"
                 cp -d --parents $3 "$d$fl" "$2"
         else
-                test -h ".$fl" && rm -f ".$fl"
+#                test -h ".$fl" && rm -f ".$fl"
                 cp -d --parents $3 "$fl" "./"
         fi
         echo "$fl"
@@ -127,7 +127,7 @@ cp -d --remove-destination /etc/modules etc/
 #cp -d --remove-destination -av --parents /etc/default ./
 copy_with_libs /lib/init
 copy_with_libs /lib/lsb
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/md ./
+#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/md ./
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/arch ./
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/block ./
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/ata ./
@@ -136,7 +136,7 @@ cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/scs
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/memstick ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/storage ./
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/class ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/hid ./
+#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/hid ./
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/misc ./
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/net/usb ./
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/wireless ./
@@ -198,7 +198,7 @@ copy_with_libs /usr/bin/key
 cp -d --remove-destination -v --parents /lib/udev/{hotplug.functions,firmware.agent,ata_id,edd_id,scsi_id,vio_type,findkeyboards,keymap,keyboard-force-release.sh} ./
 #cp -d --remove-destination -v --parents -R /lib/udev/keymaps/* ./
 cp -d --remove-destination -av --parents /lib/udev/rules.d/{50-udev-default.rules,60-persistent-storage.rules,80-drivers.rules,91-permissions.rules,60-persistent-storage-lvm.rules,60-persistent-input.rules,55-dm.rules,60-persistent-storage-dm.rules} ./
-cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,70-btrfs.rules} ./
+cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,70-btrfs.rules,10-frandom.rules} ./
 
 cp /etc/xbian-initramfs/init ./
 cp /etc/xbian-initramfs/bootmenu ./
@@ -215,7 +215,7 @@ if ! mountpoint -q /boot; then
         need_umount="yes"
 fi
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
-find . | cpio -H newc -o | lzma -1v > /boot/initramfs.gz
+find . | cpio -H newc -o | xz --arm --check=none --lzma2=,dict=16MiB -v > /boot/initramfs.gz
 #if [ ! -e /boot.cfg ]; then
 #        touch /boot.cfg
 #        echo "name=Standard\ Xbian\ boot" >> /boot.cfg

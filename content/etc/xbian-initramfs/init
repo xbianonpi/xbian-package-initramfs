@@ -1,9 +1,6 @@
 #!/bin/sh
 
-unset $(env)
-PATH=/bin:/sbin:/usr/bin:/usr/sbin
-export PATH
-export TERM=linux
+unset $(env | grep CONFIG_ | cut -f1 -d'=')
 
 . /lib/lsb/init-functions
 . /lib/init/mount-functions.sh

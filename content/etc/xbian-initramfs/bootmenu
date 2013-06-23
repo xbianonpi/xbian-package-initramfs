@@ -11,11 +11,14 @@ mods=$(lsmod | cut -f1 -d' ' )
 
 cat /proc/mounts | cut -f2 -d' '| uniq | sort -b -f -r \
         | while read mountpnt; do
+                [ "$mountpnt" = "/proc" -o "$mountpnt" = "/dev" -o "$mountpnt" = "/"] && continue
                 echo "umounting $mountpnt"
                 if [ -z "$1" ]; then
                          umount $mountpnt || umount -l $mountpnt
                 fi
         done
+
+        umount /proc; umount /dev
 }
 
 net_down()

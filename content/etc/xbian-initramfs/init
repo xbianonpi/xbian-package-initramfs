@@ -2,16 +2,11 @@
 
 unset $(env | grep CONFIG_ | cut -f1 -d'=')
 
-. /lib/lsb/init-functions
-. /lib/init/mount-functions.sh
-. /lib/init/vars.sh
-
 . /cnvres-code.sh
 
 mkdir -p /var/lock
 mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
 mount -t proc -o nodev,noexec,nosuid proc /proc
-
 
 tmpfs_size="10M"
 if [ -e /etc/udev/udev.conf ]; then
@@ -23,14 +18,14 @@ mkdir /dev/pts
 mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
 
 test ! -d /run && mkdir /run
-mount_run mount >/dev/null 2>&1
+mount -t tmpfs -o rw,nosuid,noatime tmpfs /run && touch /run/.tmpfs
+up "/run";  chmod 666 /run/uptime_start.log
 mkdir -m 0755 /run/initramfs
 
 echo > /sys/kernel/uevent_helper
 udev_root=/dev udevd --daemon --resolve-names=never
 udevadm trigger --action=add
 udevadm settle
-
 { test -e /etc/hostname && hostname -F /etc/hostname; } || hostname xbian
 
 test -e /etc/mtab && rm /etc/mtab
@@ -180,11 +175,10 @@ test "$CONFIG_rootfstype" != "nfs" && resize_btrfs
 
 echo "Moving root"
 move_root
-
 test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --msgtxt="loading..." --percentagebar --percentage=15
 test -n "$CONFIG_rescue_late" && drop_shell
 
-echo "at initramfs/init end: $(cat $CONFIG_newroot/proc/uptime)" > /run/uptime_start.log; chmod 666 /run/uptime_start.log
+up "switch root"
 if [ ${CONFIG_init} = 'switch_root' ]; then
 	exec run-init $CONFIG_newroot /sbin/init "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
 else

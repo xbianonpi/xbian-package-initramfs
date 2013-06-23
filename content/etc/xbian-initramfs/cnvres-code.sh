@@ -1,5 +1,9 @@
 # part of code, which is relevant to block devices ... to keep init readable
 
+up() {
+echo "at initramfs/init $1: $(cat /proc/uptime)" >> /run/uptime_start.log
+}
+
 update_resolv() {
 for f in `ls /run/net-*.conf`; do cat $f | grep IPV.DNS | tr -d "'"| awk -F'=' '{print "nameserver "$2}' > /etc/resolv.conf; done
 for f in `ls /run/net-*.conf`; do cat $f | grep DOMAINSEARCH | tr -d "'"| awk -F'=' '{print "search "$2}' >> /etc/resolv.conf; done
@@ -110,37 +114,31 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		mount -t btrfs -o compress=lzo,rw,noatime,autodefrag,space_cache,thread_pool=1 LABEL=xbian-root-btrfs $CONFIG_newroot
 		create_fsck $CONFIG_newroot
 		/sbin/btrfs sub delete $CONFIG_newroot/ext2_saved
-		btrfs fi bal "$CONFIG_newroot"
 
 		/sbin/btrfs sub create $CONFIG_newroot/ROOT
 		echo "Moving root..."
 		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="moving root..."
-		mv $CONFIG_newroot/* $CONFIG_newroot/ROOT > /dev/null 2>&1
-		/sbin/btrfs sub create $CONFIG_newroot/HOME
-		mv $CONFIG_newroot/ROOT/home/* $CONFIG_newroot/HOME
-		mkdir -p $CONFIG_newroot/HOME/.btrfs/snapshot
-		/sbin/btrfs sub snapshot $CONFIG_newroot/HOME $CONFIG_newroot/HOME/.btrfs/snapshot/@safe
-#		/sbin/btrfs sub snapshot $CONFIG_newroot/HOME/.btrfs/snapshot/@safe $CONFIG_newroot/HOME/.btrfs/snapshot/@running
-		cp $CONFIG_newroot/ROOT/etc/fstab $CONFIG_newroot/ROOT/etc/fstab.ext4
-		if [ `sed -ne "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):\1:p" $CONFIG_newroot/ROOT/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
-			sed -i "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):LABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,noatime,autodefrag	0	0:" $CONFIG_newroot/ROOT/etc/fstab
+		/sbin/btrfs sub snap $CONFIG_newroot $CONFIG_newroot/ROOT/@
+		for f in $(ls $CONFIG_newroot/); do [ $f != "ROOT" ] && rm -fr $CONFIG_newroot/$f; done
+		mv $CONFIG_newroot/ROOT $CONFIG_newroot/root
+		/sbin/btrfs sub create $CONFIG_newroot/home
+		/sbin/btrfs sub create $CONFIG_newroot/home/@
+		mv $CONFIG_newroot/root/@/home/* $CONFIG_newroot/home/@
+		cp $CONFIG_newroot/root/@/etc/fstab $CONFIG_newroot/root/@/etc/fstab.ext4
+		if [ `sed -ne "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):\1:p" $CONFIG_newroot/root/@/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
+			sed -i "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):LABEL=xbian-root-btrfs	\/	btrfs	subvol=root/@,rw,thread_pool=1,compress=lzo,noatime,autodefrag,space_cache	0	0:" $CONFIG_newroot/root/@/etc/fstab
 		else
-			sed -i "\$aLABEL=xbian-root-btrfs	\/	btrfs	defaults,rw,compress=lzo,noatime,autodefrag,thread_pool=1,space_cache	0	0" $CONFIG_newroot/ROOT/etc/fstab
+			sed -i "\$aLABEL=xbian-root-btrfs	\/	btrfs	subvol=root/@,rw,compress=lzo,noatime,autodefrag,thread_pool=1,space_cache	0	0" $CONFIG_newroot/root/@/etc/fstab
 		fi
-		rm -f $CONFIG_newroot/ROOT/var/swapfile
-		sed -i "/\(\/var\/swapfile\)/d" $CONFIG_newroot/ROOT/etc/fstab
-#		sed -i "\$aLABEL=xbian-root-btrfs	/home	btrfs	subvol=HOME/.btrfs/snapshot/@running	0	0" $CONFIG_newroot/ROOT/etc/fstab
-		sed -i "\$aLABEL=xbian-root-btrfs	/home	btrfs	subvol=HOME	0	0" $CONFIG_newroot/ROOT/etc/fstab
-		sed -i '1i#' $CONFIG_newroot/ROOT/etc/fstab
-		sed -i '1i#' $CONFIG_newroot/ROOT/etc/fstab
-		sed -i '1i#' $CONFIG_newroot/ROOT/etc/fstab
+		rm -f $CONFIG_newroot/root/@/var/swapfile
+		sed -i "/\(\/var\/swapfile\)/d" $CONFIG_newroot/root/@/etc/fstab
+		sed -i "\$aLABEL=xbian-root-btrfs	/home	btrfs	subvol=home/@,rw,compress=lzo,noatime,autodefrag,thread_pool=1,space_cache	0	0" $CONFIG_newroot/root/@/etc/fstab
+		sed -i '1i#' $CONFIG_newroot/root/@/etc/fstab
+		sed -i '1i#' $CONFIG_newroot/root/@/etc/fstab
+		sed -i '1i#' $CONFIG_newroot/root/@/etc/fstab
 
-		mkdir -p $CONFIG_newroot/ROOT/.btrfs/snapshot
-		/sbin/btrfs sub snapshot $CONFIG_newroot/ROOT $CONFIG_newroot/ROOT/.btrfs/snapshot/@safe
-#		/sbin/btrfs sub snapshot $CONFIG_newroot/ROOT/.btrfs/snapshot/@safe $CONFIG_newroot/ROOT/.btrfs/snapshot/@running
-		btrfsDEF=`btrfs sub list $CONFIG_newroot | grep ROOT | grep -v @safe | awk '{print $2}'`
-		/sbin/btrfs sub set-default "$btrfsDEF" $CONFIG_newroot
-
+		/sbin/btrfs sub snapshot $CONFIG_newroot/root/@ $CONFIG_newroot/root/@safe
+		/sbin/btrfs sub snapshot $CONFIG_newroot/home/@ $CONFIG_newroot/home/@safe
 		echo "rebalancing filesystem..."
 		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="rebalancing filesystem..."
 		btrfs fi bal "$CONFIG_newroot"
@@ -166,7 +164,7 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 	#Save partition table to file
 	/sbin/sfdisk -u S -d ${DEV} > /tmp/part.txt
 	#Read partition sizes
-	sectorTOTAL=`/sbin/fdisk -u sectors -l ${DEV} | grep total | awk '{printf "%s", $8}'`
+	sectorTOTAL=`blockdev --getsz ${DEV}`
 	sectorSTART=`grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $4}'`
 	sectorSIZE=`grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $6}'`
 	export sectorNEW=$(( $sectorTOTAL - $sectorSTART ))
@@ -186,8 +184,7 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88'
 
 		pSIZE=`sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}'`
-		echo ",${sectorNEW},,," | sfdisk -uS -N${PART} --force --no-reread -q ${DEV}
-		/sbin/partprobe || true
+		echo ",${sectorNEW},,," | sfdisk -uS -N${PART} --force -q ${DEV}
 		nSIZE=`sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}'`
 
 		if [ ! $nSIZE -gt $pSIZE ]; then
@@ -280,11 +277,6 @@ fi
 move_root() {
 udevadm control --exit
 
-udev_root="/dev"
-if [ -e /etc/udev/udev.conf ]; then
-  . /etc/udev/udev.conf
-fi
-  
 mount -n -o move /run $CONFIG_newroot/run
 rm -fr /run
 ln -s $CONFIG_newroot/run /run

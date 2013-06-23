@@ -117,9 +117,9 @@ mkdir -p usr/lib/arm-linux-gnueabihf
 copy_with_libs /bin/busybox 
 /bin/busybox --install -s bin/
 cp -d --remove-destination /etc/udhcpc/default.script etc/udhcpc/
-cp -d --remove-destination -R /etc/network etc/
+#cp -d --remove-destination -R /etc/network etc/
 cp -d --remove-destination -R /etc/hostname etc/
-cp -d --remove-destination -R /etc/wpa_supplicant etc/
+#cp -d --remove-destination -R /etc/wpa_supplicant etc/
 cp -d --remove-destination --parents /etc/udev/* ./
 mkdir -p etc/udev/.dev
 #cp -d --remove-destination -R /etc/fstab etc/
@@ -127,8 +127,8 @@ sed -i 's/\/etc\/resolv.conf/\/rootfs\/etc\/resolv.conf/g' etc/udhcpc/default.sc
 #touch etc/mdev.conf
 cp -d --remove-destination /etc/modules etc/
 #cp -d --remove-destination -av --parents /etc/default ./
-copy_with_libs /lib/init
-copy_with_libs /lib/lsb
+#copy_with_libs /lib/init
+#copy_with_libs /lib/lsb
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/md ./
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/arch ./
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/block ./
@@ -155,12 +155,8 @@ cp -d --remove-destination -a --parents /lib/klibc* ./
 
 copy_with_libs /usr/bin/whiptail ./
 copy_with_libs /sbin/kexec ./
-copy_with_libs /sbin/reboot ./
-copy_with_libs /sbin/shutdown ./
-copy_with_libs /sbin/coldreboot ./
 copy_with_libs /sbin/udevd ./
 copy_with_libs /sbin/udevadm ./
-copy_with_libs /sbin/fdisk
 copy_with_libs /sbin/findfs
 copy_with_libs /sbin/blkid 
 #copy_with_libs /sbin/MAKEDEV 
@@ -178,8 +174,6 @@ copy_with_libs /sbin/btrfs
 copy_with_libs /sbin/btrfs-convert 
 #copy_with_libs /sbin/iwconfig 
 #copy_with_libs /sbin/wpa_supplicant 
-copy_with_libs /sbin/partprobe
-copy_with_libs /bin/findmnt 
 copy_with_libs /usr/bin/pkill
 copy_with_libs /usr/bin/pgrep
 cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin

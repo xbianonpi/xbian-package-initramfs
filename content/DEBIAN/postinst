@@ -2,7 +2,7 @@
 
 if [ $1 == "configure" ]; then
 
-	# dpkg-trigger --no-await trigger-xbian-update-initramfs
+	dpkg-trigger --no-await trigger-xbian-update-initramfs
 
 	echo $(date) > /home/xbian/xbian-initramfs-update.log
 

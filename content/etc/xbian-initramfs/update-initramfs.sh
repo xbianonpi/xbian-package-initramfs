@@ -209,7 +209,7 @@ if ! mountpoint -q /boot; then
         need_umount="yes"
 fi
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
-find . | cpio -H newc -o | lzma -1v > /boot/initramfs.gz
+find . | cpio -H newc -o | xz --arm --check=none --lzma2 -1v --memlimit=25MiB > /boot/initramfs.gz
 #if [ ! -e /boot.cfg ]; then
 #        touch /boot.cfg
 #        echo "name=Standard\ Xbian\ boot" >> /boot.cfg

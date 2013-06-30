@@ -59,7 +59,16 @@ do
 	export CONFIG_"$OPTIONNAME"="$VALUE"
 done
 
-[ -n "$CONFIG_bootmenu" -o -n "$CONFIG_debug" ] && unset CONFIG_splash
+if [ -n "$CONFIG_debug" ]; then
+	unset CONFIG_rescue
+	unset CONFIG_rescue_late
+	unset CONFIG_ip
+	unset CONFIG_splash
+	exec >/run/initramfs/initramfs.debug 2>&1
+	set -x
+fi
+
+[ -n "$CONFIG_bootmenu" ] && unset CONFIG_splash
 test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process..." 
 
 if [ -n "$CONFIG_ip" ]; then
@@ -87,12 +96,6 @@ fi
 test -e /run/net-*.conf && update_resolv
 
 
-if [ -n "$CONFIG_debug" ]; then
-	unset CONFIG_rescue
-	unset CONFIG_rescue_late
-	exec >/run/initramfs/initramfs.debug 2>&1
-	set -x
-fi
 
 case ${CONFIG_root} in
 	/dev/nfs|nfs)
@@ -179,6 +182,9 @@ test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --
 test -n "$CONFIG_rescue_late" && drop_shell
 
 up "switch root"
+
+unset debug; set +x
+exec
 if [ ${CONFIG_init} = 'switch_root' ]; then
 	exec run-init $CONFIG_newroot /sbin/init "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
 else

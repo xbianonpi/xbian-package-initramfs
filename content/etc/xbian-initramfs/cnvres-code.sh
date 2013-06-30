@@ -17,6 +17,7 @@ if [ "$1" = "rollback" ]; then
 fi
 #test "$CONFIG_ip" = "dhcp" || return
 
+test -e "${CONFIG_newroot}/etc/network/interfaces.initramfs.autoconfig" && return
 for f in `ls /run/net-eth?.conf`; do
 	f=${f%%.conf}; f=${f##/run/net-};
 	if [ "$(cat ${CONFIG_newroot}/etc/network/interfaces | grep $f | grep inet | grep -c iface)" -eq '1' ]; then
@@ -301,6 +302,7 @@ kill_splash() {
 
 drop_shell() {
 	kill_splash
+	set +x
 	if [ -e /bin/bash ]; then
 		/bin/bash
 	else 

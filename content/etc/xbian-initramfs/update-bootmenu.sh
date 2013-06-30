@@ -64,9 +64,6 @@ mkdir -p usr/lib/arm-linux-gnueabihf
 copy_with_libs /bin/sh
 touch etc/mdev.conf
 
-copy_with_libs /lib/init
-copy_with_libs /lib/lsb
-
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
 copy_with_libs /usr/bin/whiptail ./
@@ -75,9 +72,6 @@ copy_with_libs /sbin/udevd ./
 copy_with_libs /sbin/udevadm ./
 copy_with_libs /sbin/findfs
 copy_with_libs /sbin/blkid 
-copy_with_libs /usr/bin/pkill
-copy_with_libs /usr/bin/pgrep
-copy_with_libs /usr/bin/test
 cp -d --remove-destination -arv /usr/lib/klibc/bin/* ./bin
 
 cp -d --remove-destination -arv --parents /lib/udev/*_id ./
@@ -85,7 +79,7 @@ cp -d --remove-destination -arv --parents /lib/udev/{mtd_probe,net.agent,keyboar
 cp -d --remove-destination -arv --parents /lib/udev/rules.d/{75-probe_mtd.rules,95-keyboard-force-release.rules,80-networking.rules,80-drivers.rules,60-persistent-input.rules,60-persistent-storage.rules} ./
 cp -d --remove-destination -arv --parents /lib/udev/rules.d/70-btrfs.rules ./
 
-cp /etc/xbian-initramfs/init ./
+cp /etc/xbian-initramfs/init-bootmenu ./init
 cp /etc/xbian-initramfs/bootmenu ./
 cp /etc/xbian-initramfs/bootmenu_timeout ./
 cp /etc/xbian-initramfs/cnvres-code.sh ./

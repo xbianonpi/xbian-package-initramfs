@@ -72,7 +72,7 @@ return 0
 
 convert_btrfs() {
 # Check for the existance of tune2fs through the RESIZEERROR variable
-if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfstype}" = "btrfs" -a "$FSCHECK" != "btrfs" ]; then
+if [ "$RESIZEERROR" -lt '1' -a "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfstype}" = "btrfs" -a "$FSCHECK" != "btrfs" ]; then
 
 	if [ "${FSCHECK}" = 'ext4' ]; then
 		# Make sure we have enough memory available for live conversion
@@ -194,10 +194,12 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 		else
 			echo "Partition resized..."
 		fi
+	else
+		export RESIZEERROR="0"
 	fi
-
-	return $RESIZEERROR
 fi
+
+[ "$RESIZEERROR" -lt '0' ] && return 0 || return $RESIZEERROR
 }
 
 resize_ext4() {
@@ -276,11 +278,16 @@ fi
 }
 
 move_root() {
-udevadm control --exit
 
 mount -n -o move /run $CONFIG_newroot/run
 rm -fr /run
 ln -s $CONFIG_newroot/run /run
+
+udevadm control --exit
+udev_root="/dev"
+if [ -e /etc/udev/udev.conf ]; then
+  . /etc/udev/udev.conf
+fi
 
 mount -n -o move /dev $CONFIG_newroot/dev
 rm -fr /dev

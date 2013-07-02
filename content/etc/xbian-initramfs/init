@@ -2,7 +2,7 @@
 
 unset $(env | grep CONFIG_ | cut -f1 -d'=')
 
-echo "To dropdown to shell, try pressing shift few times..."
+echo "To dropdown to shell, hold shift on usb attached keyboard..."
 
 . /cnvres-code.sh
 
@@ -173,6 +173,7 @@ echo "Moving root"
 move_root
 test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --msgtxt="loading..." --percentagebar --percentage=15
 [ -n "$CONFIG_rescue_late" -o -e /run/do_drop ] && drop_shell
+kill $(pidof thd)
 
 up "switch root"
 

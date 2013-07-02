@@ -2,6 +2,8 @@
 
 unset $(env | grep CONFIG_ | cut -f1 -d'=')
 
+echo "To dropdown to shell, try pressing shift few times..."
+
 . /cnvres-code.sh
 
 mkdir -p /var/lock
@@ -71,6 +73,7 @@ fi
 [ -n "$CONFIG_bootmenu" ] && unset CONFIG_splash
 test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process..." 
 
+[ -n "$CONFIG_xip" ] && CONFIG_ip="$CONFIG_xip"
 if [ -n "$CONFIG_ip" ]; then
 	test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="configuring network ..."
 	case "$CONFIG_ip" in 
@@ -127,17 +130,9 @@ fi
 udevadm trigger --action=add --property-match=ID_INPUT_KEYBOARD=1
 udevadm settle
 X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.2; X=$(($X+1)); done
-echo "Checking for keyboard..."
-for keyboard in $(find /dev/input ! -type d 2>/dev/null); do
-if [ -n "$keyboard" ]; then
-        echo "? boot recovery hold left shift (on $keyboard)"
-        /usr/bin/key lshift $keyboard >/dev/null 2>&1
-        if [ "$?" -eq '0' ]; then
-                echo "Dropping to initramfs on request..."
-                drop_shell
-        fi
-fi; done
-test -n "$CONFIG_rescue_early" && drop_shell
+thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d)
+sleep 1
+[ -n "$CONFIG_rescue_early" -o -e /run/do_drop ] && drop_shell
 
 { [ -z "$CONFIG_rootwait" ] || [ "$CONFIG_rootwait" -lt '10' ]; } && export CONFIG_rootwait='10'; X='0'
 test -n "$CONFIG_bootmenu" && { sleep "$CONFIG_rootwait"; /bootmenu; }
@@ -154,7 +149,7 @@ fi
 export FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
 test "$CONFIG_rootfstype" != "nfs" && { resize_part; resize_ext4; convert_btrfs; }
 
-test -n "$CONFIG_rescue" && drop_shell
+[ -n "$CONFIG_rescue" -o -e /run/do_drop ] && drop_shell
 
 # root needs to be rw for network settings update
 export CONFIG_rw='rw'
@@ -177,7 +172,7 @@ test "$CONFIG_rootfstype" != "nfs" && resize_btrfs
 echo "Moving root"
 move_root
 test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --msgtxt="loading..." --percentagebar --percentage=15
-test -n "$CONFIG_rescue_late" && drop_shell
+[ -n "$CONFIG_rescue_late" -o -e /run/do_drop ] && drop_shell
 
 up "switch root"
 

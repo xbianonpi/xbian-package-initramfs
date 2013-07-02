@@ -315,4 +315,5 @@ drop_shell() {
 	else 
 		/bin/sh
 	fi
+	rm /run/do_drop
 }

@@ -172,6 +172,8 @@ copy_with_libs /sbin/rmmod
 copy_with_libs /sbin/insmod
 copy_with_libs /sbin/btrfs 
 copy_with_libs /sbin/btrfs-convert 
+copy_with_libs /usr/sbin/thd
+copy_with_libs /usr/sbin/th-cmd
 #copy_with_libs /sbin/iwconfig 
 #copy_with_libs /sbin/wpa_supplicant 
 copy_with_libs /usr/bin/pkill
@@ -192,9 +194,10 @@ copy_with_libs /usr/bin/key
 cp -d --remove-destination -v --parents /lib/udev/{hotplug.functions,firmware.agent,ata_id,edd_id,scsi_id,vio_type,findkeyboards,keymap,keyboard-force-release.sh} ./
 #cp -d --remove-destination -v --parents -R /lib/udev/keymaps/* ./
 cp -d --remove-destination -av --parents /lib/udev/rules.d/{50-udev-default.rules,60-persistent-storage.rules,80-drivers.rules,91-permissions.rules,60-persistent-storage-lvm.rules,60-persistent-input.rules,55-dm.rules,60-persistent-storage-dm.rules} ./
-cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,70-btrfs.rules,10-frandom.rules} ./
+cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,70-btrfs.rules,10-frandom.rules,99-random-permissions.rules} ./
 
 cp /etc/xbian-initramfs/init ./
+cp /etc/xbian-initramfs/trigg.shift ./
 cp /etc/xbian-initramfs/bootmenu ./
 cp /etc/xbian-initramfs/bootmenu_timeout ./
 cp /etc/xbian-initramfs/cnvres-code.sh ./

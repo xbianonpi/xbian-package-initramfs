@@ -4,19 +4,17 @@ if [ $1 == "configure" ]; then
 
 	dpkg-trigger --no-await trigger-xbian-update-initramfs
 
-	echo $(date) > /home/xbian/xbian-initramfs-update.log
+	date > /home/xbian/xbian-initramfs-update.log
 
 	echo "Disabling system initramfs-update process" >> /home/xbian/xbian-initramfs-update.log
 	if [ $(grep -c "update_initramfs=no" /etc/initramfs-tools/update-initramfs.conf) -eq '1' ]
 	then
 		echo "Already disabled" >> /home/xbian/xbian-initramfs-update.log
 	else
-		sed 's/update_initramfs=yes/update_initramfs=no/' /etc/initramfs-tools/update-initramfs.conf \
-			> /etc/initramfs-tools/update-initramfs.conf.new
-		if [ $(grep -c "update_initramfs=no" /etc/initramfs-tools/update-initramfs.conf.new) -eq '1' ]
+		sed -i 's/update_initramfs=yes/update_initramfs=no/' /etc/initramfs-tools/update-initramfs.conf
+		if [ $(grep -c "update_initramfs=no" /etc/initramfs-tools/update-initramfs.conf) -eq '1' ]
 		then
 			echo "Disabled successfully" >> /home/xbian/xbian-initramfs-update.log
-			mv /etc/initramfs-tools/update-initramfs.conf.new /etc/initramfs-tools/update-initramfs.conf
 		else
 			echo "ERROR disabling system initramfs-update process" >> /home/xbian/xbian-initramfs-update.log
 		fi

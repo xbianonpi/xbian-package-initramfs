@@ -1,11 +1,11 @@
 Origin: XBian
 Package: xbian-package-initramfs-tools
-Version: 1.0-0.6
+Version: 1.0-0.7
 Section: kernel
 Essential: Yes
 Priority: standard
 Architecture: armhf
-Pre-Depends: initramfs-tools
-Depends: busybox, udhcpc, udev, parted, btrfs-tools, klibc-utils, triggerhappy
+Pre-Depends: initramfs-tools, triggerhappy
+Depends: busybox, udhcpc, udev, parted, btrfs-tools, klibc-utils
 Maintainer: mk01 <development@xbian.org>
 Description: Initramfs handling tools.

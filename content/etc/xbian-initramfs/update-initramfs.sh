@@ -155,6 +155,7 @@ cp -d --remove-destination -a --parents /lib/klibc* ./
 
 copy_with_libs /usr/bin/whiptail ./
 copy_with_libs /sbin/kexec ./
+copy_with_libs /bin/mountpoint ./
 copy_with_libs /sbin/udevd ./
 copy_with_libs /sbin/udevadm ./
 copy_with_libs /sbin/findfs

@@ -4,6 +4,11 @@ up() {
 echo "at initramfs/init $1: $(cat /proc/uptime)" >> /run/uptime_start.log
 }
 
+mount_root_btrfs() {
+    test -z "$1" && device="LABEL=xbian-root-btrfs" || device="$1"
+    mount -t btrfs -o compress=lzo,rw,noatime,autodefrag,space_cache,thread_pool=1 $device $CONFIG_newroot
+}
+
 update_resolv() {
 for f in `ls /run/net-*.conf`; do cat $f | grep IPV.DNS | tr -d "'"| awk -F'=' '{print "nameserver "$2}' > /etc/resolv.conf; done
 for f in `ls /run/net-*.conf`; do cat $f | grep DOMAINSEARCH | tr -d "'"| awk -F'=' '{print "search "$2}' >> /etc/resolv.conf; done
@@ -112,7 +117,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 	if [ "$FSCHECK" = "btrfs" ]; then
 		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="post conversion tasks..."
 		/sbin/btrfs fi label ${CONFIG_root} xbian-root-btrfs
-		mount -t btrfs -o compress=lzo,rw,noatime,autodefrag,space_cache,thread_pool=1 LABEL=xbian-root-btrfs $CONFIG_newroot
+		mount_root_btrfs
 		create_fsck $CONFIG_newroot
 		/sbin/btrfs sub delete $CONFIG_newroot/ext2_saved
 
@@ -300,6 +305,23 @@ ln -s $CONFIG_newroot/sys /sys
 mount -n -o move /proc $CONFIG_newroot/proc
 rmdir /proc
 ln -s $CONFIG_newroot/proc /proc
+}
+
+create_swap() {
+if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_partswap" -eq '1' -a "$CONFIG_rootfstype" = "btrfs" -a "$FSCHECK" = 'btrfs' ]; then
+    nrpart=$(sfdisk -s $DEV$PARTdelim? | grep -c .)
+    [ $nrpart -gt $PART -o $PART -gt 3 ] && return 1
+    [ "$(blkid -s TYPE -o value -p $DEV$PARTdelim$nrpart)" = swap ] && return 0
+    mount_root_btrfs $CONFIG_root
+    mountpoint -q $CONFIG_newroot || return 1
+    /sbin/btrfs fi resize -257M $CONFIG_newroot || { umount $CONFIG_newroot; return 1; }
+    umount $CONFIG_newroot
+    echo ",-256,,," | sfdisk -uM -N${PART} --force ${DEV} >> /run/part_resize.txt 2>&1
+    pend=$(sfdisk -l -uS ${DEV} 2>/dev/null| grep $CONFIG_root | awk '{print $3}')
+    pstart=$(( ($pend/2048 + 1) * 2048));pPART=$(($PART+1))
+    echo "$pstart,+,S,," | sfdisk -uS -N${pPART} --force ${DEV} >> /run/part_resize.txt 2>&1
+    mkswap ${DEV}${PARTdelim}${pPART}
+fi
 }
 
 kill_splash() {

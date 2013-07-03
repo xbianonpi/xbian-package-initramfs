@@ -28,6 +28,8 @@ echo > /sys/kernel/uevent_helper
 udevd --daemon --resolve-names=never
 udevadm trigger --action=add
 udevadm settle
+X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.2; X=$(($X+1)); done
+thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d)
 up "dev settle"
 { test -e /etc/hostname && hostname -F /etc/hostname; } || hostname xbian
 
@@ -129,13 +131,7 @@ if [ -z "$CONFIG_splash" ]; then
 	touch /run/nosplash
 fi
 
-udevadm trigger --action=add --property-match=ID_INPUT_KEYBOARD=1
-udevadm settle
-X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.2; X=$(($X+1)); done
-thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d)
-sleep 0.3
 [ -n "$CONFIG_rescue_early" -o -e /run/do_drop ] && drop_shell
-up "after keyb & thd"
 
 { [ -z "$CONFIG_rootwait" ] || [ "$CONFIG_rootwait" -lt '10' ]; } && export CONFIG_rootwait='10'; X='0'
 test -n "$CONFIG_bootmenu" && { sleep "$CONFIG_rootwait"; /bootmenu; }
@@ -154,6 +150,8 @@ test "$CONFIG_rootfstype" != "nfs" && { resize_part; resize_ext4; convert_btrfs;
 up "after resize, convert"
 
 [ -n "$CONFIG_rescue" -o -e /run/do_drop ] && drop_shell
+
+test -n "$CONFIG_partswap" && create_swap
 
 # root needs to be rw for network settings update
 export CONFIG_rw='rw'
@@ -187,7 +185,7 @@ kill $(pidof thd)
 
 up "switch root"
 
-test -n $CONFIG_debug && set -- --verbose
+if [ "$CONFIG_debug" -eq 1 ]; then set -- --verbose; fi
 unset debug; set +x
 if [ ${CONFIG_init} = 'switch_root' ]; then
 	exec run-init $CONFIG_newroot /sbin/init "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console

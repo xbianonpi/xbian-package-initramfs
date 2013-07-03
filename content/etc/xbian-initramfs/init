@@ -28,6 +28,7 @@ echo > /sys/kernel/uevent_helper
 udevd --daemon --resolve-names=never
 udevadm trigger --action=add
 udevadm settle
+up "dev settle"
 { test -e /etc/hostname && hostname -F /etc/hostname; } || hostname xbian
 
 test -e /etc/mtab && rm /etc/mtab
@@ -36,7 +37,7 @@ ln -s "../proc/mounts" /etc/mtab
 export MODPROBE_OPTIONS="-qb"
 echo "Loading initram modules ... "
 cat /etc/modules | grep -v ^# | xargs -n 1 -r modprobe -q > /dev/null  2>&1
-
+up "after modprobe"
 INITIALBOOT="0"
 RESIZEERROR="0"
 
@@ -97,6 +98,7 @@ if [ -n "$CONFIG_ip" ]; then
 	esac 
 fi
 test -e /run/net-*.conf && update_resolv
+up "after ipconfig"
 
 case ${CONFIG_root} in
 	/dev/nfs|nfs)
@@ -131,8 +133,9 @@ udevadm trigger --action=add --property-match=ID_INPUT_KEYBOARD=1
 udevadm settle
 X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.2; X=$(($X+1)); done
 thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d)
-sleep 1
+sleep 0.3
 [ -n "$CONFIG_rescue_early" -o -e /run/do_drop ] && drop_shell
+up "after keyb & thd"
 
 { [ -z "$CONFIG_rootwait" ] || [ "$CONFIG_rootwait" -lt '10' ]; } && export CONFIG_rootwait='10'; X='0'
 test -n "$CONFIG_bootmenu" && { sleep "$CONFIG_rootwait"; /bootmenu; }
@@ -148,6 +151,7 @@ fi
 
 export FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
 test "$CONFIG_rootfstype" != "nfs" && { resize_part; resize_ext4; convert_btrfs; }
+up "after resize, convert"
 
 [ -n "$CONFIG_rescue" -o -e /run/do_drop ] && drop_shell
 
@@ -160,12 +164,18 @@ if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"
 	drop_shell
 fi
+up "after mount"
+
 [ -e /etc/resolv.conf ] && cp /etc/resolv.conf "${CONFIG_newroot}/etc/"
-if [ -e /run/net-eth?.conf ]; then
-	update_interfaces
-else
-	update_interfaces rollback
-fi
+
+### bug in debians initscripts was causing need to hack interfaces file if kernel setup of net. hopefully is not needed anymore.
+#if [ -e /run/net-eth?.conf ]; then
+#	update_interfaces
+#else
+#	update_interfaces rollback
+#fi
+
+up "after net/interfaces file"
 
 test "$CONFIG_rootfstype" != "nfs" && resize_btrfs
 
@@ -177,8 +187,8 @@ kill $(pidof thd)
 
 up "switch root"
 
+test -n $CONFIG_debug && set -- --verbose
 unset debug; set +x
-exec
 if [ ${CONFIG_init} = 'switch_root' ]; then
 	exec run-init $CONFIG_newroot /sbin/init "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
 else

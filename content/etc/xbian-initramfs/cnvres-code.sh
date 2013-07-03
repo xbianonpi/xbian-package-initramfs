@@ -310,6 +310,7 @@ kill_splash() {
 drop_shell() {
 	kill_splash
 	set +x
+	exec > /dev/console 2>&1
 	if [ -e /bin/bash ]; then
 		/bin/bash
 	else 

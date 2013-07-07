@@ -1,6 +1,6 @@
 Origin: XBian
 Package: xbian-package-initramfs-tools
-Version: 1.0-0.7
+Version: 1.0-0.8
 Section: kernel
 Essential: Yes
 Priority: standard

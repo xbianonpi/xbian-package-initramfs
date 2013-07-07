@@ -41,32 +41,21 @@ copy_modules() {
 }
 
 copy_file() {
-        cp -d --parents $3 "$1" "$2"
+        cp -d -v --parents $3 "$1" "$2"
         test -h "$1" || return
-        g=$(basename "$1")
-        d=${1%$g}
-        fl=$(ls -la "$1" | awk '{print $11}')
-        tmp1=${fl##/*}
-
-        lib_done="$lib_done $fl"
+        dr=$(dirname "$1")
+        fl=$(readlink "$1")
+        test -e "$fl" || fl="$dr/$fl"
         case $lib_done in
                 *" $fl "*)
                         return 
                         ;;
                 *)
+                        cp -d -v --parents $3 "$fl" "$2" 
+                        lib_done="$lib_done $fl"
+                        strip ".$fl"
                         ;;
         esac
-
-        if [ -n "$tmp1" ]; then
-#                test -h ".$2/$fl" && rm -f ".$2/$fl"
-                cp -d --parents $3 "$d$fl" "$2"
-                strip ".$d$fl"
-        else
-#                test -h ".$fl" && rm -f ".$fl"
-                cp -d --parents $3 "$fl" "./"
-                strip ".$fl"
-        fi
-        echo "$fl"
 }
 
 copy_with_libs() {
@@ -116,59 +105,43 @@ mkdir -p usr/bin
 mkdir -p usr/lib/arm-linux-gnueabihf
 copy_with_libs /bin/busybox 
 /bin/busybox --install -s bin/
-#cp -d --remove-destination /etc/udhcpc/default.script etc/udhcpc/
-#cp -d --remove-destination -R /etc/network etc/
 cp -d --remove-destination -R /etc/hostname etc/
-#cp -d --remove-destination -R /etc/wpa_supplicant etc/
 cp -d --remove-destination --parents /etc/udev/* ./
+
 mkdir -p etc/udev/.dev
-#cp -d --remove-destination -R /etc/fstab etc/
-#sed -i 's/\/etc\/resolv.conf/\/rootfs\/etc\/resolv.conf/g' etc/udhcpc/default.script
-#touch etc/mdev.conf
 cp -d --remove-destination /etc/modules etc/
-#cp -d --remove-destination -av --parents /etc/default ./
-#copy_with_libs /lib/init
-#copy_with_libs /lib/lsb
-#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/md ./
-#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/arch ./
-#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/block ./
-#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/ata ./
-#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/mmc ./
+cp -d --remove-destination --parents /etc/modprobe.d/xbian.conf ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/scsi ./
-#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/memstick ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/storage ./
-#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/class ./
-#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/hid ./
-#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/misc ./
-#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/net/usb ./
-#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/wireless ./
-#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/net/mac80211 ./
-#cp -d --remove-destination -av --parents /lib/firmware ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 
 copy_modules "$(cat /etc/modules | grep -v ^# )" 
-copy_modules "btrfs ext4 vfat crc32c"
+copy_modules "btrfs ext4 vfat crc32c frandom"
 depmod -b ./ $MODVER
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
-copy_with_libs /usr/bin/whiptail ./
-copy_with_libs /sbin/kexec ./
+#copy_with_libs /usr/bin/whiptail ./
+copy_with_libs /sbin/ifconfig ./
+copy_with_libs /usr/local/sbin/xbian-frandom ./
+#copy_with_libs /sbin/kexec ./
 copy_with_libs /bin/mountpoint ./
 copy_with_libs /sbin/udevd ./
 copy_with_libs /sbin/udevadm ./
 copy_with_libs /sbin/findfs
 copy_with_libs /sbin/blkid 
-#copy_with_libs /sbin/MAKEDEV 
 copy_with_libs /sbin/sfdisk
 copy_with_libs /sbin/tune2fs
 copy_with_libs /sbin/e2fsck 
 copy_with_libs /sbin/resize2fs 
 copy_with_libs /bin/kmod
 copy_with_libs /sbin/modprobe
-rm ./bin/modprobe
+rm -fr ./bin/modprobe
+rm -fr ./bin/grep
+copy_with_libs /bin/grep
 copy_with_libs /sbin/killall5
+copy_with_libs /sbin/switch_root
 copy_with_libs /sbin/rmmod
 copy_with_libs /sbin/insmod
 copy_with_libs /sbin/btrfs 
@@ -181,6 +154,8 @@ copy_with_libs /usr/bin/pkill
 copy_with_libs /usr/bin/pgrep
 cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin
 cp --remove-destination /usr/lib/klibc/bin/run-init ./sbin
+cp --remove-destination /usr/lib/klibc/bin/kinit ./sbin
+cp --remove-destination /usr/lib/klibc/bin/nuke ./sbin
 
 copy_with_libs /usr/bin/splash
 mkdir -p ./usr/share/fonts/splash
@@ -192,10 +167,10 @@ cp -d --remove-destination --parents /usr/bin/splash.fonts ./
 
 copy_with_libs /usr/bin/key
 
-cp -d --remove-destination -v --parents /lib/udev/{hotplug.functions,firmware.agent,ata_id,edd_id,scsi_id,vio_type,findkeyboards,keymap,keyboard-force-release.sh} ./
+cp -d --remove-destination -v --parents /lib/udev/{hotplug.functions,firmware.agent,ata_id,edd_id,scsi_id,vio_type,findkeyboards,keymap,keyboard-force-release.sh,udev-acl} ./
 #cp -d --remove-destination -v --parents -R /lib/udev/keymaps/* ./
 cp -d --remove-destination -av --parents /lib/udev/rules.d/{50-udev-default.rules,60-persistent-storage.rules,80-drivers.rules,91-permissions.rules,60-persistent-storage-lvm.rules,60-persistent-input.rules,55-dm.rules,60-persistent-storage-dm.rules} ./
-cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,70-btrfs.rules,10-frandom.rules,99-random-permissions.rules} ./
+cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,70-btrfs.rules,01-frandom.rules,99-frandom.rules} ./
 
 cp /etc/xbian-initramfs/init ./
 cp /etc/xbian-initramfs/trigg.shift ./
@@ -213,7 +188,9 @@ if ! mountpoint -q /boot; then
         need_umount="yes"
 fi
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
+echo "Creating initram fs."
 find . | cpio -H newc -o | xz --arm --check=none --lzma2 -1v --memlimit=25MiB > /boot/initramfs.gz
+#find . | cpio -H newc -o | gzip > /boot/initramfs.gz
 #if [ ! -e /boot.cfg ]; then
 #        touch /boot.cfg
 #        echo "name=Standard\ Xbian\ boot" >> /boot.cfg

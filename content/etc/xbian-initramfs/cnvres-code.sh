@@ -10,9 +10,9 @@ mount_root_btrfs() {
 }
 
 update_resolv() {
-for f in `ls /run/net-*.conf`; do cat $f | grep IPV.DNS | tr -d "'"| awk -F'=' '{print "nameserver "$2}' > /etc/resolv.conf; done
-for f in `ls /run/net-*.conf`; do cat $f | grep DOMAINSEARCH | tr -d "'"| awk -F'=' '{print "search "$2}' >> /etc/resolv.conf; done
-for f in `ls /run/net-*.conf`; do cat $f | grep DNSDOMAIN | tr -d "'"| awk -F'=' '{print "domain "$2}' >> /etc/resolv.conf; done
+for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do cat $f | grep IPV.DNS | tr -d "'"| awk -F'=' '{print "nameserver "$2}' > /etc/resolv.conf; done
+for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do cat $f | grep DOMAINSEARCH | tr -d "'"| awk -F'=' '{print "search "$2}' >> /etc/resolv.conf; done
+for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do cat $f | grep DNSDOMAIN | tr -d "'"| awk -F'=' '{print "domain "$2}' >> /etc/resolv.conf; done
 }
 
 update_interfaces() {
@@ -20,7 +20,7 @@ if [ "$1" = "rollback" ]; then
 	test -e "${CONFIG_newroot}/etc/network/interfaces.initramfs.autoconfig" && mv "${CONFIG_newroot}/etc/network/interfaces.initramfs.autoconfig" "${CONFIG_newroot}/etc/network/interfaces"
 	return
 fi
-#test "$CONFIG_ip" = "dhcp" || return
+#test "$CONFIG_cnet" = "dhcp" || return
 
 test -e "${CONFIG_newroot}/etc/network/interfaces.initramfs.autoconfig" && return
 for f in `ls /run/net-eth?.conf`; do
@@ -162,7 +162,7 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 	
 	nrpart=$(sfdisk -s $DEV$PARTdelim? | grep -c .)
 	if [ "$nrpart" -gt "$PART" ]; then
-		echo "FATAL: only the last partition can be resized"
+		test -z "$CONFIG_partswap" && echo "FATAL: only the last partition can be resized"
 		export RESIZEERROR='1'
 		return 1
 	fi
@@ -285,25 +285,25 @@ fi
 move_root() {
 
 mount -n -o move /run $CONFIG_newroot/run
-rm -fr /run
+nuke /run
 ln -s $CONFIG_newroot/run /run
 
-udevadm control --exit
 udev_root="/dev"
+udevadm control --exit
 if [ -e /etc/udev/udev.conf ]; then
   . /etc/udev/udev.conf
 fi
 
 mount -n -o move /dev $CONFIG_newroot/dev
-rm -fr /dev
+nuke /dev
 ln -s $CONFIG_newroot/dev /dev
   
 mount -n -o move /sys $CONFIG_newroot/sys
-rmdir /sys
+nuke /sys
 ln -s $CONFIG_newroot/sys /sys
 
 mount -n -o move /proc $CONFIG_newroot/proc
-rmdir /proc
+nuke /proc
 ln -s $CONFIG_newroot/proc /proc
 }
 
@@ -332,11 +332,17 @@ kill_splash() {
 drop_shell() {
 	kill_splash
 	set +x
+	test "$1" = noumount || mountpoint -q ${CONFIG_rootfstype} || mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw","$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
+	[ ! -d /boot ] && mkdir /boot
+	mount -t vfat /dev/mmcblk0p1 /boot
 	exec > /dev/console 2>&1
 	if [ -e /bin/bash ]; then
 		/bin/bash
 	else 
 		/bin/sh
 	fi
-	rm /run/do_drop
+	rm -fr /run/do_drop
+	[ "$1" != noumount ] || return 0
+	mountpoint -q /boot && umount /boot; [ -d /boot ] && rmdir /boot
+	mountpoint -q /rootfs && umount /rootfs
 }

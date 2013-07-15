@@ -44,7 +44,11 @@ ln -s "../proc/mounts" /etc/mtab
 
 export MODPROBE_OPTIONS="-qb"
 echo "Loading initram modules ... "
-cat /etc/modules | grep -v ^# | xargs -n 1 -r /sbin/modprobe -qb > /dev/null  2>&1
+grep '^[^#]' /etc/modules |
+    while read module args; do
+        [ "$module" ] || continue
+        modprobe $module $args || :
+    done
 up "after modprobe"
 INITIALBOOT="0"
 RESIZEERROR="0"
@@ -63,12 +67,13 @@ export CMDLINE="$(cat /proc/cmdline)"
 for OPTION in ${CMDLINE}
 do
 	OPTIONNAME=${OPTION%%=*}
-	echo $OPTIONNAME | grep '^[a-zA-Z][a-zA-Z0-9_]*$' > /dev/null || continue
+	echo "$OPTIONNAME" | grep -vq "\.\|-"  || continue
 	VALUE=${OPTION#*=}
 	test "$VALUE" = "$OPTIONNAME" && VALUE='1'
 	export CONFIG_"$OPTIONNAME"="$VALUE"
-	test $OPTIONNAME = 'splash' && test ! -x /usr/bin/splash && unset CONFIG_splash
 done
+test ! -x /usr/bin/splash && unset CONFIG_splash
+
 up "after get cmdline"
 
 if [ -n "$CONFIG_debug" ]; then
@@ -105,7 +110,7 @@ if [ -n "$CONFIG_cnet" ]; then
 			;;
 	esac 
 fi
-test -n "$CONFIG_cnet" && ifconfig lo 127.0.0.1 up && touch /run/net-lo.conf
+ifconfig lo 127.0.0.1 up && touch /run/net-lo.conf
 test -n "$(find /run/net-*.conf ! -type d 2>/dev/null)"  && update_resolv
 up "after ipconfig"
 
@@ -181,9 +186,11 @@ kill $pid > /dev/null 2>&1; kill $(pidof thd) > /dev/null 2>&1
 
 up "switch root"
 
-#if test -n "$CONFIG_debug"; then set -- --verbose "$@"; fi
+if [ -n "$CONFIG_debug" -o -e /run/do_debug ]; then set -- --verbose $@; fi
+if test -n "$CONFIG_startevent"; then set -- --startup-event=$CONFIG_startevent $@; fi
 #unset debug
-#set +x
+set +x
+up "$@"
 echo "Switching root"
 if [ ${CONFIG_init} = 'switch_root' ]; then
 	exec switch_root $CONFIG_newroot /sbin/init "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console

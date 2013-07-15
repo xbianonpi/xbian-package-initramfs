@@ -107,24 +107,27 @@ copy_with_libs /bin/busybox
 /bin/busybox --install -s bin/
 cp -d --remove-destination -R /etc/hostname etc/
 cp -d --remove-destination --parents /etc/udev/* ./
+cp -d --remove-destination --parents /etc/default/xbian-rnd ./
 
 mkdir -p etc/udev/.dev
 cp -d --remove-destination /etc/modules etc/
-cp -d --remove-destination --parents /etc/modprobe.d/xbian.conf ./
+cp -d --remove-destination --parents /etc/modprobe.d/*.conf ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/scsi ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/storage ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 
 copy_modules "$(cat /etc/modules | grep -v ^# )" 
-copy_modules "btrfs ext4 vfat crc32c frandom"
+copy_modules "btrfs ext4 vfat crc32c nfsv4 nfsv3"
 depmod -b ./ $MODVER
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
 #copy_with_libs /usr/bin/whiptail ./
 copy_with_libs /sbin/ifconfig ./
-copy_with_libs /usr/local/sbin/xbian-frandom ./
+for f in $(find /usr/local/sbin -iname xbian\*); do
+    copy_with_libs $f ./
+done
 #copy_with_libs /sbin/kexec ./
 copy_with_libs /bin/mountpoint ./
 copy_with_libs /sbin/udevd ./
@@ -165,12 +168,10 @@ cp -d --remove-destination -aR --parents /usr/share/images/splash ./
 cp -d --remove-destination --parents /usr/bin/splash.images ./
 cp -d --remove-destination --parents /usr/bin/splash.fonts ./
 
-copy_with_libs /usr/bin/key
-
 cp -d --remove-destination -v --parents /lib/udev/{hotplug.functions,firmware.agent,ata_id,edd_id,scsi_id,vio_type,findkeyboards,keymap,keyboard-force-release.sh,udev-acl} ./
 #cp -d --remove-destination -v --parents -R /lib/udev/keymaps/* ./
 cp -d --remove-destination -av --parents /lib/udev/rules.d/{50-udev-default.rules,60-persistent-storage.rules,80-drivers.rules,91-permissions.rules,60-persistent-storage-lvm.rules,60-persistent-input.rules,55-dm.rules,60-persistent-storage-dm.rules} ./
-cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,70-btrfs.rules,01-frandom.rules,99-frandom.rules} ./
+cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,70-btrfs.rules,01-frandom.rules,99-frandom.rules,01-hwrng.rules,99-hwrng.rules} ./
 
 cp /etc/xbian-initramfs/init ./
 cp /etc/xbian-initramfs/trigg.shift ./

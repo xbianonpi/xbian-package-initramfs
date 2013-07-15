@@ -333,9 +333,18 @@ kill_splash() {
 drop_shell() {
 	kill_splash
 	set +x
-	test "$1" = noumount || mountpoint -q ${CONFIG_rootfstype} || mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw","$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
+
 	[ ! -d /boot ] && mkdir /boot
 	mount -t vfat /dev/mmcblk0p1 /boot
+
+	if [ "$1" != noumount ]; then
+	    mountpoint -q ${CONFIG_rootfstype} || mount -t ${CONFIG_rootfstype} -o rw,"$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
+	    mount -o bind /proc /rootfs/proc
+	    mount -o bind /boot /rootfs/boot
+	    mount -o bind /dev /rootfs/dev
+	    mount -o bind /sys /rootfs/sys
+	fi
+
 	exec > /dev/console 2>&1
 	if [ -e /bin/bash ]; then
 		/bin/bash
@@ -343,7 +352,13 @@ drop_shell() {
 		/bin/sh
 	fi
 	rm -fr /run/do_drop
-	[ "$1" != noumount ] || return 0
+
+	mountpoint -q /rootfs/boot && umount /rootfs/boot
+	mountpoint -q /rootfs/proc && umount /rootfs/proc
+	mountpoint -q /rootfs/dev && umount /rootfs/dev
+	mountpoint -q /rootfs/sys && umount /rootfs/sys
+
 	mountpoint -q /boot && umount /boot; [ -d /boot ] && rmdir /boot
+	[ "$1" != noumount ] || return 0
 	mountpoint -q /rootfs && umount /rootfs
 }

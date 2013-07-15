@@ -283,12 +283,13 @@ fi
 }
 
 move_root() {
+echo "${CONFIG_root}" > /run/initramfs/rootfs
+ln -s "${CONFIG_root}" /run/initramfs/rootfs-dev
 
 mount -n -o move /run $CONFIG_newroot/run
 nuke /run
 ln -s $CONFIG_newroot/run /run
 
-udev_root="/dev"
 udevadm control --exit
 if [ -e /etc/udev/udev.conf ]; then
   . /etc/udev/udev.conf

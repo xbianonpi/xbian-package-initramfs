@@ -190,8 +190,8 @@ if ! mountpoint -q /boot; then
 fi
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
 echo "Creating initram fs."
-find . | cpio -H newc -o | xz --arm --check=none --lzma2 -1v --memlimit=25MiB > /boot/initramfs.gz
-#find . | cpio -H newc -o | gzip > /boot/initramfs.gz
+#find . | cpio -H newc -o | xz --arm --check=none --lzma2 -1v --memlimit=25MiB > /boot/initramfs.gz
+find . | cpio -H newc -o | gzip > /boot/initramfs.gz
 #if [ ! -e /boot.cfg ]; then
 #        touch /boot.cfg
 #        echo "name=Standard\ Xbian\ boot" >> /boot.cfg

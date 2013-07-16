@@ -60,19 +60,24 @@ fi
 }
 
 get_root() {
-export CONFIG_roottxt=`echo "$CONFIG_root" | awk '$1 ~ /LABEL/ || $1 ~ /UUID/ {print $1}'`
-[ -n "$CONFIG_roottxt" ] && { CONFIG_roottxt=`findfs $CONFIG_roottxt 2>/dev/null` || return 1; CONFIG_root="$CONFIG_roottxt"; }
-
-export DEV="${CONFIG_root%[0-9]}"
-if [ ! -e ${DEV} ]; then
+    if echo $CONFIG_root | grep -q 'UUID\|LABEL'; then
+        export CONFIG_roottxt=$CONFIG_root
+        export CONFIG_root=$(findfs $CONFIG_roottxt 2>/dev/null)
+        [ -z $CONFIG_root ] && export CONFIG_root=$CONFIG_roottxt && return 1
+    else
+        [ -b $CONFIG_root ] || return 1
+    fi
+    
+    export DEV="${CONFIG_root%[0-9]}"
+    if [ ! -e ${DEV} ]; then
 	export DEV=${DEV%p}
 	export PARTdelim='p'
-else
+    else
 	export PARTdelim=''
-fi
-export PART=${CONFIG_root#${CONFIG_root%?}}
+    fi
+    export PART=${CONFIG_root#${CONFIG_root%?}}
 
-return 0
+    return 0
 }
 
 convert_btrfs() {

@@ -144,7 +144,7 @@ fi
 test -n "$CONFIG_bootmenu" && { sleep "$CONFIG_rootwait"; /bootmenu; }
 
 if [ "$CONFIG_rootfstype" != "nfs" ]; then
-while get_root && [ ! -b "$CONFIG_root" -a -n "$CONFIG_rootwait"  -a  "$X" -lt "$CONFIG_rootwait" ]; do
+while ! get_root && [ -n "$CONFIG_rootwait"  -a  "$X" -lt "$CONFIG_rootwait" ]; do
 	X=$(($X+1))
 	echo "$X Waiting for root..."
         sleep 1

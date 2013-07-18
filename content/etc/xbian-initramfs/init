@@ -32,8 +32,8 @@ udevd --daemon --resolve-names=never
 udevadm trigger --action=add
 if grep -w mod_scsi.scan=sync /proc/cmdline > /dev/null || grep "cnet=" /proc/cmdline > /dev/null; then
     udevadm settle
-    X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.2; X=$(($X+1)); done
 fi
+X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.2; X=$(($X+1)); done
 while true; do if test -d /dev/input; then thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d); break; else sleep 0.3; fi; done & pid=$!
 
 up "dev settle"

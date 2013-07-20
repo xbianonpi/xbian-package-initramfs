@@ -288,8 +288,8 @@ fi
 }
 
 move_root() {
-echo "${CONFIG_root}" > /run/initramfs/rootfs
-ln -s "${CONFIG_root}" /run/initramfs/rootfs-dev
+ln -s "${CONFIG_root}" /dev/root
+[ ! -e /etc/blkid.tab ] || cp /etc/blkid.tab $CONFIG_newroot/etc
 
 mount -n -o move /run $CONFIG_newroot/run
 nuke /run
@@ -344,13 +344,27 @@ drop_shell() {
 
 	if [ "$1" != noumount ]; then
 	    mountpoint -q ${CONFIG_rootfstype} || mount -t ${CONFIG_rootfstype} -o rw,"$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
-	    mount -o bind /proc /rootfs/proc
-	    mount -o bind /boot /rootfs/boot
-	    mount -o bind /dev /rootfs/dev
-	    mount -o bind /sys /rootfs/sys
+	    mount -o bind /proc $CONFIG_newroot/proc
+	    mount -o bind /boot $CONFIG_newroot/boot
+	    mount -o bind /dev $CONFIG_newroot/dev
+	    mount -o bind /sys $CONFIG_newroot/sys
+	    [ "$CONFIG_rootfstype" = btrfs ] && mount -t ${CONFIG_rootfstype} -o rw,subvol=modules/@ "${CONFIG_root}" $CONFIG_newroot/lib/modules
 	fi
 
 	exec > /dev/console 2>&1
+	echo "the root partition as defined in cmdline.txt is now mounted under /rootfs"
+	echo "boot partition is mounted under /boot and bond to /rootfs/boot as well. the same applies for /proc, /sys, /dev and /run."
+	echo "you can chroot into your installation with 'chroot /rootfs'. this will allow you work with you xbian installation"
+	echo "like in full booted mode (restricted to text console). effective uid=0 (root)."
+	echo ""
+	echo "network can be started with 'ipconfig eth0' for dhcp mode, or 'ipconfig ip=ip:mask:gw:::eth0' for static address (where "
+	echo "[ip] is you ip address, [mask] is your network mask and [gw] is ip address of your gateway (router)"
+	echo ""
+	echo "after you finish your work, exit from chroot with 'exit' and then exit again from recovery console shell. your boot will"
+	echo "continue."
+	echo ""
+	echo "(without init started, reboot/shutdown doesn't work as expected. to reboot, use 'umount -a; sync; reboot -f' (in one line "
+	echo "as you see it on the scree"
 	if [ -e /bin/bash ]; then
 		/bin/bash
 	else 
@@ -358,12 +372,24 @@ drop_shell() {
 	fi
 	rm -fr /run/do_drop
 
-	mountpoint -q /rootfs/boot && umount /rootfs/boot
-	mountpoint -q /rootfs/proc && umount /rootfs/proc
-	mountpoint -q /rootfs/dev && umount /rootfs/dev
-	mountpoint -q /rootfs/sys && umount /rootfs/sys
+	mountpoint -q $CONFIG_newroot/boot && umount $CONFIG_newroot/boot
+	mountpoint -q $CONFIG_newroot/proc && umount $CONFIG_newroot/proc
+	mountpoint -q $CONFIG_newroot/dev && umount $CONFIG_newroot/dev
+	mountpoint -q $CONFIG_newroot/sys && umount $CONFIG_newroot/sys
+	mountpoint -q $CONFIG_newroot/sys && umount $CONFIG_newroot/sys
+	mountpoint -q $CONFIG_newroot/lib/modules && umount $CONFIG_newroot/lib/modules
 
 	mountpoint -q /boot && umount /boot; [ -d /boot ] && rmdir /boot
 	[ "$1" != noumount ] || return 0
-	mountpoint -q /rootfs && umount /rootfs
+	mountpoint -q $CONFIG_newroot && umount $CONFIG_newroot
+}
+
+load_modules() {
+export MODPROBE_OPTIONS='-qb'
+echo "Loading initram modules ... "
+grep '^[^#]' /etc/modules |
+    while read module args; do
+        [ "$module" ] || continue
+        modprobe $module $args || :
+    done
 }

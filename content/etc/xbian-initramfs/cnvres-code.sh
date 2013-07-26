@@ -350,7 +350,7 @@ drop_shell() {
 	    mount -o bind /sys $CONFIG_newroot/sys
 	    [ "$CONFIG_rootfstype" = btrfs ] && mount -t ${CONFIG_rootfstype} -o rw,subvol=modules/@ "${CONFIG_root}" $CONFIG_newroot/lib/modules
 	fi
-
+	mountpoint -q $CONFIG_newroot && ln -s /rootfs /run/initramfs/rootfs
 	exec > /dev/console 2>&1
 	echo "the root partition as defined in cmdline.txt is now mounted under /rootfs"
 	echo "boot partition is mounted under /boot and bond to /rootfs/boot as well. the same applies for /proc, /sys, /dev and /run."
@@ -363,12 +363,15 @@ drop_shell() {
 	echo "after you finish your work, exit from chroot with 'exit' and then exit again from recovery console shell. your boot will"
 	echo "continue."
 	echo ""
-	echo "(without init started, reboot/shutdown doesn't work as expected. to reboot, use 'umount -a; sync; reboot -f' (in one line "
-	echo "as you see it on the scree"
+	echo "in this environment, three aliases are already predefined. just run:"
+	echo ""
+	echo "'reb' to run 'umount -a; sync; reboot -f' (unmount all filesystems, sync writes and reboot"
+	echo "'rum' to run 'umount -a'"
+	echo "'rch' to run 'chroot $CONFIG_newroot'"
 	if [ -e /bin/bash ]; then
-		/bin/bash
+		/bin/bash -i
 	else 
-		/bin/sh
+		ENV=/.profile /bin/sh -i
 	fi
 	rm -fr /run/do_drop
 

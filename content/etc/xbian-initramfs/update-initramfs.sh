@@ -17,8 +17,8 @@ lib_done=''
 
 copy_modules() {
 
-        list="$1"
-        for f in $list; do
+        tlist="$1"
+        for f in $tlist; do
                 f=$(basename $f)
                 f="${f%'.ko'}.ko"
                 case $mod_done in
@@ -33,11 +33,18 @@ copy_modules() {
                 echo "copying module /lib/modules/$MODVER/$modname"
                 cp -a --parents "/lib/modules/$MODVER/$modname" ./
                 mod_done="$mod_done $modname "
+
                 depends=$(grep "$modname:" "/lib/modules/$MODVER/modules.dep" | awk -F': ' '{print $2}')
                 [ -z "$depends" ] && continue
                 copy_modules "$depends"
         done
 
+}
+
+put_to_modules(){
+    for m in $1; do
+        grep -qx $m ./etc/modules || echo $m >> ./etc/modules
+    done
 }
 
 copy_file() {
@@ -96,8 +103,9 @@ trap "{ cd ..; { rm -fr '${TMPDIR}' & }; exit 0; }" INT TERM EXIT
 
 mkdir bin dev etc lib proc rootfs run sbin sys tmp usr mnt var
 cat << \EOF > ./.profile
-alias u='umount -a'
-alias reboot='umount -a; sync; reboot -f'
+alias rum='umount -a'
+alias reb='umount -a; sync; reboot -f'
+alias rch='chroot /run/initramfs/rootfs'
 EOF
 ln -s /run ./var/run
 mkdir usr/bin
@@ -122,6 +130,21 @@ cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 
 copy_modules "$(cat /etc/modules | grep -v ^# )" 
 copy_modules "btrfs ext4 vfat crc32c nfsv4 nfsv3 cifs usb_storage"
+echo "$(cat /etc/fstab) $(cat /etc/fstab.d/*)" | awk '{print $3}' | uniq | grep -v ^$ | grep 'nfs\|nfs4\|cifs' \
+    | while read fstype; do
+        case $fstype in
+            nfs|nfs4)
+                list="nfsv4 nfsv3 nfs sunrpc nfsd rpcsec_gss_krb5"
+                copy_modules "$list"
+                put_to_modules "$list"
+                ;;
+            cifs)
+                list=cifs
+                copy_modules "$list"
+                put_to_modules "$list"
+                ;;
+        esac
+    done
 depmod -b ./ $MODVER
 
 cp -d --remove-destination -a --parents /lib/klibc* ./

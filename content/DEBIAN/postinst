@@ -23,7 +23,7 @@ if [ $1 == "configure" ]; then
         # echo "---UPDATE LOG---"
         # cat "/home/xbian/xbian-initramfs-update.log"
 
-        insserv -r /etc/init.d/triggerhappy
+        insserv -fr /etc/init.d/triggerhappy &>/dev/null
 
 elif [ $1 == "triggered" ]; then
 

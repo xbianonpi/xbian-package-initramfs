@@ -114,7 +114,7 @@ if [ -n "$CONFIG_cnet" ]; then
 			;;
 	esac 
 fi
-ipconfig ip=127.0.0.1:255.0.0.0::::lo
+ipconfig ip=127.0.0.1:255.0.0.0::::lo &>/dev/null
 test -n "$(find /run/net-*.conf ! -type d 2>/dev/null)"  && update_resolv
 up "after ipconfig"
 

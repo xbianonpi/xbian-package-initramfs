@@ -43,8 +43,8 @@ udevadm settle --timeout=10
 
 echo "Looking for keyboards"
 echo $(/lib/udev/findkeyboards)
-X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.2; X=$(($X+1)); done
-while true; do if test -d /dev/input; then thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d); break; else sleep 0.3; fi; done & pid=$!
+X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.5; X=$(($X+1)); done
+while true; do if test -d /dev/input; then thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d); break; else sleep 0.5; fi; done & pid=$!
 
 up "dev settle"
 { test -e /etc/hostname && hostname -F /etc/hostname; } || hostname xbian

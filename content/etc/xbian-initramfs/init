@@ -15,7 +15,6 @@ echo "To dropdown to shell, hold shift on usb attached keyboard..."
 mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
 mount -t proc -o nodev,noexec,nosuid proc /proc
 
-tmpfs_size="10M"
 if [ -e /etc/udev/udev.conf ]; then
         . /etc/udev/udev.conf
 fi
@@ -42,7 +41,6 @@ udevadm trigger --action=add
 udevadm settle --timeout=10
 
 echo "Looking for keyboards"
-echo $(/lib/udev/findkeyboards)
 X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.5; X=$(($X+1)); done
 while true; do if test -d /dev/input; then thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d); break; else sleep 0.5; fi; done & pid=$!
 

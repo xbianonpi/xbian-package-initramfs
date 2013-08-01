@@ -354,7 +354,7 @@ drop_shell() {
 	exec > /dev/console 2>&1
 	echo "the root partition as defined in cmdline.txt is now mounted under /rootfs"
 	echo "boot partition is mounted under /boot and bond to /rootfs/boot as well. the same applies for /proc, /sys, /dev and /run."
-	echo "you can chroot into your installation with 'chroot /rootfs'. this will allow you work with you xbian installation"
+	echo "you can chroot into your installation with 'chroot /rootfs'. this will allow you work with you're xbian installation"
 	echo "like in full booted mode (restricted to text console). effective uid=0 (root)."
 	echo ""
 	echo "network can be started with 'ipconfig eth0' for dhcp mode, or 'ipconfig ip=ip:mask:gw:::eth0' for static address (where "

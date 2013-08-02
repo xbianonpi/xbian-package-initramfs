@@ -12,20 +12,22 @@ echo "To dropdown to shell, hold shift on usb attached keyboard..."
 . /lib/lsb/init-functions
 . /lib/init/mount-functions.sh
 
-mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
-mount -t proc -o nodev,noexec,nosuid proc /proc
+/bin/mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
+/bin/mount -t proc -o nodev,noexec,nosuid proc /proc
+[ -e /etc/mtab ] && rm /etc/mtab
+ln -sf /proc/mounts /etc/mtab
 
 if [ -e /etc/udev/udev.conf ]; then
         . /etc/udev/udev.conf
 fi
 
-mount -t devtmpfs -o size=$tmpfs_size,mode=0755 udev /dev && mkdir /dev/.udev && mkdir /dev/pts
-mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
+/bin/mount -t devtmpfs -o size=$tmpfs_size,mode=0755 udev /dev && mkdir /dev/.udev && mkdir /dev/pts
+/bin/mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
 
 mount_run mount
 mount_shm mount
 mount_lock mount
-mountpoint -q /run || { mount -t tmpfs -o rw,nosuid,noatime tmpfs /run && touch /run/.tmpfs && touch /run/zle; }
+mountpoint -q /run || { /bin/mount -t tmpfs -o rw,nosuid,noatime tmpfs /run && touch /run/.tmpfs; }
 up "/run";  chmod 666 /run/uptime_start.log
 mkdir -m 0755 /run/initramfs && ln -s /run/initramfs /dev/.initramfs
 
@@ -47,8 +49,6 @@ while true; do if test -d /dev/input; then thd --daemon --triggers /trigg.shift 
 up "dev settle"
 { test -e /etc/hostname && hostname -F /etc/hostname; } || hostname xbian
 
-test -e /etc/mtab && rm /etc/mtab
-ln -s "../proc/mounts" /etc/mtab
 
 load_modules
 up "after modprobe"
@@ -166,7 +166,7 @@ test -n "$CONFIG_partswap" && create_swap
 export CONFIG_rw='rw'
 # mount root partition
 echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw",${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot"
-mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw","$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
+/bin/mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw","$CONFIG_rootfsopts" ${CONFIG_root} $CONFIG_newroot
 if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"
 	drop_shell "noumount"

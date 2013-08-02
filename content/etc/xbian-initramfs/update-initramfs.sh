@@ -167,7 +167,12 @@ copy_with_libs /bin/kmod
 copy_with_libs /sbin/modprobe
 rm -fr ./bin/modprobe
 rm -fr ./bin/grep
+rm -fr ./bin/mount
+#rm -fr ./bin/sh
+#rm -fr ./bin/dash
 copy_with_libs /bin/grep
+copy_with_libs /bin/mount
+#copy_with_libs /bin/sh
 copy_with_libs /sbin/killall5
 copy_with_libs /sbin/switch_root
 copy_with_libs /sbin/rmmod

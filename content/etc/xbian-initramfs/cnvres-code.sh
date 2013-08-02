@@ -6,7 +6,7 @@ echo "at initramfs/init $1: $(cat /proc/uptime)" >> /run/uptime_start.log
 
 mount_root_btrfs() {
     test -z "$1" && device="LABEL=xbian-root-btrfs" || device="$1"
-    mount -t btrfs -o compress=lzo,rw,noatime,autodefrag,space_cache,thread_pool=1 $device $CONFIG_newroot
+    /bin/mount -t btrfs -o compress=lzo,rw,noatime,autodefrag,space_cache,thread_pool=1 $device $CONFIG_newroot
 }
 
 update_resolv() {
@@ -67,6 +67,14 @@ get_root() {
     else
         [ -b $CONFIG_root ] || return 1
     fi
+
+    if [ $CONFIG_rootfstype = btrfs ]; then
+        btrfs fi show ${CONFIG_roottxt##*=} | grep -qi "devices missing" && return 1
+        for b in $(btrfs fi show --all-devices ${CONFIG_roottxt##*=} | grep path | awk '{print $8}'); do
+            [ -b $b ] || return 1
+        done
+        btrfs dev scan
+    fi
     
     export DEV="${CONFIG_root%[0-9]}"
     if [ ! -e ${DEV} ]; then
@@ -89,7 +97,7 @@ if [ "$RESIZEERROR" -lt '1' -a "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfs
 		FREEMEM=`free -m | grep "Mem:" | awk '{printf "%d", $4}'`
 		if [ ${FREEMEM} -lt '128' ]; then
 				test ! -d /boot && mkdir /boot
-				mount -t vfat "${DEV}${PARTdelim}1" /boot
+				/bin/mount -t vfat "${DEV}${PARTdelim}1" /boot
 				# Save the old memory value to the cmdline.txt to restore it later on
 				cp /boot/config.txt /boot/config.txt.convert
 				sed -i "s/gpu_mem_256=[0-9]*/gpu_mem_256=32/g" /boot/config.txt
@@ -116,7 +124,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 	fi
 	
 	test ! -d /boot && mkdir /boot
-	mount -t vfat "${DEV}${PARTdelim}1" /boot
+	/bin/mount -t vfat "${DEV}${PARTdelim}1" /boot
 	test -e /boot/config.txt.convert && mv /boot/config.txt.convert /boot/config.txt
 	test "$FSCHECK" = "ext4" && sed -i "s/rootfstype=btrfs/rootfstype=ext4/g" /boot/cmdline.txt
 	if [ "$FSCHECK" = "btrfs" ]; then
@@ -236,7 +244,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$FSCHECK" = "ext
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
 			e2fsck -p -f ${CONFIG_root}
-			mount -t ext4 ${CONFIG_root} "$CONFIG_newroot"
+			/bin/mount -t ext4 ${CONFIG_root} "$CONFIG_newroot"
 			TUNEBLOCKCOUNT=`/sbin/resize2fs ${CONFIG_root} | grep now | rev | awk '{print $3}' | rev`
 			if [ "$?" -eq '0' ]; then
 				TUNEBLOCKCOUNT=${BLOCKNEW}
@@ -291,8 +299,8 @@ move_root() {
 ln -s "${CONFIG_root}" /dev/root
 [ ! -e /etc/blkid.tab ] || cp /etc/blkid.tab $CONFIG_newroot/etc
 
-mount -n -o move /run $CONFIG_newroot/run
-nuke /run
+/bin/mount --move /run $CONFIG_newroot/run
+rm -fr /run
 ln -s $CONFIG_newroot/run /run
 
 udevadm control --exit
@@ -300,16 +308,16 @@ if [ -e /etc/udev/udev.conf ]; then
   . /etc/udev/udev.conf
 fi
 
-mount -n -o move /dev $CONFIG_newroot/dev
-nuke /dev
+/bin/mount --move /dev $CONFIG_newroot/dev
+rm -fr /dev
 ln -s $CONFIG_newroot/dev /dev
-  
-mount -n -o move /sys $CONFIG_newroot/sys
-nuke /sys
+
+/bin/mount --move /sys $CONFIG_newroot/sys
+rm -fr /sys
 ln -s $CONFIG_newroot/sys /sys
 
-mount -n -o move /proc $CONFIG_newroot/proc
-nuke /proc
+/bin/mount --move /proc $CONFIG_newroot/proc
+rm -fr /proc
 ln -s $CONFIG_newroot/proc /proc
 }
 
@@ -340,15 +348,15 @@ drop_shell() {
 	set +x
 
 	[ ! -d /boot ] && mkdir /boot
-	mount -t vfat /dev/mmcblk0p1 /boot
+	/bin/mount -t vfat /dev/mmcblk0p1 /boot
 
 	if [ "$1" != noumount ]; then
 	    mountpoint -q ${CONFIG_rootfstype} || mount -t ${CONFIG_rootfstype} -o rw,"$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
-	    mount -o bind /proc $CONFIG_newroot/proc
-	    mount -o bind /boot $CONFIG_newroot/boot
-	    mount -o bind /dev $CONFIG_newroot/dev
-	    mount -o bind /sys $CONFIG_newroot/sys
-	    [ "$CONFIG_rootfstype" = btrfs ] && mount -t ${CONFIG_rootfstype} -o rw,subvol=modules/@ "${CONFIG_root}" $CONFIG_newroot/lib/modules
+	    /bin/mount -o bind /proc $CONFIG_newroot/proc
+	    /bin/mount -o bind /boot $CONFIG_newroot/boot
+	    /bin/mount -o bind /dev $CONFIG_newroot/dev
+	    /bin/mount -o bind /sys $CONFIG_newroot/sys
+	    [ "$CONFIG_rootfstype" = btrfs ] && /bin/mount -t ${CONFIG_rootfstype} -o rw,subvol=modules/@ "${CONFIG_root}" $CONFIG_newroot/lib/modules
 	fi
 	mountpoint -q $CONFIG_newroot && ln -s /rootfs /run/initramfs/rootfs
 	exec > /dev/console 2>&1

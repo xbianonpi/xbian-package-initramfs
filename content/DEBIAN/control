@@ -6,7 +6,7 @@ Essential: Yes
 Priority: standard
 Architecture: armhf
 Pre-Depends: initramfs-tools, triggerhappy
-Depends: busybox, udev, btrfs-tools (>=0.19+20130131-3+really20121004-1), klibc-utils
+Depends: busybox, udev, btrfs-tools (>=1.0-xbian), klibc-utils
 Breaks: xbian-package-kernel (<<1.3-3), xbian-package-splash (<<1.0-1)
 Maintainer: mk01 <development@xbian.org>
 Description: Initramfs handling tools.

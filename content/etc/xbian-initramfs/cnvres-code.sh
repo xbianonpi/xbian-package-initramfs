@@ -352,6 +352,7 @@ drop_shell() {
 	fi
 	mountpoint -q $CONFIG_newroot && ln -s /rootfs /run/initramfs/rootfs
 	exec > /dev/console 2>&1
+	cat /motd
 	echo "the root partition as defined in cmdline.txt is now mounted under /rootfs"
 	echo "boot partition is mounted under /boot and bond to /rootfs/boot as well. the same applies for /proc, /sys, /dev and /run."
 	echo "you can chroot into your installation with 'chroot /rootfs'. this will allow you work with you're xbian installation"

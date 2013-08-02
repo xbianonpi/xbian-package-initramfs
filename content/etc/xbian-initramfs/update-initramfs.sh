@@ -204,6 +204,7 @@ cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-k
 #chmod +x ./lib/udev/findkeyboards
 
 cp /etc/xbian-initramfs/init ./
+cp /etc/xbian-initramfs/motd ./
 cp /etc/xbian-initramfs/trigg.shift ./
 cp /etc/xbian-initramfs/bootmenu ./
 cp /etc/xbian-initramfs/bootmenu_timeout ./

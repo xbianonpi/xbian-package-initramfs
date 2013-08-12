@@ -26,8 +26,7 @@ fi
 
 mount_run mount
 mount_shm mount
-mount_lock mount
-mountpoint -q /run || { /bin/mount -t tmpfs -o rw,nosuid,noatime tmpfs /run && touch /run/.tmpfs; }
+#mount_lock mount
 up "/run";  chmod 666 /run/uptime_start.log
 mkdir -m 0755 /run/initramfs && ln -s /run/initramfs /dev/.initramfs
 
@@ -43,12 +42,11 @@ udevadm trigger --action=add
 udevadm settle --timeout=10
 
 echo "Looking for keyboards"
-X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.5; X=$(($X+1)); done
-while true; do if test -d /dev/input; then thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d); break; else sleep 0.5; fi; done & pid=$!
+X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.2; X=$(($X+1)); done
+while true; do if test -d /dev/input; then thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d); break; else sleep 0.2; fi; done & pid=$!
 
 up "dev settle"
 { test -e /etc/hostname && hostname -F /etc/hostname; } || hostname xbian
-
 
 load_modules
 up "after modprobe"
@@ -112,8 +110,8 @@ if [ -n "$CONFIG_cnet" ]; then
 			;;
 	esac 
 fi
+test -n "$(find /run/net-*.conf ! -type d 2>/dev/null)" && update_resolv > /etc/resolv.conf
 ipconfig ip=127.0.0.1:255.0.0.0::::lo &>/dev/null
-test -n "$(find /run/net-*.conf ! -type d 2>/dev/null)"  && update_resolv
 up "after ipconfig"
 
 case ${CONFIG_root} in
@@ -187,6 +185,8 @@ test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --
 kill $pid > /dev/null 2>&1; kill $(pidof thd) > /dev/null 2>&1
 
 up "switch root"
+
+[ -e $CONFIG_newroot/etc/default/hwclock.fake ] && /bin/date -u --set="$(cat $CONFIG_newroot/etc/default/hwclock.fake)" >/dev/null && touch /run/hwclock.init
 
 if [ -n "$CONFIG_debug" -o -e /run/do_debug ]; then set -- --verbose $@; fi
 if test -n "$CONFIG_startevent"; then set -- --startup-event=$CONFIG_startevent $@; fi

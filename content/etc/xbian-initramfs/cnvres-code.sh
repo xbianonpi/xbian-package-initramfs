@@ -9,10 +9,15 @@ mount_root_btrfs() {
     /bin/mount -t btrfs -o compress=lzo,rw,noatime,autodefrag,space_cache,thread_pool=1 $device $CONFIG_newroot
 }
 
+update_resolv_helper() {
+for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do cat $f | grep IPV.DNS | tr -d "'"| awk -F'=' '{print "nameserver "$2}'; done
+for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do cat $f | grep DOMAINSEARCH | tr -d "'"| awk -F'=' '{print "search "$2}'; done
+for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do cat $f | grep DNSDOMAIN | tr -d "'"| awk -F'=' '{print "domain "$2}'; done
+echo ""
+}
+
 update_resolv() {
-for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do cat $f | grep IPV.DNS | tr -d "'"| awk -F'=' '{print "nameserver "$2}' > /etc/resolv.conf; done
-for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do cat $f | grep DOMAINSEARCH | tr -d "'"| awk -F'=' '{print "search "$2}' >> /etc/resolv.conf; done
-for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do cat $f | grep DNSDOMAIN | tr -d "'"| awk -F'=' '{print "domain "$2}' >> /etc/resolv.conf; done
+    printf "%s\n" "$(update_resolv_helper)" | uniq
 }
 
 update_interfaces() {

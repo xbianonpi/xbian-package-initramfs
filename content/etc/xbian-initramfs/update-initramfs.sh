@@ -164,14 +164,15 @@ copy_with_libs /sbin/tune2fs
 copy_with_libs /sbin/e2fsck 
 copy_with_libs /sbin/resize2fs 
 copy_with_libs /bin/kmod
-copy_with_libs /sbin/modprobe
 rm -fr ./bin/modprobe
+copy_with_libs /sbin/modprobe
 rm -fr ./bin/grep
 rm -fr ./bin/mount
-#rm -fr ./bin/sh
+rm -fr ./bin/date
 #rm -fr ./bin/dash
 copy_with_libs /bin/grep
 copy_with_libs /bin/mount
+copy_with_libs /bin/date
 #copy_with_libs /bin/sh
 copy_with_libs /sbin/killall5
 copy_with_libs /sbin/switch_root
@@ -204,7 +205,7 @@ cp -d --remove-destination --parents /lib/lsb/init-functions ./
 cp -d --remove-destination -v --parents /lib/udev/{hotplug.functions,firmware.agent,ata_id,edd_id,scsi_id,vio_type,keymap,keyboard-force-release.sh,udev-acl} ./
 #cp -d --remove-destination -v --parents -R /lib/udev/keymaps/* ./
 cp -d --remove-destination -av --parents /lib/udev/rules.d/{50-udev-default.rules,60-persistent-storage.rules,80-drivers.rules,91-permissions.rules,60-persistent-storage-lvm.rules,60-persistent-input.rules,55-dm.rules,60-persistent-storage-dm.rules} ./
-cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,70-btrfs.rules,01-frandom.rules,99-frandom.rules,01-hwrng.rules,99-hwrng.rules} ./
+cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,70-btrfs.rules,01-frandom.rules,99-frandom.rules,99-hwrng.rules,10-local-xbian.rules,85-hdparm.rules} ./
 #cat /lib/udev/findkeyboards | sed 's/--dry-run//g' > ./lib/udev/findkeyboards
 #chmod +x ./lib/udev/findkeyboards
 

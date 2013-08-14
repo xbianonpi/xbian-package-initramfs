@@ -43,7 +43,7 @@ copy_modules() {
 
 put_to_modules(){
     for m in $1; do
-        grep -qx $m ./etc/modules || echo $m >> ./etc/modules
+        grep -qx $m ./etc/modules || echo $m >> ./etc/modules.extra
     done
 }
 
@@ -129,12 +129,12 @@ cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 
 copy_modules "$(cat /etc/modules | grep -v ^# )" 
-copy_modules "btrfs ext4 vfat crc32c nfsv4 nfsv3 cifs usb_storage"
+copy_modules "btrfs ext4 vfat crc32c usb_storage"
 echo "$(cat /etc/fstab) $(cat /etc/fstab.d/*)" | awk '{print $3}' | uniq | grep -v ^$ | grep 'nfs\|nfs4\|cifs' \
     | while read fstype; do
         case $fstype in
             nfs|nfs4)
-                list="nfsv4 nfsv3 nfs sunrpc nfsd rpcsec_gss_krb5"
+                list="nfsv4 nfsv3 nfs sunrpc rpcsec_gss_krb5"
                 copy_modules "$list"
                 put_to_modules "$list"
                 ;;

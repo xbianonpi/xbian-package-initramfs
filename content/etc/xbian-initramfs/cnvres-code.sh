@@ -404,9 +404,11 @@ drop_shell() {
 load_modules() {
 export MODPROBE_OPTIONS='-qb'
 echo "Loading initram modules ... "
-grep '^[^#]' /etc/modules |
+cat /etc/modules >> /etc/modules.extra
+grep '^[^#]' /etc/modules.extra |
     while read module args; do
         [ "$module" ] || continue
         modprobe $module $args || :
     done
+cp /etc/modules /run
 }

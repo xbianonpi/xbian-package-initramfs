@@ -6,6 +6,10 @@ PATH=/sbin:/bin:/usr/bin:/usr/sbin:/lib/udev
 
 echo "To dropdown to shell, hold shift on usb attached keyboard..."
 
+# ugly fix for wrong values of *_SIZE in /etc/default/tmpfs in versions < beta 1.2
+RUN_SIZE=0; LOCK_SIZE=0; SHM_SIZE=0
+[ -e /etc/default/tmpfs ] && { . /etc/default/tmpfs; [ "$RUN_SIZE" -le 10000000 -o "$LOCK_SIZE" -le 5000000 -o "$SHM_SIZE" -le 5000000 ] && echo "RUN_SIZE=10%" > /etc/default/tmpfs; }
+
 . /cnvres-code.sh
 . /lib/init/tmpfs.sh
 . /lib/init/vars.sh

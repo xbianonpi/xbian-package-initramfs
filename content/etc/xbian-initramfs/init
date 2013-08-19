@@ -3,66 +3,48 @@
 unset $(env | grep CONFIG_ | cut -f1 -d'=')
 
 PATH=/sbin:/bin:/usr/bin:/usr/sbin:/lib/udev
+. /cnvres-code.sh
 
 echo "To dropdown to shell, hold shift on usb attached keyboard..."
 
 # ugly fix for wrong values of *_SIZE in /etc/default/tmpfs in versions < beta 1.2
-RUN_SIZE=0; LOCK_SIZE=0; SHM_SIZE=0
-[ -e /etc/default/tmpfs ] && { . /etc/default/tmpfs; [ "$RUN_SIZE" -le 10000000 -o "$LOCK_SIZE" -le 5000000 -o "$SHM_SIZE" -le 5000000 ] && echo "RUN_SIZE=10%" > /etc/default/tmpfs; }
+RUN_SIZE=0
+[ ! -e /etc/default/tmpfs ] || . /etc/default/tmpfs
+case $RUN_SIZE in
+    *%*)
+        ;;
+    *)
+        [ "$RUN_SIZE" -le 10000000 ] && RUN_SIZE='10%'
+        ;;
+esac
 
-. /cnvres-code.sh
-. /lib/init/tmpfs.sh
-. /lib/init/vars.sh
-. /lib/lsb/init-functions
-. /lib/init/mount-functions.sh
-
-/bin/mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
-/bin/mount -t proc -o nodev,noexec,nosuid proc /proc
-[ -e /etc/mtab ] && rm /etc/mtab
+/bin/mount -t sysfs -o nodev,noexec,nosuid,noatime sysfs /sys
+/bin/mount -t proc -o nodev,noexec,nosuid,noatime proc /proc
 ln -sf /proc/mounts /etc/mtab
 
-if [ -e /etc/udev/udev.conf ]; then
-        . /etc/udev/udev.conf
-fi
-
-/bin/mount -t devtmpfs -o size=$tmpfs_size,mode=0755 udev /dev && mkdir /dev/.udev && mkdir /dev/pts
+/bin/mount -t devtmpfs -o size=262144,mode=0755 udev /dev && mkdir /dev/.udev && mkdir /dev/pts
 /bin/mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
-
-mount_run mount
-mount_shm mount
-#mount_lock mount
+/bin/mount -t tmpfs -o rw,nosuid,noexec,noatime,size=$RUN_SIZE,mode=755 tmpfs /run && touch /run/.tmpfs && mkdir /run/initramfs
 up "/run";  chmod 666 /run/uptime_start.log
-mkdir -m 0755 /run/initramfs && ln -s /run/initramfs /dev/.initramfs
 
-[ "$(grep -c -w splash /proc/cmdline)" -eq 1 ] && [ "$(grep -c -w debug /proc/cmdline)" -eq 0 ] && [ -x /usr/bin/splash ] && export CONFIG_splash=1
-test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process..." 
-
-[ "$(grep -c -w udevdrop /proc/cmdline)" -eq 1 ] && drop_shell "nomount"
-
+[ ! -e /etc/udev/udev.conf ] || . /etc/udev/udev.conf
 echo > /sys/kernel/uevent_helper
 udevd --daemon --resolve-names=never
-
 udevadm trigger --action=add
-udevadm settle --timeout=10
+up "started udev"
 
-echo "Looking for keyboards"
-X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.2; X=$(($X+1)); done
-while true; do if test -d /dev/input; then thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d); break; else sleep 0.2; fi; done & pid=$!
-
-up "dev settle"
-{ test -e /etc/hostname && hostname -F /etc/hostname; } || hostname xbian
+hostname -F /etc/hostname
 
 load_modules
 up "after modprobe"
 INITIALBOOT="0"
 RESIZEERROR="0"
 
-export CONFIG_rootfstype="ext4"
-export CONFIG_root="/dev/mmcblk0p2"
+export CONFIG_rootfstype="btrfs"
+export CONFIG_root="LABEL=xbian-root-btrfs"
 export CONFIG_noswapfile="0"
 export CONFIG_init='switch_root'
 export CONFIG_rootwait='0'
-export CONFIG_rw='ro'
 export CONFIG_noresizesd='0'
 export CONFIG_noconvertsd='0'
 export CONFIG_newroot="/rootfs"
@@ -77,7 +59,6 @@ do
 	export CONFIG_"$OPTIONNAME"="$VALUE"
 done
 test ! -x /usr/bin/splash && unset CONFIG_splash
-
 up "after get cmdline"
 
 if [ -n "$CONFIG_debug" ]; then
@@ -88,12 +69,17 @@ if [ -n "$CONFIG_debug" ]; then
 	exec >>/run/initramfs/initramfs.debug 2>&1
 	set -x
 fi
-if [ -z "$CONFIG_splash" ]; then 
-	touch /run/nosplash
-fi
-
 [ -n "$CONFIG_bootmenu" ] && unset CONFIG_splash
-test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process..."
+[ -z "$CONFIG_splash" ] && touch /run/nosplash
+test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process..." 
+
+[ $CONFIG_root = 'LABEL=xbian-root-btrfs' ] || udevadm settle --timeout=10
+echo "Looking for keyboards"
+kbd=$(udevadm trigger --action=add --dry-run --verbose --sysname-match=input? --sysname-match=event?)
+[ -z "$kbd" ] || { X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.2; X=$(($X+1)); done; }
+while true; do if test -d /dev/input; then thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d); break; else sleep 0.2; fi; done & pid=$!
+
+up "dev settle"
 
 up "before ipconfig"
 if [ -n "$CONFIG_cnet" ]; then
@@ -155,6 +141,7 @@ while ! get_root && [ -n "$CONFIG_rootwait"  -a  "$X" -lt "$CONFIG_rootwait" ]; 
 done
 test ! -b "${CONFIG_root}" && echo "Root partition ${CONFIG_root} missing" && drop_shell
 fi
+ln -s "${CONFIG_root}" /dev/root
 
 export FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
 test "$CONFIG_rootfstype" != "nfs" && { resize_part; resize_ext4; convert_btrfs; }

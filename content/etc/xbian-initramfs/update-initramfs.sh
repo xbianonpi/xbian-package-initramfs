@@ -128,8 +128,20 @@ cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 
+. /etc/default/xbian-rnd
+case $GENERATOR in
+    hwrng)
+        copy_modules bcm2708-rng
+        put_to_modules bcm2708-rng
+        ;;
+    frandom)
+        copy_modules frandom
+        put_to_modules frandom
+        ;;
+esac
 copy_modules "$(cat /etc/modules | grep -v ^# )" 
 copy_modules "btrfs ext4 vfat crc32c usb_storage"
+put_to_modules "usb_storage crc32c btrfs vfat"
 echo "$(cat /etc/fstab) $(cat /etc/fstab.d/*)" | awk '{print $3}' | uniq | grep -v ^$ | grep 'nfs\|nfs4\|cifs' \
     | while read fstype; do
         case $fstype in
@@ -205,7 +217,7 @@ cp -d --remove-destination --parents /lib/lsb/init-functions ./
 cp -d --remove-destination -v --parents /lib/udev/{hotplug.functions,firmware.agent,ata_id,edd_id,scsi_id,vio_type,keymap,keyboard-force-release.sh,udev-acl} ./
 #cp -d --remove-destination -v --parents -R /lib/udev/keymaps/* ./
 cp -d --remove-destination -av --parents /lib/udev/rules.d/{50-udev-default.rules,60-persistent-storage.rules,80-drivers.rules,91-permissions.rules,60-persistent-storage-lvm.rules,60-persistent-input.rules,55-dm.rules,60-persistent-storage-dm.rules} ./
-cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,70-btrfs.rules,01-frandom.rules,99-frandom.rules,99-hwrng.rules,10-local-xbian.rules} ./
+cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,70-btrfs.rules,10-local-xbian.rules} ./
 #cat /lib/udev/findkeyboards | sed 's/--dry-run//g' > ./lib/udev/findkeyboards
 #chmod +x ./lib/udev/findkeyboards
 

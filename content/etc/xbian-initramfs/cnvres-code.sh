@@ -301,7 +301,6 @@ fi
 }
 
 move_root() {
-ln -s "${CONFIG_root}" /dev/root
 [ ! -e /etc/blkid.tab ] || cp /etc/blkid.tab $CONFIG_newroot/etc
 
 /bin/mount --move /run $CONFIG_newroot/run

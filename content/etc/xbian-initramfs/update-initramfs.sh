@@ -43,7 +43,7 @@ copy_modules() {
 
 put_to_modules(){
     for m in $1; do
-        grep -qx $m ./etc/modules || echo $m >> ./etc/modules.extra
+        echo "$(cat ./etc/modules 2>/dev/null)" | grep -qx $m  || echo $m >> ./etc/modules
     done
 }
 
@@ -116,32 +116,19 @@ mkdir -p usr/bin
 mkdir -p usr/lib/arm-linux-gnueabihf
 copy_with_libs /bin/busybox 
 /bin/busybox --install -s bin/
-cp -d --remove-destination -R /etc/hostname etc/
 cp -d --remove-destination --parents /etc/udev/* ./
 cp -d --remove-destination --parents /etc/default/{tmpfs,rcS,xbian-rnd} ./
 
 mkdir -p etc/udev/.dev
-cp -d --remove-destination /etc/modules etc/
 cp -d --remove-destination --parents /etc/modprobe.d/*.conf ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/scsi ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/storage ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 
-. /etc/default/xbian-rnd
-case $GENERATOR in
-    hwrng)
-        copy_modules bcm2708-rng
-        put_to_modules bcm2708-rng
-        ;;
-    frandom)
-        copy_modules frandom
-        put_to_modules frandom
-        ;;
-esac
-copy_modules "$(cat /etc/modules | grep -v ^# )" 
-copy_modules "btrfs ext4 vfat crc32c usb_storage"
-put_to_modules "usb_storage crc32c btrfs vfat"
+copy_modules "ext4 usb_storage"
+cat /etc/modules | grep -v ^# | grep -v lirc_ > ./etc/modules
+copy_modules "$(cat ./etc/modules)"
 echo "$(cat /etc/fstab) $(cat /etc/fstab.d/*)" | awk '{print $3}' | uniq | grep -v ^$ | grep 'nfs\|nfs4\|cifs' \
     | while read fstype; do
         case $fstype in
@@ -178,14 +165,10 @@ copy_with_libs /sbin/resize2fs
 copy_with_libs /bin/kmod
 rm -fr ./bin/modprobe
 copy_with_libs /sbin/modprobe
-rm -fr ./bin/grep
 rm -fr ./bin/mount
 rm -fr ./bin/date
-#rm -fr ./bin/dash
-copy_with_libs /bin/grep
 copy_with_libs /bin/mount
 copy_with_libs /bin/date
-#copy_with_libs /bin/sh
 copy_with_libs /sbin/killall5
 copy_with_libs /sbin/switch_root
 copy_with_libs /sbin/rmmod
@@ -196,8 +179,6 @@ copy_with_libs /usr/sbin/thd
 copy_with_libs /usr/sbin/th-cmd
 #copy_with_libs /sbin/iwconfig 
 #copy_with_libs /sbin/wpa_supplicant 
-copy_with_libs /usr/bin/pkill
-copy_with_libs /usr/bin/pgrep
 cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin
 cp --remove-destination /usr/lib/klibc/bin/run-init ./sbin
 cp --remove-destination /usr/lib/klibc/bin/kinit ./sbin
@@ -231,7 +212,6 @@ cp /etc/xbian-initramfs/splash_updater.sh ./
 copy_with_libs /usr/bin/stdbuf
 copy_with_libs /usr/lib/coreutils/libstdbuf.so
 
-cp /etc/hostname ./etc
 need_umount=''
 if ! mountpoint -q /boot; then
         mount /boot || { echo "FATAL: /boot can't be mounted"; exit 1; }

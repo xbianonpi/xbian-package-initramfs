@@ -403,11 +403,10 @@ drop_shell() {
 load_modules() {
 export MODPROBE_OPTIONS='-qb'
 echo "Loading initram modules ... "
-cat /etc/modules >> /etc/modules.extra
-grep '^[^#]' /etc/modules.extra |
+grep '^[^#]' /etc/modules |
     while read module args; do
-        [ "$module" ] || continue
+        [ -n "$module" ] || continue
+        [ "$module" != usb_storage ] || continue
         modprobe $module $args || :
     done
-cp /etc/modules /run
 }

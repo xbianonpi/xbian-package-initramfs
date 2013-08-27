@@ -75,11 +75,13 @@ test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process
 ipconfig ip=127.0.0.1:255.0.0.0::::lo &>/dev/null
 
 [ $CONFIG_root = 'LABEL=xbian-root-btrfs' ] || udevadm settle --timeout=10
+up "dev settle"
+
 echo "Looking for keyboards"
 { X=0; while test ! -d /dev/input && test $X -le '5'; do sleep 0.2; X=$(($X+1)); done; }
 while true; do if test -d /dev/input; then thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d); break; else sleep 0.2; fi; done & pid=$!
 
-up "dev settle"
+up "dev keyb"
 
 up "before ipconfig"
 if [ -n "$CONFIG_cnet" ]; then

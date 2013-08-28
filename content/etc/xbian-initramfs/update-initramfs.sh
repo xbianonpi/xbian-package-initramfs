@@ -44,6 +44,7 @@ copy_modules() {
 put_to_modules(){
     for m in $1; do
         echo "$(cat ./etc/modules 2>/dev/null)" | grep -qx $m  || echo $m >> ./etc/modules
+	copy_modules $m
     done
 }
 
@@ -60,7 +61,6 @@ copy_file() {
                 *)
                         cp -d -v --parents $3 "$fl" "$2" 
                         lib_done="$lib_done $fl"
-                        strip ".$fl"
                         ;;
         esac
 }
@@ -127,6 +127,7 @@ cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 
 copy_modules "ext4 usb_storage"
+put_to_modules "nfs sunrpc rpcsec_gss_krb5"
 cat /etc/modules | grep -v ^# | grep -v lirc_ > ./etc/modules
 copy_modules "$(cat ./etc/modules)"
 echo "$(cat /etc/fstab) $(cat /etc/fstab.d/*)" | awk '{print $3}' | uniq | grep -v ^$ | grep 'nfs\|nfs4\|cifs' \
@@ -191,9 +192,6 @@ cp -d --remove-destination -aR --parents /usr/share/fonts/splash ./
 cp -d --remove-destination -aR --parents /usr/share/images/splash ./
 cp -d --remove-destination --parents /usr/bin/splash.images ./
 cp -d --remove-destination --parents /usr/bin/splash.fonts ./
-
-cp -d --remove-destination --parents /lib/init/{vars.sh,tmpfs.sh,mount-functions.sh} ./
-cp -d --remove-destination --parents /lib/lsb/init-functions ./
 
 cp -d --remove-destination -v --parents /lib/udev/{hotplug.functions,firmware.agent,ata_id,edd_id,scsi_id,vio_type,keymap,keyboard-force-release.sh,udev-acl} ./
 #cp -d --remove-destination -v --parents -R /lib/udev/keymaps/* ./

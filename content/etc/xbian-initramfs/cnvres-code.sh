@@ -332,9 +332,13 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_partswap" -eq '1' -a "$CONFIG_rootfstype
     [ "$(blkid -s TYPE -o value -p $DEV$PARTdelim$nrpart)" = swap ] && return 0
     mount_root_btrfs $CONFIG_root
     mountpoint -q $CONFIG_newroot || return 1
-    /sbin/btrfs fi resize -257M $CONFIG_newroot || { umount $CONFIG_newroot; return 1; }
+
+    swapsize=$(( $(blockdev --getsize64 $CONFIG_root) /10/1024/1024)); [ $swapsize -gt 250 ] && swapsize=250
+
+    /sbin/btrfs fi resize -${swapsize}M $CONFIG_newroot || { umount $CONFIG_newroot; return 1; }
+    swapsize=$(( $swapsize - 5 ))
     umount $CONFIG_newroot
-    echo ",-256,,," | sfdisk -uM -N${PART} --force ${DEV} >> /run/part_resize.txt 2>&1
+    echo ",-$swapsize,,," | sfdisk -uM -N${PART} --force ${DEV} >> /run/part_resize.txt 2>&1
     pend=$(sfdisk -l -uS ${DEV} 2>/dev/null| grep $CONFIG_root | awk '{print $3}')
     pstart=$(( ($pend/2048 + 1) * 2048));pPART=$(($PART+1))
     echo "$pstart,+,S,," | sfdisk -uS -N${pPART} --force ${DEV} >> /run/part_resize.txt 2>&1

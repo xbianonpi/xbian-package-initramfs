@@ -105,7 +105,7 @@ mkdir bin dev etc lib proc rootfs run sbin sys tmp usr mnt var
 cat << \EOF > ./.profile
 alias rum='umount -a'
 alias reb='umount -a; sync; reboot -f'
-alias rch='chroot /run/initramfs/rootfs'
+alias rch='chroot /rootfs'
 EOF
 ln -s /run ./var/run
 mkdir usr/bin
@@ -121,14 +121,16 @@ cp -d --remove-destination --parents /etc/default/{tmpfs,rcS,xbian-rnd} ./
 
 mkdir -p etc/udev/.dev
 cp -d --remove-destination --parents /etc/modprobe.d/*.conf ./
+#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/hid ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/scsi ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/storage ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 
+
+cat /etc/modules | grep -v ^# | grep -v lirc_ >> ./etc/modules
 copy_modules "ext4 usb_storage"
-put_to_modules "nfs sunrpc rpcsec_gss_krb5"
-cat /etc/modules | grep -v ^# | grep -v lirc_ > ./etc/modules
+put_to_modules "nfs sunrpc rpcsec_gss_krb5 lz4 cfq-iosched"
 copy_modules "$(cat ./etc/modules)"
 echo "$(cat /etc/fstab) $(cat /etc/fstab.d/*)" | awk '{print $3}' | uniq | grep -v ^$ | grep 'nfs\|nfs4\|cifs' \
     | while read fstype; do
@@ -178,12 +180,14 @@ copy_with_libs /sbin/btrfs
 copy_with_libs /sbin/btrfs-convert 
 copy_with_libs /usr/sbin/thd
 copy_with_libs /usr/sbin/th-cmd
+copy_with_libs /usr/bin/nice
 #copy_with_libs /sbin/iwconfig 
 #copy_with_libs /sbin/wpa_supplicant 
 cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin
 cp --remove-destination /usr/lib/klibc/bin/run-init ./sbin
 cp --remove-destination /usr/lib/klibc/bin/kinit ./sbin
 cp --remove-destination /usr/lib/klibc/bin/nuke ./sbin
+cp --remove-destination /usr/lib/klibc/bin/nfsmount ./sbin
 
 copy_with_libs /usr/bin/splash
 mkdir -p ./usr/share/fonts/splash
@@ -201,7 +205,7 @@ cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-k
 #chmod +x ./lib/udev/findkeyboards
 
 cp /etc/xbian-initramfs/init ./
-cp /etc/xbian-initramfs/motd ./
+grep . /etc/motd -m11 > ./motd
 cp /etc/xbian-initramfs/trigg.shift ./
 cp /etc/xbian-initramfs/bootmenu ./
 cp /etc/xbian-initramfs/bootmenu_timeout ./
@@ -218,7 +222,8 @@ fi
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
 echo "Creating initram fs."
 #find . | cpio -H newc -o | xz --arm --check=none --lzma2 -1v --memlimit=25MiB > /boot/initramfs.gz
-find . | cpio -H newc -o | gzip > /boot/initramfs.gz
+find . | cpio -H newc -o | gzip -1v > /boot/initramfs.gz
+#find . | cpio -H newc -o | lzop > /boot/initramfs.gz
 #if [ ! -e /boot.cfg ]; then
 #        touch /boot.cfg
 #        echo "name=Standard\ Xbian\ boot" >> /boot.cfg

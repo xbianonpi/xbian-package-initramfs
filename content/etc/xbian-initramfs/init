@@ -69,7 +69,7 @@ if [ -n "$CONFIG_debug" ]; then
 fi
 [ -n "$CONFIG_bootmenu" ] && unset CONFIG_splash
 [ -z "$CONFIG_splash" ] && touch /run/nosplash
-test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process..." 
+test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process..."
 
 echo "Looking for keyboards"
 { X=0; while test ! -d /dev/input && test $X -le '7'; do sleep 0.2; X=$(($X+1)); done; }
@@ -95,7 +95,7 @@ if [ -n "$CONFIG_cnet" ]; then
 			;;
 	esac 
 	test -n "$(find /run/net-*.conf ! -type d 2>/dev/null | grep -v net-lo.conf )" && update_resolv > /etc/resolv.conf
-up "after ipconfig"
+	up "after ipconfig"
 fi
 
 [ -n "${CONFIG_rootflags}" ] && export CONFIG_rootfsopts="${CONFIG_rootflags}"
@@ -103,15 +103,17 @@ fi
 case ${CONFIG_root} in
 	/dev/nfs|nfs)
 		export CONFIG_rootfstype='nfs'
+		mount_bin="busybox mount"
 		;;
 	*)
+		mount_bin="/bin/mount"
 		;;
 esac
 case ${CONFIG_rootfstype} in
 	/dev/nfs|nfs)
 		export CONFIG_root="${CONFIG_nfsroot%%,*}"
 		export CONFIG_rootfstype='nfs'
-		export CONFIG_rootfsopts="${CONFIG_nfsroot#*,}"
+		export CONFIG_rootfsopts="${CONFIG_nfsroot#*,},nolock"
 		export CONFIG_noresizesd='1'
 		chmod 777 $CONFIG_newroot
 		;;
@@ -149,10 +151,10 @@ test -n "$CONFIG_partswap" && create_swap
 [ -n "$CONFIG_rescue" -o -e /run/do_drop ] && drop_shell
 
 # root needs to be rw for network settings update
-export CONFIG_rw='rw'
+export CONFIG_rw='rw'; test ${CONFIG_rootfstype} != nfs && mount_type="-t ${CONFIG_rootfstype}"
 # mount root partition
-echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw",${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot"
-/bin/mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw","$CONFIG_rootfsopts" ${CONFIG_root} $CONFIG_newroot
+echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw",${CONFIG_rootfsopts},noatime ${CONFIG_root} $CONFIG_newroot"
+eval $mount_bin $mount_type  -o "$CONFIG_rw","$CONFIG_rootfsopts" ${CONFIG_root} $CONFIG_newroot
 if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"
 	drop_shell "noumount"

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+if [ $1 == "install" -o $1 == "upgrade" ]; then
+        true
+fi

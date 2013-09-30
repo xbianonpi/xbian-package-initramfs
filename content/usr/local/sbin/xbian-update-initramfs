@@ -1,0 +1,12 @@
+#!/bin/sh
+
+test -n "$1" && echo "$1" > /run/trigger-xbian-update-initramfs
+test -n "$KVER" && echo "$KVER" > /run/trigger-xbian-update-initramfs
+
+if [ -n "$DPKG_MAINTSCRIPT_PACKAGE" ]; then
+	echo "xbian-update-initramfs called from within dpkg process. Saving requested kernel version and trigger."
+	dpkg-trigger --no-await trigger-xbian-update-initramfs
+else
+	echo "xbian-update-initramfs called directly. Staring the update process."
+	/etc/xbian-initramfs/update-initramfs.sh
+fi

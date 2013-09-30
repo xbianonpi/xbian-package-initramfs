@@ -1,0 +1,4 @@
+#!/bin/sh
+
+{ [ -z "$CONFIG_bootmenu" ] || [ "$CONFIG_bootmenu" -le 10 ]; } && CONFIG_bootmenu=10
+sleep $CONFIG_bootmenu; kill -9 $(pidof whiptail)

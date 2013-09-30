@@ -1,5 +1,0 @@
-#!/bin/sh
-
-[ -e /run/bootumount ] && { mountpoint -q /boot && umount /boot; rm /run/bootumount; } || true
-
-

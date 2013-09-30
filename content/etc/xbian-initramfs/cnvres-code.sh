@@ -188,9 +188,9 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 	#Save partition table to file
 	/sbin/sfdisk -u S -d ${DEV} > /tmp/part.txt
 	#Read partition sizes
-	sectorTOTAL=`blockdev --getsz ${DEV}`
-	sectorSTART=`grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $4}'`
-	sectorSIZE=`grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $6}'`
+	sectorTOTAL=$(blockdev --getsz ${DEV})
+	sectorSTART=$(grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $4}')
+	sectorSIZE=$(grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $6}')
 	export sectorNEW=$(( $sectorTOTAL - $sectorSTART ))
 	rm /tmp/part.txt &>/dev/null
 
@@ -207,9 +207,9 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88'
 
-		pSIZE=`sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}'`
+		pSIZE=$(sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}')
 		echo ",${sectorNEW},,," | sfdisk -uS -N${PART} --force -q ${DEV}
-		nSIZE=`sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}'`
+		nSIZE=$(sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}')
 
 		if [ ! $nSIZE -gt $pSIZE ]; then
 			echo "Resizing failed..."
@@ -230,14 +230,14 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$FSCHECK" = "ext
 
 	if [ "${FSCHECK}" = 'ext4' ]; then
 		# check if the partition needs resizing
-		TUNE2FS=`/sbin/tune2fs -l ${CONFIG_root}`;
-		TUNEBLOCKSIZE=`echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}'`;
-		TUNEBLOCKCOUNT=`echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}'`;
+		TUNE2FS=$(/sbin/tune2fs -l ${CONFIG_root})
+		TUNEBLOCKSIZE=$(echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}')
+		TUNEBLOCKCOUNT=$(echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}')
 		export BLOCKNEW=$(($sectorNEW / ($TUNEBLOCKSIZE / 512) ))
 
 		# resize root partition
 		if [ "$TUNEBLOCKCOUNT" -lt "$BLOCKNEW" ]; then
-			test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
+			test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="fs resize..."
 			test -n "$CONFIG_splash" \
 || echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
@@ -250,7 +250,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$FSCHECK" = "ext
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
 			e2fsck -p -f ${CONFIG_root}
 			/bin/mount -t ext4 ${CONFIG_root} "$CONFIG_newroot"
-			TUNEBLOCKCOUNT=`/sbin/resize2fs ${CONFIG_root} | grep now | rev | awk '{print $3}' | rev`
+			TUNEBLOCKCOUNT=$(/sbin/resize2fs ${CONFIG_root} | grep now | rev | awk '{print $3}' | rev)
 			if [ "$?" -eq '0' ]; then
 				TUNEBLOCKCOUNT=${BLOCKNEW}
 			fi
@@ -273,11 +273,11 @@ resize_btrfs() {
 if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "btrfs" -a "$FSCHECK" = 'btrfs' ]; then
 
 	# check if the partition needs resizing
-	sectorDF=`df -B512 -P | grep "$CONFIG_newroot" | awk '{printf "%d", $2}'`
+	sectorDF=$(df -B512 -P | grep "$CONFIG_newroot" | awk '{printf "%d", $2}')
 	
 	# resize root partition
 	if [ "$sectorDF" -lt "$sectorNEW" ]; then
-		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
+		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="fs resize..."
 		test -n "$CONFIG_splash" \
 || echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
@@ -355,7 +355,7 @@ drop_shell() {
 	/bin/mount -t vfat /dev/mmcblk0p1 /boot
 
 	if [ "$1" != noumount ]; then
-	    mountpoint -q ${CONFIG_rootfstype} || mount -t ${CONFIG_rootfstype} -o rw,"$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
+	    mountpoint -q $CONFIG_newroot || mount -t ${CONFIG_rootfstype} -o rw,"$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
 	    /bin/mount -o bind /proc $CONFIG_newroot/proc
 	    /bin/mount -o bind /boot $CONFIG_newroot/boot
 	    /bin/mount -o bind /dev $CONFIG_newroot/dev
@@ -365,10 +365,12 @@ drop_shell() {
 	mountpoint -q $CONFIG_newroot && ln -s /rootfs /run/initramfs/rootfs
 	exec > /dev/console 2>&1
 	cat /motd
-	echo "the root partition as defined in cmdline.txt is now mounted under /rootfs"
+	echo "========================================================================="
+	echo "Welcome to recovery boot console,"
+	echo "the root partition as specified in cmdline.txt is now mounted under /rootfs"
 	echo "boot partition is mounted under /boot and bond to /rootfs/boot as well. the same applies for /proc, /sys, /dev and /run."
 	echo "you can chroot into your installation with 'chroot /rootfs'. this will allow you work with you're xbian installation"
-	echo "like in full booted mode (restricted to text console). effective uid=0 (root)."
+	echo "almost like in full booted mode (restricted to text console). effective uid=0 (root)."
 	echo ""
 	echo "network can be started with 'ipconfig eth0' for dhcp mode, or 'ipconfig ip=ip:mask:gw:::eth0' for static address (where "
 	echo "[ip] is you ip address, [mask] is your network mask and [gw] is ip address of your gateway (router)"
@@ -407,6 +409,6 @@ grep '^[^#]' /etc/modules |
     while read module args; do
         [ -n "$module" ] || continue
         [ "$module" != usb_storage ] || continue
-        modprobe $module $args || :
+        modprobe $MODPROBE_OPTIONS $module $args || :
     done
 }

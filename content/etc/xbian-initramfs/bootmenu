@@ -111,7 +111,7 @@ fi
 echo "loading kernel"
 eval /sbin/kexec --initrd=$mntd/$initramfs --append="\"$append root=$choice\"" -l $mntd/$kernel
 echo "stopping processes"
-/sbin/killall5 -15
+#/sbin/killall5 -15 -o $$
 sleep 10
 umount_all 
 net_down 

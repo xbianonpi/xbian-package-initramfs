@@ -1,5 +1,7 @@
 #!/bin/bash
 
+exec 2>/dev/null
+
 . /etc/default/xbian-initramfs
 
 test -e /run/trigger-xbian-update-initramfs && MODVER=$(cat /run/trigger-xbian-update-initramfs)
@@ -80,7 +82,7 @@ copy_with_libs() {
                 oldIFS=$IFS
                 IFS=$'\n'
                 for fff in $(ldd $1 2>&1| cat ); do
-                        echo "$fff" | grep "not a dynamic exec" && continue
+                        echo "$fff" | grep -q "not a dynamic exec" && continue
 
                         f1=$(echo "$fff" | awk '{print $1}')
                         f2=$(echo "$fff" | awk '{print $3}')
@@ -170,8 +172,10 @@ rm -fr ./bin/modprobe
 copy_with_libs /sbin/modprobe
 rm -fr ./bin/mount
 rm -fr ./bin/date
+rm -fr ./bin/grep
 copy_with_libs /bin/mount
 copy_with_libs /bin/date
+copy_with_libs /bin/grep
 copy_with_libs /sbin/killall5
 copy_with_libs /sbin/switch_root
 copy_with_libs /sbin/rmmod
@@ -181,6 +185,7 @@ copy_with_libs /sbin/btrfs-convert
 copy_with_libs /usr/sbin/thd
 copy_with_libs /usr/sbin/th-cmd
 copy_with_libs /usr/bin/nice
+copy_with_libs /sbin/partprobe
 #copy_with_libs /sbin/iwconfig 
 #copy_with_libs /sbin/wpa_supplicant 
 cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin
@@ -231,6 +236,8 @@ find . | cpio -H newc -o | gzip -1v > /boot/initramfs.gz
 #        echo "initrd=/initramfs.gz" >> /boot.cfg
 #fi
 [ "$need_umount" = "yes" ] && umount /boot
+
+touch /run/reboot-required
 
 exit 0
 

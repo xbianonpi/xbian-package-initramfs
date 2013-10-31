@@ -1,7 +1,7 @@
 # part of code, which is relevant to block devices ... to keep init readable
 
 up() {
-echo "at initramfs/init $1: $(cat /proc/uptime)" >> /run/uptime_start.log
+echo "at initramfs/init $1: $(cat /proc/uptime)" >> /run/uptime-init.log
 }
 
 mount_root_btrfs() {
@@ -209,6 +209,7 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 
 		pSIZE=$(sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}')
 		echo ",${sectorNEW},,," | sfdisk -uS -N${PART} --force -q ${DEV}
+		/sbin/partprobe
 		nSIZE=$(sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}')
 
 		if [ ! $nSIZE -gt $pSIZE ]; then
@@ -289,6 +290,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfsty
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88'
 		/sbin/btrfs fi resize max $CONFIG_newroot
+		/sbin/btrfs fi sync $CONFIG_newroot
 		
 		sectorDF=`df -B512 -P | grep "$CONFIG_newroot" | awk '{printf "%d", $2}'`
 
@@ -336,12 +338,15 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_partswap" -eq '1' -a "$CONFIG_rootfstype
     swapsize=$(( $(blockdev --getsize64 $CONFIG_root) /10/1024/1024)); [ $swapsize -gt 250 ] && swapsize=250
 
     /sbin/btrfs fi resize -${swapsize}M $CONFIG_newroot || { umount $CONFIG_newroot; return 1; }
-    swapsize=$(( $swapsize - 5 ))
+    /sbin/btrfs fi sync $CONFIG_newroot
     umount $CONFIG_newroot
-    echo ",-$swapsize,,," | sfdisk -uM -N${PART} --force ${DEV} >> /run/part_resize.txt 2>&1
+    swapsize=$(( $swapsize - 5 ))
+    echo ",-$swapsize,,," | sfdisk -uM -N${PART} --force ${DEV}
+    /sbin/partprobe
     pend=$(sfdisk -l -uS ${DEV} 2>/dev/null| grep $CONFIG_root | awk '{print $3}')
     pstart=$(( ($pend/2048 + 1) * 2048));pPART=$(($PART+1))
-    echo "$pstart,+,S,," | sfdisk -uS -N${pPART} --force ${DEV} >> /run/part_resize.txt 2>&1
+    echo "$pstart,+,S,," | sfdisk -uS -N${pPART} --force ${DEV}
+    /sbin/partprobe
     mkswap ${DEV}${PARTdelim}${pPART}
 fi
 }

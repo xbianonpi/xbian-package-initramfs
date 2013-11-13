@@ -23,7 +23,7 @@ echo "To dropdown to shell, press and hold shift on usb attached keyboard..."
 /bin/mount -t devtmpfs -o size=262144,mode=0755 udev /dev && mkdir /dev/.udev && mkdir /dev/pts
 /bin/mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
 /bin/mount -t tmpfs -o rw,nosuid,noexec,noatime,size=$RUN_SIZE,mode=755 tmpfs /run && touch /run/.tmpfs && mkdir /run/initramfs && mkdir /run/sendsigs.omit.d
-up "/run";  chmod 666 /run/uptime_start.log
+up "/run";  chmod 666 /run/uptime-init.log
 
 [ ! -e /etc/udev/udev.conf ] || . /etc/udev/udev.conf
 echo > /sys/kernel/uevent_helper

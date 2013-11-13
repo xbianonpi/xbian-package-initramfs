@@ -332,7 +332,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_partswap" -eq '1' -a "$CONFIG_rootfstype
     nrpart=$(sfdisk -s $DEV$PARTdelim? | grep -c .)
     [ $nrpart -gt $PART -o $PART -gt 3 ] && return 1
     [ "$(blkid -s TYPE -o value -p $DEV$PARTdelim$nrpart)" = swap ] && return 0
-    mount_root_btrfs $CONFIG_root
+    mount_root_btrfs $CONFIG_root && resize_btrfs
     mountpoint -q $CONFIG_newroot || return 1
 
     swapsize=$(( $(blockdev --getsize64 $CONFIG_root) /10/1024/1024)); [ $swapsize -gt 250 ] && swapsize=250

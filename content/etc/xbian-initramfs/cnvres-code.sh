@@ -74,10 +74,11 @@ get_root() {
     fi
 
     if [ $CONFIG_rootfstype = btrfs ]; then
-        btrfs fi show ${CONFIG_roottxt##*=} | grep -qi "devices missing" && return 1
-        for b in $(btrfs fi show --all-devices ${CONFIG_roottxt##*=} | grep path | awk '{print $8}'); do
-            [ -b $b ] || return 1
-        done
+        rid=$(blkid -o value -s UUID $CONFIG_root)
+        btrfs fi show $rid | grep -qi "devices missing" && return 1
+#        for b in $(btrfs fi show --all-devices $rid | grep path | awk '{print $8}'); do
+#            [ -b $b ] || return 1
+#        done
         btrfs dev scan
     fi
     
@@ -147,22 +148,70 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		mv $CONFIG_newroot/ROOT $CONFIG_newroot/root
 		/sbin/btrfs sub create $CONFIG_newroot/home
 		/sbin/btrfs sub create $CONFIG_newroot/home/@
+		/sbin/btrfs sub create $CONFIG_newroot/modules
+		/sbin/btrfs sub create $CONFIG_newroot/modules/@
 		mv $CONFIG_newroot/root/@/home/* $CONFIG_newroot/home/@
+		mv $CONFIG_newroot/root/@/lib/modules/* $CONFIG_newroot/modules/@
 		cp $CONFIG_newroot/root/@/etc/fstab $CONFIG_newroot/root/@/etc/fstab.ext4
-		if [ `sed -ne "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):\1:p" $CONFIG_newroot/root/@/etc/fstab 2>/dev/null | wc -l` -eq '1' ]; then
-			sed -i "s:\(.*[\ 	]\{1,\}\(/\)[\ 	]\{1,\}.*\):LABEL=xbian-root-btrfs	\/	btrfs	subvol=root/@,rw,thread_pool=1,compress=lzo,noatime,autodefrag,space_cache	0	0:" $CONFIG_newroot/root/@/etc/fstab
-		else
-			sed -i "\$aLABEL=xbian-root-btrfs	\/	btrfs	subvol=root/@,rw,compress=lzo,noatime,autodefrag,thread_pool=1,space_cache	0	0" $CONFIG_newroot/root/@/etc/fstab
-		fi
-		rm -f $CONFIG_newroot/root/@/var/swapfile
-		sed -i "/\(\/var\/swapfile\)/d" $CONFIG_newroot/root/@/etc/fstab
-		sed -i "\$aLABEL=xbian-root-btrfs	/home	btrfs	subvol=home/@,rw,compress=lzo,noatime,autodefrag,thread_pool=1,space_cache	0	0" $CONFIG_newroot/root/@/etc/fstab
-		sed -i '1i#' $CONFIG_newroot/root/@/etc/fstab
-		sed -i '1i#' $CONFIG_newroot/root/@/etc/fstab
-		sed -i '1i#' $CONFIG_newroot/root/@/etc/fstab
+# edit fstab
+                sed -i "/\(\/var\/swapfile\)/d" $CONFIG_newroot/root/@/etc/fstab
 
-		/sbin/btrfs sub snapshot $CONFIG_newroot/root/@ $CONFIG_newroot/root/@safe
-		/sbin/btrfs sub snapshot $CONFIG_newroot/home/@ $CONFIG_newroot/home/@safe
+            if grep -wq "/tmp" $CONFIG_newroot/root/@/etc/fstab; then
+                grep -wv "/tmp" $CONFIG_newroot/root/@/etc/fstab > $CONFIG_newroot/root/@/etc/fstab.new
+                mv $CONFIG_newroot/root/@/etc/fstab.new $CONFIG_newroot/root/@/etc/fstab
+            fi
+
+            if grep -wq 'root/@' $CONFIG_newroot/root/@/etc/fstab; then
+                grep -wv 'root/@' $CONFIG_newroot/root/@/etc/fstab >> $CONFIG_newroot/root/@/etc/fstab.new
+                mv $CONFIG_newroot/root/@/etc/fstab.new $CONFIG_newroot/root/@/etc/fstab
+            fi
+
+            if [ $(grep -w '/dev/root' $CONFIG_newroot/root/@/etc/fstab | grep -wc '/home') -ne 1 -o $(grep -w '/dev/root' $CONFIG_newroot/root/@/etc/fstab | grep -w '/home' | grep -c 'subvol=') -ne 1 ]; then
+                if grep -wq "/home" $CONFIG_newroot/root/@/etc/fstab; then
+                    grep -wv "/home" $CONFIG_newroot/root/@/etc/fstab > $CONFIG_newroot/root/@/etc/fstab.new
+                    mv $CONFIG_newroot/root/@/etc/fstab.new $CONFIG_newroot/root/@/etc/fstab
+                fi
+                echo "/dev/root             /home                   xbian   subvol=home/@,noatime           0       0" >> $CONFIG_newroot/root/@/etc/fstab
+            fi
+
+            if grep -wq "/lib/modules" $CONFIG_newroot/root/@/etc/fstab; then
+                grep -wv "/lib/modules" $CONFIG_newroot/root/@/etc/fstab > $CONFIG_newroot/root/@/etc/fstab.new
+                mv $CONFIG_newroot/root/@/etc/fstab.new $CONFIG_newroot/root/@/etc/fstab
+            fi
+            echo "/dev/root             /lib/modules            xbian   subvol=modules/@,noatime        0       0" >> $CONFIG_newroot/root/@/etc/fstab
+
+            if grep -wq "/" $CONFIG_newroot/root/@/etc/fstab; then
+                grep -wv "/" $CONFIG_newroot/root/@/etc/fstab > $CONFIG_newroot/root/@/etc/fstab.new
+                grep ^'//' $CONFIG_newroot/root/@/etc/fstab >> $CONFIG_newroot/root/@/etc/fstab.new
+                mv $CONFIG_newroot/root/@/etc/fstab.new $CONFIG_newroot/root/@/etc/fstab
+            fi
+            echo "/dev/root             /                       xbian   noatime                         0       0" >> $CONFIG_newroot/root/@/etc/fstab
+
+            if grep -wq "/proc" $CONFIG_newroot/root/@/etc/fstab; then
+                grep -wv "/proc" $CONFIG_newroot/root/@/etc/fstab > $CONFIG_newroot/root/@/etc/fstab.new
+                mv $CONFIG_newroot/root/@/etc/fstab.new $CONFIG_newroot/root/@/etc/fstab
+            fi
+
+            grep -wv "/boot" $CONFIG_newroot/root/@/etc/fstab > $CONFIG_newroot/root/@/etc/fstab.new
+            mv $CONFIG_newroot/root/@/etc/fstab.new $CONFIG_newroot/root/@/etc/fstab
+            echo "/dev/mmcblk0p1        /boot                   xbian   rw                              0       1" >> $CONFIG_newroot/root/@/etc/fstab
+
+            if ! grep -wq "/run/user" $CONFIG_newroot/root/@/etc/fstab; then
+                echo "none            /run/user                       tmpfs                   noauto                  0       0" >> $CONFIG_newroot/root/@/etc/fstab
+            fi
+            if ! grep -wq "/sys/kernel/security" $CONFIG_newroot/root/@/etc/fstab; then
+                echo "none            /sys/kernel/security            securityfs              noauto                  0       0" >> $CONFIG_newroot/root/@/etc/fstab
+            fi
+            if ! grep -wq "/sys/kernel/debug" $CONFIG_newroot/root/@/etc/fstab; then
+                echo "none            /sys/kernel/debug               debugfs                 noauto                  0       0" >> $CONFIG_newroot/root/@/etc/fstab
+            fi
+            if ! grep -wq "/run/shm" $CONFIG_newroot/root/@/etc/fstab; then
+                echo "none            /run/shm                        tmpfs                   noauto                  0       0" >> $CONFIG_newroot/root/@/etc/fstab
+            fi
+            if ! grep -wq "/run/lock" $CONFIG_newroot/root/@/etc/fstab; then
+                echo "none            /run/lock                       tmpfs                   noauto                  0       0" >> $CONFIG_newroot/root/@/etc/fstab
+            fi
+# end edit fstab
 		echo "rebalancing filesystem..."
 		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="rebalancing filesystem..."
 		btrfs fi bal "$CONFIG_newroot"
@@ -273,12 +322,15 @@ fi
 resize_btrfs() {
 if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "btrfs" -a "$FSCHECK" = 'btrfs' ]; then
 
+        smsg="fs resize..."
+        [ -n "$1" ] && smsg="$1" 
+
 	# check if the partition needs resizing
 	sectorDF=$(df -B512 -P | grep "$CONFIG_newroot" | awk '{printf "%d", $2}')
 	
 	# resize root partition
 	if [ "$sectorDF" -lt "$sectorNEW" ]; then
-		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="fs resize..."
+		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt=$smsg
 		test -n "$CONFIG_splash" \
 || echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
@@ -332,7 +384,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_partswap" -eq '1' -a "$CONFIG_rootfstype
     nrpart=$(sfdisk -s $DEV$PARTdelim? | grep -c .)
     [ $nrpart -gt $PART -o $PART -gt 3 ] && return 1
     [ "$(blkid -s TYPE -o value -p $DEV$PARTdelim$nrpart)" = swap ] && return 0
-    mount_root_btrfs $CONFIG_root && resize_btrfs
+    mount_root_btrfs $CONFIG_root && resize_btrfs "creating swap..."
     mountpoint -q $CONFIG_newroot || return 1
 
     swapsize=$(( $(blockdev --getsize64 $CONFIG_root) /10/1024/1024)); [ $swapsize -gt 250 ] && swapsize=250

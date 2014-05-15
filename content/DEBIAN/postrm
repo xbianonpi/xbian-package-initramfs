@@ -2,7 +2,7 @@
 
 if [ "$1" == "remove" ]; then
 
-        mountpoint -q /boot || mount /boot
+        mountpoint -q /boot || mount /boot || exit 1
         sed -i '/initramfs.gz/d' /boot/config.txt
         umount /boot
 

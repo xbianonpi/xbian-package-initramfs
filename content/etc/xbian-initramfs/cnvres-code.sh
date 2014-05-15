@@ -1,19 +1,35 @@
 # part of code, which is relevant to block devices ... to keep init readable
 
+telnetrun() {
+    [ -e /bin/bash ] && shl=/bin/bash || shl=/bin/sh
+    echo "ENV=/.profile exec $shl" > /cmd.sh; chmod +x /cmd.sh
+    /bin/busybox cttyhack /bin/busybox telnetd -f /howto.txt -F -l /cmd.sh & echo $! > /telnetd.pid
+}
+
+vncrun() {
+    find /lib/modules -iname vchiq.ko | xargs -n 1 insmod
+    modprobe -q uinput
+    /usr/local/sbin/dispman_vncserver &
+}
+
 up() {
-echo "at initramfs/init $1: $(cat /proc/uptime)" >> /run/uptime-init.log
+echo "$(date) at initramfs/init $1: $(cat /proc/uptime)" >> /run/uptime-init.log
 }
 
 mount_root_btrfs() {
     test -z "$1" && device="LABEL=xbian-root-btrfs" || device="$1"
-    /bin/mount -t btrfs -o compress=lzo,rw,noatime,autodefrag,space_cache,thread_pool=1 $device $CONFIG_newroot
+    /bin/mount -t btrfs -o compress=lzo,rw,noatime,space_cache $device $CONFIG_newroot
 }
 
 update_resolv_helper() {
-for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do cat $f | grep IPV.DNS | tr -d "'"| awk -F'=' '{print "nameserver "$2}'; done
-for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do cat $f | grep DOMAINSEARCH | tr -d "'"| awk -F'=' '{print "search "$2}'; done
-for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do cat $f | grep DNSDOMAIN | tr -d "'"| awk -F'=' '{print "domain "$2}'; done
-echo ""
+for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do 
+    . $f
+    [ -z "$IPV4DNS0" ] || echo "nameserver $IPV4DNS0"
+    [ -z "$IPV4DNS1" -o "$IPV4DNS1" = '0.0.0.0' ] || echo "nameserver $IPV4DNS1"
+    [ -z "$DNSDOMAIN" ] || echo "domain $DNSDOMAIN"
+    [ -z "$DOMAINSEARCH" ] && echo "search $DNSDOMAIN" || echo "search $DOMAINSEARCH" 
+done
+#echo ""
 }
 
 update_resolv() {
@@ -74,12 +90,9 @@ get_root() {
     fi
 
     if [ $CONFIG_rootfstype = btrfs ]; then
-        rid=$(blkid -o value -s UUID $CONFIG_root)
-        btrfs fi show $rid | grep -qi "devices missing" && return 1
-#        for b in $(btrfs fi show --all-devices $rid | grep path | awk '{print $8}'); do
-#            [ -b $b ] || return 1
-#        done
-        btrfs dev scan
+        btrfs dev scan || :
+        btrfs dev ready $CONFIG_root || return 1
+        [ "$(btrfs fi show $CONFIG_root | grep -c devid)" -gt 1 ] && export RESIZEERROR=1
     fi
     
     export DEV="${CONFIG_root%[0-9]}"
@@ -96,14 +109,14 @@ get_root() {
 
 convert_btrfs() {
 # Check for the existance of tune2fs through the RESIZEERROR variable
-if [ "$RESIZEERROR" -lt '1' -a "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfstype}" = "btrfs" -a "$FSCHECK" != "btrfs" ]; then
-
+if [ "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfstype}" = "btrfs" -a "$FSCHECK" != "btrfs" ]; then
+    [ "$RESIZEERROR" -gt '0' -a "$RESIZEERROR_NONFATAL" -ne '1' ] && return 0
 	if [ "${FSCHECK}" = 'ext4' ]; then
 		# Make sure we have enough memory available for live conversion
 		FREEMEM=`free -m | grep "Mem:" | awk '{printf "%d", $4}'`
 		if [ ${FREEMEM} -lt '128' ]; then
 				test ! -d /boot && mkdir /boot
-				/bin/mount -t vfat "${DEV}${PARTdelim}1" /boot
+				/bin/mount "${DEV}${PARTdelim}1" /boot
 				# Save the old memory value to the cmdline.txt to restore it later on
 				cp /boot/config.txt /boot/config.txt.convert
 				sed -i "s/gpu_mem_256=[0-9]*/gpu_mem_256=32/g" /boot/config.txt
@@ -130,7 +143,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 	fi
 	
 	test ! -d /boot && mkdir /boot
-	/bin/mount -t vfat "${DEV}${PARTdelim}1" /boot
+	/bin/mount "${DEV}${PARTdelim}1" /boot
 	test -e /boot/config.txt.convert && mv /boot/config.txt.convert /boot/config.txt
 	test "$FSCHECK" = "ext4" && sed -i "s/rootfstype=btrfs/rootfstype=ext4/g" /boot/cmdline.txt
 	if [ "$FSCHECK" = "btrfs" ]; then
@@ -144,7 +157,10 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		echo "Moving root..."
 		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="moving root..."
 		/sbin/btrfs sub snap $CONFIG_newroot $CONFIG_newroot/ROOT/@
-		for f in $(ls $CONFIG_newroot/); do [ $f != "ROOT" ] && rm -fr $CONFIG_newroot/$f; done
+
+                mount && echo '============================' && sleep 15
+		for f in $(ls $CONFIG_newroot | grep -vw ROOT); do rm -fr $CONFIG_newroot/$f >/dev/null 2>&1; done
+
 		mv $CONFIG_newroot/ROOT $CONFIG_newroot/root
 		/sbin/btrfs sub create $CONFIG_newroot/home
 		/sbin/btrfs sub create $CONFIG_newroot/home/@
@@ -166,26 +182,26 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
                 mv $CONFIG_newroot/root/@/etc/fstab.new $CONFIG_newroot/root/@/etc/fstab
             fi
 
-            if [ $(grep -w '/dev/root' $CONFIG_newroot/root/@/etc/fstab | grep -wc '/home') -ne 1 -o $(grep -w '/dev/root' $CONFIG_newroot/root/@/etc/fstab | grep -w '/home' | grep -c 'subvol=') -ne 1 ]; then
+#            if [ $(grep -w '/dev/root' $CONFIG_newroot/root/@/etc/fstab | grep -wc '/home') -ne 1 -o $(grep -w '/dev/root' $CONFIG_newroot/root/@/etc/fstab | grep -w '/home' | grep -c 'subvol=') -ne 1 ]; then
                 if grep -wq "/home" $CONFIG_newroot/root/@/etc/fstab; then
                     grep -wv "/home" $CONFIG_newroot/root/@/etc/fstab > $CONFIG_newroot/root/@/etc/fstab.new
                     mv $CONFIG_newroot/root/@/etc/fstab.new $CONFIG_newroot/root/@/etc/fstab
                 fi
-                echo "/dev/root             /home                   xbian   subvol=home/@,noatime           0       0" >> $CONFIG_newroot/root/@/etc/fstab
-            fi
+                echo "/dev/root             /home                   xbian   subvol=home/@,noatime,nobootwait           0       0" >> $CONFIG_newroot/root/@/etc/fstab
+#            fi
 
             if grep -wq "/lib/modules" $CONFIG_newroot/root/@/etc/fstab; then
                 grep -wv "/lib/modules" $CONFIG_newroot/root/@/etc/fstab > $CONFIG_newroot/root/@/etc/fstab.new
                 mv $CONFIG_newroot/root/@/etc/fstab.new $CONFIG_newroot/root/@/etc/fstab
             fi
-            echo "/dev/root             /lib/modules            xbian   subvol=modules/@,noatime        0       0" >> $CONFIG_newroot/root/@/etc/fstab
+            echo "/dev/root             /lib/modules            xbian   subvol=modules/@,noatime,nobootwait        0       0" >> $CONFIG_newroot/root/@/etc/fstab
 
             if grep -wq "/" $CONFIG_newroot/root/@/etc/fstab; then
                 grep -wv "/" $CONFIG_newroot/root/@/etc/fstab > $CONFIG_newroot/root/@/etc/fstab.new
                 grep ^'//' $CONFIG_newroot/root/@/etc/fstab >> $CONFIG_newroot/root/@/etc/fstab.new
                 mv $CONFIG_newroot/root/@/etc/fstab.new $CONFIG_newroot/root/@/etc/fstab
             fi
-            echo "/dev/root             /                       xbian   noatime                         0       0" >> $CONFIG_newroot/root/@/etc/fstab
+            echo "/dev/root             /                       xbian   noatime,nobootwait                         0       0" >> $CONFIG_newroot/root/@/etc/fstab
 
             if grep -wq "/proc" $CONFIG_newroot/root/@/etc/fstab; then
                 grep -wv "/proc" $CONFIG_newroot/root/@/etc/fstab > $CONFIG_newroot/root/@/etc/fstab.new
@@ -194,7 +210,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 
             grep -wv "/boot" $CONFIG_newroot/root/@/etc/fstab > $CONFIG_newroot/root/@/etc/fstab.new
             mv $CONFIG_newroot/root/@/etc/fstab.new $CONFIG_newroot/root/@/etc/fstab
-            echo "/dev/mmcblk0p1        /boot                   xbian   rw                              0       1" >> $CONFIG_newroot/root/@/etc/fstab
+            echo "/dev/mmcblk0p1        /boot                   xbian   rw,nobootwait                              0       1" >> $CONFIG_newroot/root/@/etc/fstab
 
             if ! grep -wq "/run/user" $CONFIG_newroot/root/@/etc/fstab; then
                 echo "none            /run/user                       tmpfs                   noauto                  0       0" >> $CONFIG_newroot/root/@/etc/fstab
@@ -217,20 +233,30 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		btrfs fi bal "$CONFIG_newroot"
 		umount $CONFIG_newroot
 	fi
+	if [ "$FSCHECK" = btrfs ]; then
+	    echo "FILESYSTEM WAS SUCESSFULLY CONVERTED TO BTRFS"
+	    echo "ADAPTING rootflags IN CMDLINE.TXT"
+            if grep -q rootflags /boot/cmdline.txt; then
+                sed -i 's/rootflags=.*? /rootflags=subvol=root\/@,autodefrag,compress=lzo/g' /boot/cmdline.txt
+            else
+                l="$(cat /boot/cmdline.txt) rootflags=subvol=root/@,autodefrag,compress=lzo" 
+                echo $l > /boot/cmdline.txt
+            fi
+	fi
 	test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="rebooting..."
 	umount /boot
 	sync
-	reboot -f
+	reboot -nf
 fi
 }
 
 resize_part() {
 if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfstype}" != "nfs" ]; then
-	
 	nrpart=$(sfdisk -s $DEV$PARTdelim? | grep -c .)
 	if [ "$nrpart" -gt "$PART" ]; then
 		test -z "$CONFIG_partswap" && echo "FATAL: only the last partition can be resized"
 		export RESIZEERROR='1'
+		export RESIZEERROR_NONFATAL=1
 		return 1
 	fi
 
@@ -405,7 +431,9 @@ fi
 
 kill_splash() {
 	test -n "$CONFIG_splash" && /bin/kill -SIGTERM $(pidof splash)
+	test -n "$CONFIG_splash" && /bin/kill -SIGTERM $(pidof splash-daemon)
 	rm -fr /run/splash
+	busybox setconsole -r
 }
 
 drop_shell() {
@@ -413,54 +441,43 @@ drop_shell() {
 	set +x
 
 	[ ! -d /boot ] && mkdir /boot
-	/bin/mount -t vfat /dev/mmcblk0p1 /boot
+	/bin/mount /dev/mmcblk0p1 /boot
 
 	if [ "$1" != noumount ]; then
-	    mountpoint -q $CONFIG_newroot || mount -t ${CONFIG_rootfstype} -o rw,"$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
-	    /bin/mount -o bind /proc $CONFIG_newroot/proc
-	    /bin/mount -o bind /boot $CONFIG_newroot/boot
-	    /bin/mount -o bind /dev $CONFIG_newroot/dev
-	    /bin/mount -o bind /sys $CONFIG_newroot/sys
-	    [ "$CONFIG_rootfstype" = btrfs ] && /bin/mount -t ${CONFIG_rootfstype} -o rw,subvol=modules/@ "${CONFIG_root}" $CONFIG_newroot/lib/modules
+	    mountpoint -q $CONFIG_newroot || eval $mount_bin -t ${CONFIG_rootfstype} -o rw,"$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
+	    mountpoint -q $CONFIG_newroot/proc || /bin/mount -o bind /proc $CONFIG_newroot/proc
+	    mountpoint -q $CONFIG_newroot/boot || /bin/mount -o bind /boot $CONFIG_newroot/boot
+	    mountpoint -q $CONFIG_newroot/dev || /bin/mount -o bind /dev $CONFIG_newroot/dev
+	    mountpoint -q $CONFIG_newroot/dev/pts || /bin/mount -o bind /dev $CONFIG_newroot/dev/pts
+	    mountpoint -q $CONFIG_newroot/sys || /bin/mount -o bind /sys $CONFIG_newroot/sys
+	    mountpoint -q $CONFIG_newroot/run || /bin/mount -o bind /run $CONFIG_newroot/run
+	    [ "$CONFIG_rootfstype" = btrfs ] && ! mountpoint -q $CONFIG_newroot/lib/modules  && /bin/mount -t ${CONFIG_rootfstype} -o rw,subvol=modules/@ "${CONFIG_root}" $CONFIG_newroot/lib/modules
 	fi
 	mountpoint -q $CONFIG_newroot && ln -s /rootfs /run/initramfs/rootfs
-	exec > /dev/console 2>&1
+	[ -n "${CONFIG_console}" ] && exec > /dev/$CONFIG_console
 	cat /motd
 	echo "========================================================================="
-	echo "Welcome to recovery boot console,"
-	echo "the root partition as specified in cmdline.txt is now mounted under /rootfs"
-	echo "boot partition is mounted under /boot and bond to /rootfs/boot as well. the same applies for /proc, /sys, /dev and /run."
-	echo "you can chroot into your installation with 'chroot /rootfs'. this will allow you work with you're xbian installation"
-	echo "almost like in full booted mode (restricted to text console). effective uid=0 (root)."
-	echo ""
-	echo "network can be started with 'ipconfig eth0' for dhcp mode, or 'ipconfig ip=ip:mask:gw:::eth0' for static address (where "
-	echo "[ip] is you ip address, [mask] is your network mask and [gw] is ip address of your gateway (router)"
-	echo ""
-	echo "after you finish your work, exit from chroot with 'exit' and then exit again from recovery console shell. your boot will"
-	echo "continue."
-	echo ""
-	echo "in this environment, three aliases are already predefined. just run:"
-	echo ""
-	echo "'reb' to run 'umount -a; sync; reboot -f' (unmount all filesystems, sync writes and reboot"
-	echo "'rum' to run 'umount -a'"
-	echo "'rch' to run 'chroot $CONFIG_newroot'"
+	cat /howto.txt
 	if [ -e /bin/bash ]; then
-		/bin/bash -i
+		/bin/busybox cttyhack /bin/bash
 	else 
-		ENV=/.profile /bin/sh -i
+		ENV=/.profile /bin/busybox cttyhack /bin/sh
 	fi
 	rm -fr /run/do_drop
-
-	mountpoint -q $CONFIG_newroot/boot && umount $CONFIG_newroot/boot
-	mountpoint -q $CONFIG_newroot/proc && umount $CONFIG_newroot/proc
-	mountpoint -q $CONFIG_newroot/dev && umount $CONFIG_newroot/dev
-	mountpoint -q $CONFIG_newroot/sys && umount $CONFIG_newroot/sys
-	mountpoint -q $CONFIG_newroot/sys && umount $CONFIG_newroot/sys
-	mountpoint -q $CONFIG_newroot/lib/modules && umount $CONFIG_newroot/lib/modules
+	ps | grep busybox | grep telnetd | xargs kill ; pkill sshrun
 
 	mountpoint -q /boot && umount /boot; [ -d /boot ] && rmdir /boot
-	[ "$1" != noumount ] || return 0
-	mountpoint -q $CONFIG_newroot && umount $CONFIG_newroot
+	if [ "$1" != noumount ]; then
+	    mountpoint -q $CONFIG_newroot/boot && umount $CONFIG_newroot/boot
+	    mountpoint -q $CONFIG_newroot/proc && umount $CONFIG_newroot/proc
+	    mountpoint -q $CONFIG_newroot/dev/pts && umount $CONFIG_newroot/dev/pts
+	    mountpoint -q $CONFIG_newroot/dev && umount $CONFIG_newroot/dev
+	    mountpoint -q $CONFIG_newroot/sys && umount $CONFIG_newroot/sys
+	    mountpoint -q $CONFIG_newroot/run && umount $CONFIG_newroot/run
+	    mountpoint -q $CONFIG_newroot/lib/modules && umount $CONFIG_newroot/lib/modules
+	    mountpoint -q $CONFIG_newroot && umount $CONFIG_newroot
+	fi
+	return 0
 }
 
 load_modules() {
@@ -470,6 +487,6 @@ grep '^[^#]' /etc/modules |
     while read module args; do
         [ -n "$module" ] || continue
         [ "$module" != usb_storage ] || continue
-        modprobe $MODPROBE_OPTIONS $module $args || :
+        /sbin/modprobe $MODPROBE_OPTIONS $module $args || :
     done
 }

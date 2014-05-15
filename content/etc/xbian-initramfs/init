@@ -2,7 +2,8 @@
 
 unset $(env | grep CONFIG_ | cut -f1 -d'=')
 
-PATH=/sbin:/bin:/usr/bin:/usr/sbin:/lib/udev
+PATH=/sbin:/bin:/usr/bin:/usr/sbin:/lib/udev:/usr/local/sbin
+export PATH
 . /cnvres-code.sh
 
 # ugly fix for wrong values of *_SIZE in /etc/default/tmpfs in versions < beta 1.2
@@ -22,21 +23,24 @@ echo "To dropdown to shell, press and hold shift on usb attached keyboard..."
 
 /bin/mount -t devtmpfs -o size=262144,mode=0755 udev /dev && mkdir /dev/.udev && mkdir /dev/pts
 /bin/mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
-/bin/mount -t tmpfs -o rw,nosuid,noexec,noatime,size=$RUN_SIZE,mode=755 tmpfs /run && touch /run/.tmpfs && mkdir /run/initramfs && mkdir /run/sendsigs.omit.d
+/bin/mount -t tmpfs -o rw,nosuid,noexec,noatime,size=$RUN_SIZE,mode=755 tmpfs /run && touch /run/.tmpfs && mkdir /run/initramfs && ln -s /run/initramfs /dev/.initramfs && mkdir /run/sendsigs.omit.d
 up "/run";  chmod 666 /run/uptime-init.log
+
+#mkdir -p /var/log
+#ln -s /run/splash-daemon.log /var/log/splash-daemon.log  
 
 [ ! -e /etc/udev/udev.conf ] || . /etc/udev/udev.conf
 echo > /sys/kernel/uevent_helper
 udevd --daemon --resolve-names=never
 udevadm trigger --action=add
 up "started udev"
-#udevadm settle --timeout=10
-up "dev settle"
 
-load_modules
+load_modules 2>/dev/null
 up "after modprobe"
+
 INITIALBOOT="0"
 RESIZEERROR="0"
+RESIZEERROR_NONFATAL="0"
 
 export CONFIG_rootfstype="btrfs"
 export CONFIG_root="LABEL=xbian-root-btrfs"
@@ -46,6 +50,7 @@ export CONFIG_rootwait='0'
 export CONFIG_noresizesd='0'
 export CONFIG_noconvertsd='0'
 export CONFIG_newroot="/rootfs"
+export CONFIG_console="tty1"
 
 export CMDLINE="$(cat /proc/cmdline)"
 for OPTION in ${CMDLINE}
@@ -67,14 +72,24 @@ if [ -n "$CONFIG_debug" ]; then
 	exec >>/run/initramfs/initramfs.debug 2>&1
 	set -x
 fi
-[ -n "$CONFIG_bootmenu" ] && unset CONFIG_splash
+if [ -n "$CONFIG_bootmenu" ]; then
+    unset CONFIG_splash
+    unset CONFIG_vnc
+    udevadm settle --timeout=15
+    up "dev settle"
+fi
+
+test -n "$CONFIG_vnc" && vncrun
+test -n "$CONFIG_telnet" && telnetrun
+
 [ -z "$CONFIG_splash" ] && touch /run/nosplash
-test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init process..."
+ifconfig lo inet 127.0.0.1
+test -n "$CONFIG_splash" && { /usr/bin/splash --infinitebar --msgtxt="init process..." ; }
 
 if [ -z "$CONFIG_norescuekbd" ]; then
     echo "Looking for keyboards"
     { X=0; while test ! -d /dev/input && test $X -le '7'; do sleep 0.2; X=$(($X+1)); done; }
-    while true; do if test -e /dev/input/event0; then nice -n -10 thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d); break; else sleep 0.2; fi; done & pid=$!
+    while true; do if test -e /dev/input/event0; then nice -n -10 /usr/sbin/thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d); break; else sleep 0.2; fi; done & pid=$!
     up "dev keyb"
 fi
 
@@ -105,17 +120,18 @@ fi
 case ${CONFIG_root} in
 	/dev/nfs|nfs)
 		export CONFIG_rootfstype='nfs'
-		mount_bin="busybox mount"
+		export mount_bin="/bin/busybox mount"
 		;;
 	*)
-		mount_bin="/bin/mount"
+		export mount_bin="/bin/mount"
 		;;
 esac
 case ${CONFIG_rootfstype} in
 	/dev/nfs|nfs)
 		export CONFIG_root="${CONFIG_nfsroot%%,*}"
 		export CONFIG_rootfstype='nfs'
-		export CONFIG_rootfsopts="${CONFIG_nfsroot#*,},nolock"
+		export CONFIG_rootfsopts="${CONFIG_nfsroot#*,}"
+		echo ${CONFIG_nfsroot#*,} | grep -q vers=4 || export CONFIG_rootfsopts="${CONFIG_rootfsopts},nolock"
 		export CONFIG_noresizesd='1'
 		chmod 777 $CONFIG_newroot
 		;;
@@ -124,39 +140,40 @@ case ${CONFIG_rootfstype} in
 		export CONFIG_root="${CONFIG_root%%,*}"
 		;;
 esac
-if [ ${CONFIG_rootfsopts} = ${CONFIG_root} ]; then
+if [ "${CONFIG_rootfsopts}" = "${CONFIG_root}" ]; then
 	export CONFIG_rootfsopts=""
 fi
 
 [ -n "$CONFIG_rescue_early" -o -e /run/do_drop ] && drop_shell
 
 { [ -z "$CONFIG_rootwait" ] || [ "$CONFIG_rootwait" -lt '10' ]; } && export CONFIG_rootwait='10'; X='0'
-test -n "$CONFIG_bootmenu" && { sleep "$CONFIG_rootwait"; /bootmenu; }
+test -n "$CONFIG_bootmenu" && { busybox setconsole -r; echo "Waiting for block devices" && udevadm settle  ; /bootmenu; }
+
 
 if [ "$CONFIG_rootfstype" != "nfs" ]; then
-while ! get_root && [ -n "$CONFIG_rootwait"  -a  "$X" -lt "$CONFIG_rootwait" ]; do
-	modprobe -q usb_storage
+    while ! get_root && [ -n "$CONFIG_rootwait"  -a  "$X" -lt "$CONFIG_rootwait" ]; do
+	/sbin/modprobe -q usb_storage
 	X=$(($X+1))
 	echo "$X Waiting for root..."
         sleep 1
-done
-test ! -b "${CONFIG_root}" && echo "Root partition ${CONFIG_root} missing" && drop_shell
-fi
-ln -s ${CONFIG_root} /dev/root
+    done
+    test ! -b "${CONFIG_root}" && echo "Root partition ${CONFIG_root} missing" && drop_shell
+    ln -s ${CONFIG_root} /dev/root
+    up "root block device found"
 
-export FSCHECK=$(blkid -s TYPE -o value -p ${CONFIG_root})
-test "$CONFIG_rootfstype" != "nfs" && { resize_part; resize_ext4; convert_btrfs; }
-up "after resize, convert"
+    export FSCHECK=$(blkid -s TYPE -o value -p ${CONFIG_root})
+    resize_part; resize_ext4; convert_btrfs
+    up "after resize, convert"
+fi
 
 test -n "$CONFIG_partswap" && create_swap
 
 [ -n "$CONFIG_rescue" -o -e /run/do_drop ] && drop_shell
-
 # root needs to be rw for network settings update
-export CONFIG_rw='rw'; test ${CONFIG_rootfstype} != nfs && mount_type="-t ${CONFIG_rootfstype}"
+export CONFIG_rw='rw'
 # mount root partition
-echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw",${CONFIG_rootfsopts},noatime ${CONFIG_root} $CONFIG_newroot"
-eval $mount_bin $mount_type  -o "$CONFIG_rw","$CONFIG_rootfsopts" ${CONFIG_root} $CONFIG_newroot
+echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw",${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot"
+eval $mount_bin -t ${CONFIG_rootfstype}   -o "$CONFIG_rw","$CONFIG_rootfsopts" ${CONFIG_root} $CONFIG_newroot
 if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"
 	drop_shell "noumount"
@@ -175,25 +192,35 @@ up "after resize_btrfs"
 
 echo "Moving root"
 move_root
-test -n "${CONFIG_splash}" && chroot $CONFIG_newroot /usr/bin/splash --reopen --msgtxt="loading..." --percentagebar --percentage=15
-[ -n "$CONFIG_rescue_late" -o -e /run/do_drop ] && drop_shell
-kill $pid > /dev/null 2>&1; kill $(pidof thd) > /dev/null 2>&1
+
+if test -n "${CONFIG_splash}"; then
+    if ! test -e /usr/local/bin/splash-send; then
+        chroot $CONFIG_newroot /usr/bin/splash --reopen --msgtxt="loading..." --percentagebar --percentage=15
+    else
+        /usr/bin/splash --msgtxt="loading..." --percentage=15
+    fi
+fi
+
+[ -n "$CONFIG_rescue_late" -o -e /run/do_drop ] && drop_shell "noumount"
+kill $pid > /dev/null 2>&1; kill $(pidof thd) > /dev/null 2>&1; kill $(cat /telnetd.pid 2>/dev/null) > /dev/null 2>&1
 
 up "switch root"
 
-[ -e $CONFIG_newroot/etc/default/hwclock.fake ] && /bin/date --set="$(cat $CONFIG_newroot/etc/default/hwclock.fake)" >/dev/null && touch /run/hwclock.init
+[ -e $CONFIG_newroot/etc/default/hwclock.fake ] && /bin/date --set="$(cat $CONFIG_newroot/etc/default/hwclock.fake)" >/dev/null && touch  $CONFIG_newroot/run/hwclock.init
 
-if [ -n "$CONFIG_debug" -o -e /run/do_debug ]; then set -- --verbose $@; fi
+if test -n "$CONFIG_debug"; then set -- --verbose $@; fi
 if test -n "$CONFIG_startevent"; then set -- --startup-event=$CONFIG_startevent $@; fi
 #unset debug
 set +x
-up "$@"
+up "$@"; rm /dev /proc /sys /run
+mkdir /dev; ln -s /rootfs/dev/console /dev/console
 echo "Switching root"
 if [ ${CONFIG_init} = 'switch_root' ]; then
-	exec switch_root $CONFIG_newroot /sbin/init "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
+	exec /sbin/switch_root $CONFIG_newroot /sbin/init "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
 else
 	kill_splash
-	exec run-init $CONFIG_newroot ${CONFIG_init} <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
+#	exec /sbin/switch_root $CONFIG_newroot ${CONFIG_init} "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
+	exec run-init $CONFIG_newroot ${CONFIG_init} "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console
 fi
 
 kill_splash

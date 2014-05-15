@@ -51,7 +51,7 @@ put_to_modules(){
 }
 
 copy_file() {
-        cp -d -v --parents $3 "$1" "$2"
+        cp -d --remove-destination -v --parents $3 "$1" "$2"
         test -h "$1" || return
         dr=$(dirname "$1")
         fl=$(readlink "$1")
@@ -72,9 +72,12 @@ copy_with_libs() {
         dst="$2"
         test -z "$dst" && dst="./"
 
+        [ -h "$dst" ] && rm "$dst"
+
         if [ -d "$1" ]; then
                 cp -a --parents "$1"/* "$dst"
         fi
+
 
         if [ -f "$1" ]; then 
                 copy_file "$1" "$dst"
@@ -105,10 +108,12 @@ trap "{ cd ..; { rm -fr '${TMPDIR}' & }; exit 0; }" INT TERM EXIT
 
 mkdir bin dev etc lib proc rootfs run sbin sys tmp usr mnt var
 cat << \EOF > ./.profile
+export PS1='\w # '
 alias rum='umount -a'
-alias reb='umount -a; sync; reboot -f'
-alias rch='chroot /rootfs'
+alias reb='umount -a; sync; reboot -nf'
+alias rch='chroot /rootfs /bin/bash'
 EOF
+cp .profile .bashrc
 ln -s /run ./var/run
 mkdir usr/bin
 mkdir etc/udhcpc etc/network etc/wpa_supplicant
@@ -116,23 +121,27 @@ mkdir etc/network/if-down.d etc/network/if-up.d etc/network/if-post-down.d etc/n
 mkdir lib/modules
 mkdir -p usr/bin
 mkdir -p usr/lib/arm-linux-gnueabihf
-copy_with_libs /bin/busybox 
-/bin/busybox --install -s bin/
+#cp /usr/local/bin/busybox-static ./bin
+copy_with_libs /usr/local/bin/busybox
+#mv ./bin/busybox-static ./bin/busybox
+mv ./usr/local/bin/busybox ./bin
+chroot ./ /bin/busybox --install -s /bin
 cp -d --remove-destination --parents /etc/udev/* ./
 cp -d --remove-destination --parents /etc/default/{tmpfs,rcS,xbian-rnd} ./
 
 mkdir -p etc/udev/.dev
 cp -d --remove-destination --parents /etc/modprobe.d/*.conf ./
+cp -d --remove-destination /etc/xbian-initramfs/blacklist.conf ./etc/modprobe.d
 #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/hid ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/scsi ./
 cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/storage ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
-
+cp /etc/xbian_version ./etc/
 
 cat /etc/modules | grep -v ^# | grep -v lirc_ >> ./etc/modules
-copy_modules "ext4 usb_storage"
-put_to_modules "nfs sunrpc rpcsec_gss_krb5 lz4 cfq-iosched"
+copy_modules "ext4 usb_storage vchiq"
+put_to_modules "nfs sunrpc rpcsec_gss_krb5 lz4 cfq-iosched f2fs"
 copy_modules "$(cat ./etc/modules)"
 echo "$(cat /etc/fstab) $(cat /etc/fstab.d/*)" | awk '{print $3}' | uniq | grep -v ^$ | grep 'nfs\|nfs4\|cifs' \
     | while read fstype; do
@@ -153,11 +162,19 @@ depmod -b ./ $MODVER
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
-#copy_with_libs /usr/bin/whiptail ./
 for f in $(find /usr/local/sbin -iname xbian\*); do
     copy_with_libs $f ./
 done
-#copy_with_libs /sbin/kexec ./
+copy_with_libs /usr/bin/whiptail ./
+#copy_with_libs /bin/bash ./
+#copy_with_libs /bin/dash ./
+#copy_with_libs /bin/sh ./
+copy_with_libs /sbin/kexec ./
+copy_with_libs /bin/findmnt ./
+copy_with_libs /usr/bin/pkill ./
+copy_with_libs /usr/sbin/chroot
+cp /etc/xbian-initramfs/bootmenu ./
+cp /etc/xbian-initramfs/bootmenu_timeout ./
 copy_with_libs /bin/mountpoint ./
 copy_with_libs /sbin/udevd ./
 copy_with_libs /sbin/udevadm ./
@@ -167,25 +184,43 @@ copy_with_libs /sbin/sfdisk
 copy_with_libs /sbin/tune2fs
 copy_with_libs /sbin/e2fsck 
 copy_with_libs /sbin/resize2fs 
-copy_with_libs /bin/kmod
-rm -fr ./bin/modprobe
-copy_with_libs /sbin/modprobe
+#copy_with_libs /usr/local/sbin/dispman_vncserver
+
+#copy_with_libs /bin/kmod
+#rm -fr ./bin/modprobe
+#copy_with_libs /sbin/modprobe
+#copy_with_libs /sbin/lsmod
+#copy_with_libs /sbin/rmmod
+#copy_with_libs /sbin/insmod
+for f in lsmod rmmod insmod modprobe; do
+    ln -s /bin/$f ./sbin/$f
+done
+
+rm -fr ./bin/awk
+copy_with_libs /usr/bin/mawk
+ln ./usr/bin/mawk ./usr/bin/awk
 rm -fr ./bin/mount
+rm -fr ./bin/umount
 rm -fr ./bin/date
 rm -fr ./bin/grep
 copy_with_libs /bin/mount
+copy_with_libs /bin/umount
 copy_with_libs /bin/date
 copy_with_libs /bin/grep
 copy_with_libs /sbin/killall5
+copy_with_libs /bin/pidof
+rm /bin/switch_root
 copy_with_libs /sbin/switch_root
-copy_with_libs /sbin/rmmod
-copy_with_libs /sbin/insmod
+#rm -fr ./bin/find
+#copy_with_libs /usr/bin/find
 copy_with_libs /sbin/btrfs 
 copy_with_libs /sbin/btrfs-convert 
+copy_with_libs /sbin/btrfs-zero-log
 copy_with_libs /usr/sbin/thd
 copy_with_libs /usr/sbin/th-cmd
 copy_with_libs /usr/bin/nice
 copy_with_libs /sbin/partprobe
+
 #copy_with_libs /sbin/iwconfig 
 #copy_with_libs /sbin/wpa_supplicant 
 cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin
@@ -194,30 +229,49 @@ cp --remove-destination /usr/lib/klibc/bin/kinit ./sbin
 cp --remove-destination /usr/lib/klibc/bin/nuke ./sbin
 cp --remove-destination /usr/lib/klibc/bin/nfsmount ./sbin
 
-copy_with_libs /usr/bin/splash
-mkdir -p ./usr/share/fonts/splash
-mkdir -p ./usr/share/images/splash
-cp -d --remove-destination -aR --parents /usr/share/fonts/splash ./
-cp -d --remove-destination -aR --parents /usr/share/images/splash ./
-cp -d --remove-destination --parents /usr/bin/splash.images ./
-cp -d --remove-destination --parents /usr/bin/splash.fonts ./
+copy_with_libs /lib/terminfo
+copy_with_libs /usr/bin/setterm
+cp --parents /usr/share/consolefonts/Lat2-Fixed16.psf.gz ./
 
+if [ -e ./usr/local/sbin/dispman_vncserver ]; then
+    copy_with_libs /sbin/ldconfig
+    cp --parents /etc/ld.so.conf.d/xbian-firmware.conf ./
+    cp --parents /etc/ld.so.conf ./
+    chroot ./ /sbin/ldconfig 
+fi
+
+copy_with_libs /usr/bin/splash
+cp -d --remove-destination --parents /etc/default/template.json ./
+cp -d --remove-destination -aR --parents /usr/local/lib/splash ./
+copy_with_libs /usr/local/bin/splash-send
+copy_with_libs /usr/local/sbin/splash-daemon
+
+copy_with_libs /usr/local/bin/modes-cubox
 cp -d --remove-destination -v --parents /lib/udev/{hotplug.functions,firmware.agent,ata_id,edd_id,scsi_id,vio_type,keymap,keyboard-force-release.sh,udev-acl} ./
 #cp -d --remove-destination -v --parents -R /lib/udev/keymaps/* ./
 cp -d --remove-destination -av --parents /lib/udev/rules.d/{50-udev-default.rules,60-persistent-storage.rules,80-drivers.rules,91-permissions.rules,60-persistent-storage-lvm.rules,60-persistent-input.rules,55-dm.rules,60-persistent-storage-dm.rules} ./
-cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,70-btrfs.rules,10-local-xbian.rules} ./
+cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,10-local-xbian.rules} ./
 #cat /lib/udev/findkeyboards | sed 's/--dry-run//g' > ./lib/udev/findkeyboards
 #chmod +x ./lib/udev/findkeyboards
 
 cp /etc/xbian-initramfs/init ./
-grep . /etc/motd -m11 > ./motd
+grep . /etc/motd -m10 > ./motd
+cp /etc/xbian-initramfs/howto ./bin
+cp /etc/xbian-initramfs/howto.txt ./
+
 cp /etc/xbian-initramfs/trigg.shift ./
 cp /etc/xbian-initramfs/bootmenu ./
 cp /etc/xbian-initramfs/bootmenu_timeout ./
 cp /etc/xbian-initramfs/cnvres-code.sh ./
 cp /etc/xbian-initramfs/splash_updater.sh ./
+
 copy_with_libs /usr/bin/stdbuf
 copy_with_libs /usr/lib/coreutils/libstdbuf.so
+copy_with_libs /usr/bin/setterm
+
+#echo ok
+#sleep 365d
+#exit 0
 
 need_umount=''
 if ! mountpoint -q /boot; then
@@ -226,18 +280,24 @@ if ! mountpoint -q /boot; then
 fi
 test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
 echo "Creating initram fs."
-#find . | cpio -H newc -o | xz --arm --check=none --lzma2 -1v --memlimit=25MiB > /boot/initramfs.gz
-find . | cpio -H newc -o | gzip -1v > /boot/initramfs.gz
-#find . | cpio -H newc -o | lzop > /boot/initramfs.gz
-#if [ ! -e /boot.cfg ]; then
-#        touch /boot.cfg
-#        echo "name=Standard\ Xbian\ boot" >> /boot.cfg
-#        echo "kernel=/kernel.img" >> /boot.cfg
-#        echo "initrd=/initramfs.gz" >> /boot.cfg
-#fi
+
+#find . | cpio -H newc -o | lz4 -cl > /boot/initramfs.gz
+find . | cpio -H newc -o | gzip -1 > /boot/initramfs.gz
+case "$(grep Hard /proc/cpuinfo  | awk '{print $4}')" in
+    i\.MX*)
+            echo "Creating image."
+            mv /boot/initramfs.gz /tmp
+            mkimage -O linux -A arm -T ramdisk -C gzip -d /tmp/initramfs.gz /boot/initramfs.gz
+            ;;
+    *)
+            ;;
+esac
+
 [ "$need_umount" = "yes" ] && umount /boot
 
 touch /run/reboot-required
 
 exit 0
+
+
 

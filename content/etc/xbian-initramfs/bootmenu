@@ -1,8 +1,14 @@
 #!/bin/sh
 
-devices=$(blkid -u filesystem -o device | awk 'ORS=" "{print $1}')
-filesystems=$(blkid -u filesystem -k | awk 'ORS=" "{print $1}')
+exec 1>/dev/stdout
+
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/lib/udev
+
+devices=$(echo $(/sbin/blkid -u filesystem -o device))
+filesystems=$(echo $(/sbin/blkid -u filesystem -k))
 boottargets=''
+
+echo "Searching on $devices"
 
 umount_all()
 {
@@ -56,18 +62,25 @@ in_list()
 
 f()
 {
-        am=$(findmnt -n -f -o target $3)
-        if [ -n "$am" ]; then
-                mount -o bind $am $2
+        if [ $1 = btrfs ]; then
+            opt=subvol=/
         else
-                mount -t $1 -o ro $3 $2 > /dev/null 2>&1|| return 0
+            am=$(/bin/findmnt -n -f -o target $3)
+            opt=ro
         fi
 
-        [ -e $2/boot.cfg ] && . $2/boot.cfg || return 0
+        if [ -z "$am" ]; then
+                am=$2
+                /bin/mount -t $1 -o $opt $3 $2 > /dev/null 2>&1|| return 0
+        fi
 
-        [ -z "$name" -o -z "$kernel" -o -z "$initramfs" -o -z "$append" ] && return 0
+        [ -e $am/boot.cfg ] && . $am/boot.cfg || return 0
 
-        printf "%s" "$3 $name"
+        [ -z "$boot_name" -o -z "$boot_kernel" -o -z "$boot_cmdline" ] && return 0
+        [ -n "$boot_initramfs" -a ! -e $am/$boot_initramfs ] && return 0
+        [ ! -e $am/$boot_kernel ] && return 0
+
+        echo "$boot_name"
 }
 
 check_devices()
@@ -75,45 +88,80 @@ check_devices()
 
 for dev in $devices; do
         o=''
-        typed=$(blkid -s TYPE -o value $dev)
+        typed=$(/sbin/blkid -s TYPE -o value $dev)
         in_list $typed || continue
 
         mntd=$(mktemp -d)
 
         o=$(f $typed $mntd $dev)
-        [ -n "$o" ] && boottargets="$o $boottargets"
+        [ -n "$o" ] && boottargets="$boottargets $dev $o"
 
-        [ '1' = "$(grep -c $mntd  /proc/mounts)" ] && umount $mntd
-        rmdir $mntd
+        mountpoint -q $mntd && /bin/umount $mntd
+        mountpoint -q $mntd || rmdir $mntd
 done
 
-        echo $boottargets
+        echo "$boottargets"
 }
 
 opt=$(check_devices)
-[ -e /bootmenu_timeout ] && /bootmenu_timeout &
-echo $opt > /run/bootmenu
-choice=$(whiptail --menu Choose\ your\ boot\ partition 25 60 10 $opt 3>&1 1>&2 2>&3)
+[ -z "$opt" ] && exit 0
 
-pkill bootmenu_timeout
+[ -e /bootmenu_timeout ] && /bootmenu_timeout & ptm=$! >/dev/null 2>&1
+echo $opt > /run/bootmenu
+choice=$(whiptail --fb --menu Choose\ your\ boot\ partition 25 60 10 $opt 3>&1 1>&2 2>&3)
+setterm -reset
+
+[ -z "$ptm" ] || kill $ptm >/dev/null 2>&1
 [ -z "$choice" -o "$choice" = "-" ] && exit 1
 
 mntd=$(mktemp -d)
-fm=$(findmnt -n -f -o target $choice)
-if [ -n "$fm" ]; then
-        mount -o bind $fm $mntd
+fst=$(/sbin/blkid -p -s TYPE -o value "$choice")
+
+if [ $fst = btrfs ]; then 
+    opt=subvol=/
 else
-        mount -t $(blkid -p -s TYPE -o value "$choice") $choice $mntd
+    fm=$(/bin/findmnt -n -f -o target $choice)
+    opt=ro
+fi
+if [ -z "$fm" ]; then
+    fm=$mntd
+    /bin/mount -t $fst -o $opt $choice $fm
 fi
 
-. $mntd/boot.cfg
+. $fm/boot.cfg
+
+[ -z "$snapchoice" ] && snapchoice='root/@'
+if [ $fst = btrfs ]; then
+    snaps=$(find $fm -maxdepth 2 -mindepth 2 -type d -printf "%P .\n" | grep root/@ )
+    [ $boot_snap = yes ] && [ -n "$snaps" ] && snapchoice=$(whiptail --clear --fb --menu Choose\ your\ snapshot 25 80 10 $snaps 3>&1 1>&2 2>&3)
+fi
+setterm -reset
+
+if echo $boot_cmdline | grep -q 'subvol='; then
+    sub=${boot_cmdline##*subvol=};sub=${sub%%,*}
+    boot_cmdline=$(echo $boot_cmdline | eval sed 's%$sub%$snapchoice%')
+else
+    boot_cmdline=$(echo $boot_cmdline | eval sed 's%rootflags=%rootflags=subvol=$snapchoice,%')
+fi
+
+echo $boot_cmdline | grep -q root= && unset root_append || root_append="root=$choice"
 
 echo "loading kernel"
-eval /sbin/kexec --initrd=$mntd/$initramfs --append="\"$append root=$choice\"" -l $mntd/$kernel
-echo "stopping processes"
-#/sbin/killall5 -15 -o $$
+if [ -n "$boot_initramfs" ]; then
+    eval /sbin/kexec --initrd=$fm/$boot_initramfs --command-line="\"$boot_cmdline $root_append \"" -l $fm/$boot_kernel
+else
+    eval /sbin/kexec --command-line="\"$boot_cmdline $root_append \"" -l $fm/$boot_kernel
+fi
+/bin/umount $fm
+
+exec > /dev/null
+echo "stopping processes" 1>&2
+/sbin/killall5 -15 -o $$ 2>&1
 sleep 10
-umount_all 
-net_down 
-modules_down 
+echo "unmounting filesystems" 1>&2
+umount_all 2>&1
+echo "stopping network" 1>&2
+net_down 2>&1
+echo "removing modules" 1>&2
+modules_down  2>&1
 exec /sbin/kexec -e

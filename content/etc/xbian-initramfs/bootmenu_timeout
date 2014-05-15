@@ -1,4 +1,13 @@
 #!/bin/sh
 
 { [ -z "$CONFIG_bootmenu" ] || [ "$CONFIG_bootmenu" -le 10 ]; } && CONFIG_bootmenu=10
-sleep $CONFIG_bootmenu; kill -9 $(pidof whiptail)
+
+while test $CONFIG_bootmenu -gt 0; do
+    CONFIG_bootmenu=$((CONFIG_bootmenu - 1))
+    sleep 1
+done
+
+kill -9 $(pidof whiptail) 2>/dev/null
+setterm -reset
+
+exit 0

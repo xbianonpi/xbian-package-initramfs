@@ -1,0 +1,6 @@
+#!/bin/sh
+
+cat /proc/cpuinfo | grep -i hardware |grep -q BCM2708 && platform='RPI'
+[ -z "$platform" ] && platform='iMX6'
+
+echo "$platform"

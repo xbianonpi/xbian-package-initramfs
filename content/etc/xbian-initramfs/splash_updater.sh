@@ -11,5 +11,6 @@ while [ ! -e /run/splash_updater.kill ]; do
 	sleep 1
 done
 
+exec 2>/dev/null
 pkill tail
 rm /run/splash_updater.kill

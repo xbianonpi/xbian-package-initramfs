@@ -1,0 +1,37 @@
+#!/bin/sh
+
+exec >/dev/null
+
+t="$2"
+b=$1
+
+tp=""
+[ "$b" = /dev/root ] && export $(tr " " "\n" < /proc/cmdline | grep rootfstype=)
+[ -z "$rootfstype" ] && export rootfstype=$(blkid $b -o value -s TYPE)
+set -- $(echo $@|sed s/nobootwait//g)
+
+if /bin/mountpoint -q "$t"; then
+    while test $1 != '-o'; do shift ; done
+    shift
+    /bin/mount -i --no-canonicalize -o remount,$(echo $@) $b $t || :
+else
+
+    [ $rootfstype != btrfs ] && findmnt -S $b && exit 0
+    while [ ! -b $b ]; do sleep 0.2; done
+
+    grep -w $b /etc/fstab | grep -w $t | \
+        while read sa sb sc sd se sf; do
+            [ "$sf" -eq 1 ] || continue
+            [ -x "/sbin/fsck.$rootfstype" ] || continue
+
+            if [ "$rootfstype" = vfat ]; then
+                "/sbin/fsck.$rootfstype" -aw $b
+            else
+                "/sbin/fsck.$rootfstype" -a $b
+            fi
+        done
+
+    /bin/mount -i -t $rootfstype --no-canonicalize $@ || :
+fi
+
+exit 0

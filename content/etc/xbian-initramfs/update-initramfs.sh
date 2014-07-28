@@ -268,6 +268,7 @@ cp /etc/xbian-initramfs/splash_updater.sh ./
 copy_with_libs /usr/bin/stdbuf
 copy_with_libs /usr/lib/coreutils/libstdbuf.so
 copy_with_libs /usr/bin/setterm
+copy_with_libs /usr/bin/mkimage
 
 #echo ok
 #sleep 365d

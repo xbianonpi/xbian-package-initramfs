@@ -27,7 +27,7 @@ else
             if [ "$rootfstype" = vfat ]; then
                 "/sbin/fsck.$rootfstype" -aw $b
             else
-                "/sbin/fsck.$rootfstype" -a $b
+                "/sbin/fsck.$rootfstype" -fy $b 2>/dev/null
             fi
         done
 

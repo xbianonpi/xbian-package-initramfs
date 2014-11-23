@@ -2,7 +2,7 @@
 
 unset $(env | grep CONFIG_ | cut -f1 -d'=')
 
-PATH=/sbin:/bin:/usr/bin:/usr/sbin:/lib/udev:/usr/local/sbin
+PATH=/sbin:/bin:/usr/bin:/usr/sbin:/lib/udev:/usr/local/sbin:/usr/local/bin
 export PATH
 . /cnvres-code.sh
 
@@ -79,11 +79,14 @@ if [ -n "$CONFIG_bootmenu" ]; then
     up "dev settle"
 fi
 
+### hack to allow faster FEC initialisation on iMX6
+grep -q 'Freescale i.MX6' /proc/cpuinfo && ip link set eth0 up &
+
 test -n "$CONFIG_vnc" && vncrun
 test -n "$CONFIG_telnet" && telnetrun
 
 [ -z "$CONFIG_splash" ] && touch /run/nosplash
-ifconfig lo inet 127.0.0.1
+busybox ifconfig lo inet 127.0.0.1
 test -n "$CONFIG_splash" && { /usr/bin/splash --infinitebar --msgtxt="init process..." ; }
 
 if [ -z "$CONFIG_norescuekbd" ]; then
@@ -206,7 +209,9 @@ kill $pid > /dev/null 2>&1; kill $(pidof thd) > /dev/null 2>&1; kill $(cat /teln
 
 up "switch root"
 
-[ -e $CONFIG_newroot/etc/default/hwclock.fake ] && /bin/date --set="$(cat $CONFIG_newroot/etc/default/hwclock.fake)" >/dev/null && touch  $CONFIG_newroot/run/hwclock.init
+if ! dmesg | grep -q 'setting system clock' && test -e $CONFIG_newroot/etc/default/hwclock.fake && /bin/date --set="$(cat $CONFIG_newroot/etc/default/hwclock.fake)" >/dev/null; then
+    touch $CONFIG_newroot/run/hwclock.init
+fi
 
 if test -n "$CONFIG_debug"; then set -- --verbose $@; fi
 if test -n "$CONFIG_startevent"; then set -- --startup-event=$CONFIG_startevent $@; fi

@@ -32,7 +32,7 @@ net_down()
         for n in $nets; do 
                 echo "taking down $n"
                 if [ -z "$1" ]; then
-                         ifconfig $n down
+                         ip link set $n down
                 fi
         done
 }

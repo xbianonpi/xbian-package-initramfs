@@ -3,7 +3,7 @@
 telnetrun() {
     [ -e /bin/bash ] && shl=/bin/bash || shl=/bin/sh
     echo "ENV=/.profile exec $shl" > /cmd.sh; chmod +x /cmd.sh
-    /bin/busybox cttyhack /bin/busybox telnetd -f /howto.txt -F -l /cmd.sh & echo $! > /telnetd.pid
+    busybox cttyhack busybox telnetd -f /howto.txt -F -l /cmd.sh & echo $! > /telnetd.pid
 }
 
 vncrun() {
@@ -459,9 +459,9 @@ drop_shell() {
 	echo "========================================================================="
 	cat /howto.txt
 	if [ -e /bin/bash ]; then
-		/bin/busybox cttyhack /bin/bash
+		busybox cttyhack /bin/bash
 	else 
-		ENV=/.profile /bin/busybox cttyhack /bin/sh
+		ENV=/.profile busybox cttyhack /bin/sh
 	fi
 	rm -fr /run/do_drop
 	ps | grep busybox | grep telnetd | xargs kill ; pkill sshrun

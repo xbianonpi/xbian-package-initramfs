@@ -1,12 +1,12 @@
 Origin: XBian
 Package: xbian-package-initramfs-tools
-Version: 1.3.4-10c
+Version: 1.3.5-1
 Section: kernel
 Essential: Yes
 Priority: standard
 Architecture: armhf
 Pre-Depends: initramfs-tools, triggerhappy
-Depends: udev, btrfs-tools (>=3.14.0), klibc-utils, xbian-package-kernel (>=1.3-6.3a) | linux-image-3.10.30-armmp, xbian-package-splash (>=2.0.2), xbian-package-config-shell (>=2.1.6-57)
+Depends: udev, btrfs-tools (>=3.14.0), klibc-utils, xbian-package-kernel (>=1.3-6.3a) | linux-image-armmp, u-boot-tools
 Replaces: xbian-update
 Maintainer: mk01 <development@xbian.org>
 Description: Initramfs handling tools.

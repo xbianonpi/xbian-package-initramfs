@@ -2,6 +2,14 @@
 
 exec 2>/dev/null
 
+if [ ! -e /usr/local/bin/busybox ]; then
+    [ ! -e /bin/busybox ] && exit 99
+    cp /bin/busybox /usr/local/bin/busybox
+fi
+if [ ! -e /etc/xbian_version ]; then
+    sed -i 's/ --startup-event mountall//g' /boot/boot.scr.txt
+fi
+
 . /etc/default/xbian-initramfs
 
 test -e /run/trigger-xbian-update-initramfs && MODVER=$(cat /run/trigger-xbian-update-initramfs)
@@ -46,7 +54,7 @@ copy_modules() {
 put_to_modules(){
     for m in $1; do
         echo "$(cat ./etc/modules 2>/dev/null)" | grep -qx $m  || echo $m >> ./etc/modules
-	copy_modules $m
+        copy_modules $m
     done
 }
 
@@ -58,10 +66,11 @@ copy_file() {
         test -e "$fl" || fl="$dr/$fl"
         case $lib_done in
                 *" $fl "*)
+                        echo "again $fl"
                         return 
                         ;;
                 *)
-                        cp -d -v --parents $3 "$fl" "$2" 
+                        cp -d -v --remove-destination --parents $3 "$fl" "$2" 
                         lib_done="$lib_done $fl"
                         ;;
         esac
@@ -76,6 +85,7 @@ copy_with_libs() {
 
         if [ -d "$1" ]; then
                 cp -a --parents "$1"/* "$dst"
+                return 0
         fi
 
 
@@ -121,11 +131,11 @@ mkdir etc/network/if-down.d etc/network/if-up.d etc/network/if-post-down.d etc/n
 mkdir lib/modules
 mkdir -p usr/bin
 mkdir -p usr/lib/arm-linux-gnueabihf
-#cp /usr/local/bin/busybox-static ./bin
+
 copy_with_libs /usr/local/bin/busybox
-#mv ./bin/busybox-static ./bin/busybox
-mv ./usr/local/bin/busybox ./bin
-chroot ./ /bin/busybox --install -s /bin
+/usr/local/bin/busybox --install -s $(readlink -f ./bin)
+( cd ./bin; ln -s /usr/local/bin/busybox ./; )
+
 cp -d --remove-destination --parents /etc/udev/* ./
 cp -d --remove-destination --parents /etc/default/{tmpfs,rcS,xbian-rnd} ./
 
@@ -162,7 +172,7 @@ depmod -b ./ $MODVER
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
-for f in $(find /usr/local/sbin -iname xbian\*); do
+for f in /usr/local/sbin/{xbian-hwrng,xbian-frandom,xbian-arch}; do
     copy_with_libs $f ./
 done
 copy_with_libs /usr/bin/whiptail ./
@@ -178,6 +188,7 @@ cp /etc/xbian-initramfs/bootmenu_timeout ./
 copy_with_libs /bin/mountpoint ./
 copy_with_libs /sbin/udevd ./
 copy_with_libs /sbin/udevadm ./
+copy_with_libs /lib/systemd/systemd-udevd ./
 copy_with_libs /sbin/findfs
 copy_with_libs /sbin/blkid 
 copy_with_libs /sbin/sfdisk
@@ -230,15 +241,17 @@ cp --remove-destination /usr/lib/klibc/bin/nuke ./sbin
 cp --remove-destination /usr/lib/klibc/bin/nfsmount ./sbin
 
 copy_with_libs /lib/terminfo
-copy_with_libs /usr/bin/setterm
+
 cp --parents /usr/share/consolefonts/Lat2-Fixed16.psf.gz ./
 
-if [ -e ./usr/local/sbin/dispman_vncserver ]; then
-    copy_with_libs /sbin/ldconfig
-    cp --parents /etc/ld.so.conf.d/xbian-firmware.conf ./
-    cp --parents /etc/ld.so.conf ./
-    chroot ./ /sbin/ldconfig 
-fi
+#if [ -e ./usr/local/sbin/dispman_vncserver ]; then
+#    copy_with_libs /sbin/ldconfig
+#    cp --parents /etc/ld.so.conf.d/xbian-firmware.conf ./
+#    cp --parents /etc/ld.so.conf ./
+#    chroot ./ /sbin/ldconfig 
+#fi
+
+copy_with_libs /sbin/ip
 
 copy_with_libs /usr/bin/splash
 cp -d --remove-destination --parents /etc/default/template.json ./
@@ -250,9 +263,10 @@ copy_with_libs /usr/local/bin/modes-cubox
 cp -d --remove-destination -v --parents /lib/udev/{hotplug.functions,firmware.agent,ata_id,edd_id,scsi_id,vio_type,keymap,keyboard-force-release.sh,udev-acl} ./
 #cp -d --remove-destination -v --parents -R /lib/udev/keymaps/* ./
 cp -d --remove-destination -av --parents /lib/udev/rules.d/{50-udev-default.rules,60-persistent-storage.rules,80-drivers.rules,91-permissions.rules,60-persistent-storage-lvm.rules,60-persistent-input.rules,55-dm.rules,60-persistent-storage-dm.rules} ./
-cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,10-local-xbian.rules} ./
+cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,??-local-xbian.rules} ./
 #cat /lib/udev/findkeyboards | sed 's/--dry-run//g' > ./lib/udev/findkeyboards
 #chmod +x ./lib/udev/findkeyboards
+cp /etc/group ./etc
 
 cp /etc/xbian-initramfs/init ./
 grep . /etc/motd -m10 > ./motd
@@ -270,25 +284,27 @@ copy_with_libs /usr/lib/coreutils/libstdbuf.so
 copy_with_libs /usr/bin/setterm
 copy_with_libs /usr/bin/mkimage
 
-#echo ok
-#sleep 365d
-#exit 0
-
 need_umount=''
 if ! mountpoint -q /boot; then
         mount /boot || { echo "FATAL: /boot can't be mounted"; exit 1; }
         need_umount="yes"
 fi
-test "$MAKEBACKUP" = "yes" && mv /boot/initramfs.gz /boot/initramfs.gz.old
+
+if [ "$MAKEBACKUP" = "yes" ]; then
+    test -e /boot/initramfs.gz && mv /boot/initramfs.gz /boot/initramfs.gz.old
+    test -e /boot/initramfs.gz.notinuse && mv /boot/initramfs.gz.notinuse /boot/initramfs.gz.old
+fi
+
 echo "Creating initram fs."
 
 #find . | cpio -H newc -o | lz4 -cl > /boot/initramfs.gz
-find . | cpio -H newc -o | gzip -1 > /boot/initramfs.gz
-case "$(grep Hard /proc/cpuinfo  | awk '{print $4}')" in
-    i\.MX*)
+find . | cpio -H newc -o | gzip > /boot/initramfs.gz
+case "$(xbian-arch)" in
+    iMX6)
             echo "Creating image."
             mv /boot/initramfs.gz /tmp
             mkimage -O linux -A arm -T ramdisk -C gzip -d /tmp/initramfs.gz /boot/initramfs.gz
+            ( cd /boot; ./mks; )
             ;;
     *)
             ;;
@@ -296,9 +312,8 @@ esac
 
 [ "$need_umount" = "yes" ] && umount /boot
 
-touch /run/reboot-required
+echo initramfs-tools >> /run/reboot-required
+sync
 
 exit 0
-
-
 

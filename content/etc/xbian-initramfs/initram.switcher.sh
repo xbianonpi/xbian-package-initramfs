@@ -50,7 +50,7 @@ if [ $platform = RPI ]; then
 elif [ $platform = iMX6 ]; then
     case $ramfs in
         yes)
-            [ -e /boot/initramfs.gz.notinuse ] && mv /boot/initramfs.gz.notinuse /boot/initramfs.gz
+            [ -e /boot/initramfs.gz.notinuse -a ! -e /boot/initramfs.gz ] && mv /boot/initramfs.gz.notinuse /boot/initramfs.gz
         ;;
         no)
             [ -e /boot/initramfs.gz ] && mv /boot/initramfs.gz /boot/initramfs.gz.notinuse
@@ -64,6 +64,7 @@ else
     sed -i 's%iface eth0 inet manual%iface eth0 inet dhcp%' /etc/network/interfaces
 fi
 
-cd /
-umount /boot
+cd /boot
+[ -n "$(find ./ -iname boot.scr.txt -newer boot.scr)" ] && ./mks
+cd /; umount /boot
 exit 0

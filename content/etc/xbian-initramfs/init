@@ -52,17 +52,22 @@ export CONFIG_noconvertsd='0'
 export CONFIG_newroot="/rootfs"
 export CONFIG_console="tty1"
 
+exp=''
 export CMDLINE="$(cat /proc/cmdline)"
 for OPTION in ${CMDLINE}
 do
 	OPTIONNAME=${OPTION%%=*}
+	#case $exp in *$OPTIONNAME*) continue; ;; esac
 	echo "$OPTIONNAME" | grep -vq "\.\|-"  || continue
 	VALUE=${OPTION#*=}
 	test "$VALUE" = "$OPTIONNAME" && VALUE='1'
 	export CONFIG_"$OPTIONNAME"="$VALUE"
+	exp="$exp $OPTIONNAME"
 done
 test ! -x /usr/bin/splash && unset CONFIG_splash
 up "after get cmdline"
+
+test -e /howto.txt && sed -i s%\$CONFIG_newroot%$CONFIG_newroot% ./howto.txt
 
 if [ -n "$CONFIG_debug" ]; then
 	unset CONFIG_rescue
@@ -118,6 +123,7 @@ if [ -n "$CONFIG_cnet" ]; then
 	up "after ipconfig"
 fi
 
+export CONFIG_root=$(echo ${CONFIG_root} | tr -d '"')
 [ -n "${CONFIG_rootflags}" ] && export CONFIG_rootfsopts="${CONFIG_rootflags}"
 
 case ${CONFIG_root} in
@@ -175,10 +181,10 @@ test -n "$CONFIG_partswap" && create_swap
 
 [ -n "$CONFIG_rescue" -o -e /run/do_drop ] && drop_shell
 # root needs to be rw for network settings update
-export CONFIG_rw='rw'
+export CONFIG_rw='rw,'
 # mount root partition
-echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o "$CONFIG_rw",${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot"
-eval $mount_bin -t ${CONFIG_rootfstype}   -o "$CONFIG_rw","$CONFIG_rootfsopts" ${CONFIG_root} $CONFIG_newroot
+echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o ${CONFIG_rw}${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot"
+eval $mount_bin -t ${CONFIG_rootfstype}   -o ${CONFIG_rw}${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot
 if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"
 	drop_shell "noumount"

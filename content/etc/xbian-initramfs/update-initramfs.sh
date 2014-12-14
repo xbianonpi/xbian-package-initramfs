@@ -21,6 +21,8 @@ if [ -z "$MODVER" ]; then
 	test -z "$MODVER" && MODVER="$1"
 fi
 
+depmod -a $MODVER
+
 echo "Updating initramfs as requested by trigger. Kernel modules $MODVER."
 mod_done=''
 lib_done=''

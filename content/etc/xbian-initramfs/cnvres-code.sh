@@ -113,7 +113,7 @@ get_root() {
         btrfs dev ready $CONFIG_root || return 1
         [ "$(btrfs fi show $CONFIG_root | grep -c devid)" -gt 1 ] && export RESIZEERROR=1
     fi
-    
+
     export DEV="${CONFIG_root%[0-9]}"
     if [ ! -e ${DEV} ]; then
 	export DEV=${DEV%p}
@@ -449,8 +449,8 @@ fi
 }
 
 kill_splash() {
-	test -n "$CONFIG_splash" && /bin/kill -SIGTERM $(pidof splash)
-	test -n "$CONFIG_splash" && /bin/kill -SIGTERM $(pidof splash-daemon)
+	test -n "$CONFIG_splash" && /bin/kill -SIGTERM $(pidof splash) 2>/dev/null
+	test -n "$CONFIG_splash" && /bin/kill -SIGTERM $(pidof splash-daemon) 2>/dev/null
 	rm -fr /run/splash
 	busybox setconsole -r
 }
@@ -477,13 +477,13 @@ drop_shell() {
 	cat /motd
 	echo "========================================================================="
 	cat /howto.txt
-	if [ -e /bin/bash ]; then
+	if [ -f /bin/bash ]; then
 		busybox cttyhack /bin/bash
 	else 
 		ENV=/.profile busybox cttyhack /bin/sh
 	fi
 	rm -fr /run/do_drop
-	ps | grep busybox | grep telnetd | xargs kill ; pkill sshrun
+	ps | grep busybox | grep telnetd | xargs kill 2>/dev/null; pkill sshrun
 
 	mountpoint -q /boot && umount /boot; [ -d /boot ] && rmdir /boot
 	if [ "$1" != noumount ]; then

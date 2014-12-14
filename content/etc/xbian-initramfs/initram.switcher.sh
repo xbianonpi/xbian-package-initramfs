@@ -11,9 +11,9 @@ if [ $platform = RPI ]; then
 { z=$(cat /boot/cmdline.txt); z=$(echo ${z##* root=} | awk '{print $1}'); }
 
 case $z in
-    UUID*|LABEL*)
+    UUID=*|LABEL=*)
 	ramfs=yes
-	root=$(findfs $z 2>/dev/null)
+	root=$(findfs $(echo $z|tr -d '"') 2>/dev/null)
 	case $root in 
 	    /dev/mmcblk0*)
 		eval $(echo "sed -i 's%root=$z%root=$root%'") /boot/cmdline.txt
@@ -33,7 +33,23 @@ case $z in
 esac
 elif [ $platform = iMX6 ]; then
     #grep -qx "setenv fstype btrfs" /boot/boot.scr.txt || ramfs=no
-    ramfs=no
+    { z=$(grep root= /boot/boot.scr.txt); z=$(echo ${z##* root=} | awk '{print $1}'); }
+    case $z in
+        ZFS=*)
+            z=${z##ZFS=}
+            ramfs=yes
+            ;;
+        UUID=*|LABEL=*)
+            z=$(findfs $(echo $z|tr -d '"') 2>/dev/null)
+            ramfs=yes
+            ;;
+        /dev/mmcblk0*|/dev/nfs)
+            grep -q vers=4 /boot/boot.scr.txt && ramfs=yes || ramfs=no
+            ;;
+        *)
+            ramfs=no
+            ;;
+    esac
 fi
 
 { [ -e /var/run/reboot-required ] || [ "$FORCEINITRAM" = yes ] || grep -wq 'bootmenu\|rescue' /boot/cmdline.txt 2>/dev/null; } && ramfs=yes || :
@@ -58,13 +74,19 @@ elif [ $platform = iMX6 ]; then
     esac
 fi
 
-if grep -q ip= /boot/cmdline.txt 2>/dev/null && [ $z = $(findmnt -n -v -o SOURCE /) ]; then
-    sed -i 's%iface eth0 inet dhcp%iface eth0 inet manual%' /etc/network/interfaces
-else
-    sed -i 's%iface eth0 inet manual%iface eth0 inet dhcp%' /etc/network/interfaces
+if grep -q ip= /boot/cmdline.txt 2>/dev/null || grep -q ip= /boot/boot.scr.txt 2>/dev/null; then
+    if [ $z = $(findmnt -r -n -v -o SOURCE /) ] && grep -q 'iface eth0 inet dhcp' /etc/network/interfaces; then
+        sed -i 's%iface eth0 inet dhcp%iface eth0 inet manual%' /etc/network/interfaces
+        touch /etc/xbian-initramfs/eth0.swap.eth0
+    fi
+elif ! grep -q ip= /boot/cmdline.txt 2>/dev/null && ! grep -q ip= /boot/boot.scr.txt 2>/dev/null; then
+    if [ $z = $(findmnt -r -n -v -o SOURCE /) -a -e /etc/xbian-initramfs/eth0.swap.eth0 ]; then
+        sed -i 's%iface eth0 inet manual%iface eth0 inet dhcp%' /etc/network/interfaces
+        rm -f /etc/xbian-initramfs/eth0.swap.eth0
+    fi
 fi
 
 cd /boot
-[ -n "$(find ./ -iname boot.scr.txt -newer boot.scr)" ] && ./mks
+[ -n "$(find ./ -iname boot.scr.txt -newer boot.scr 2>/dev/null)" ] && ./mks
 cd /; umount /boot
 exit 0

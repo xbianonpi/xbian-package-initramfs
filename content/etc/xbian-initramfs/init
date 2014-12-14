@@ -160,13 +160,15 @@ if [ "$CONFIG_rootfstype" != "nfs" ]; then
 	echo "$X Waiting for root..."
         sleep 1
     done
-    test ! -b "${CONFIG_root}" && echo "Root partition ${CONFIG_root} missing" && drop_shell
-    ln -s ${CONFIG_root} /dev/root
-    up "root block device found"
+    if [ "$CONFIG_rootfstype" != "zfs" ]; then
+        test ! -b "${CONFIG_root}" && echo "Root partition ${CONFIG_root} missing" && drop_shell
+        ln -s ${CONFIG_root} /dev/root
+        up "root block device found"
 
-    export FSCHECK=$(blkid -s TYPE -o value -p ${CONFIG_root})
-    resize_part; resize_ext4; convert_btrfs
-    up "after resize, convert"
+        export FSCHECK=$(blkid -s TYPE -o value -p ${CONFIG_root})
+        resize_part; resize_ext4; convert_btrfs
+        up "after resize, convert"
+    fi
 fi
 
 test -n "$CONFIG_partswap" && create_swap

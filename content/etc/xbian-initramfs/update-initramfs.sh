@@ -150,8 +150,8 @@ cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 cp /etc/xbian_version ./etc/
 
 cat /etc/modules | grep -v ^# | grep -v lirc_ >> ./etc/modules
-copy_modules "ext4 usb_storage vchiq"
-put_to_modules "nfs sunrpc rpcsec_gss_krb5 lz4 cfq-iosched f2fs"
+copy_modules "ext4 usb_storage vchiq spl zfs"
+put_to_modules "nfs sunrpc rpcsec_gss_krb5 lz4 cfq-iosched f2fs spl zavl znvpair zcommon zunicode zfs"
 copy_modules "$(cat ./etc/modules)"
 echo "$(cat /etc/fstab) $(cat /etc/fstab.d/*)" | awk '{print $3}' | uniq | grep -v ^$ | grep 'nfs\|nfs4\|cifs' \
     | while read fstype; do
@@ -283,6 +283,13 @@ copy_with_libs /usr/bin/stdbuf
 copy_with_libs /usr/lib/coreutils/libstdbuf.so
 copy_with_libs /usr/bin/setterm
 copy_with_libs /usr/bin/mkimage
+
+### zfs
+copy_with_libs /usr/sbin/zpool
+copy_with_libs /usr/sbin/zfs
+copy_with_libs /usr/sbin/mount.zfs
+copy_with_libs /etc/zfs/zpool.cache
+copy_with_libs /etc/modprobe.d/zfs.conf
 
 need_umount=''
 if ! mountpoint -q /boot; then

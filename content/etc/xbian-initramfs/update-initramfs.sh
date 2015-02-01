@@ -309,7 +309,7 @@ echo "Creating initram fs."
 #find . | cpio -H newc -o | lz4 -cl > /boot/initramfs.gz
 find . | cpio -H newc -o | gzip > /boot/initramfs.gz
 case "$(xbian-arch)" in
-    iMX6)
+    iMX6|BPi)
             echo "Creating image."
             mv /boot/initramfs.gz /tmp
             mkimage -O linux -A arm -T ramdisk -C gzip -d /tmp/initramfs.gz /boot/initramfs.gz

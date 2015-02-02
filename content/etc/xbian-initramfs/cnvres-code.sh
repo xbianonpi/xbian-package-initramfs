@@ -110,7 +110,10 @@ get_root() {
 
     if [ $CONFIG_rootfstype = btrfs ]; then
         btrfs dev scan || :
-        btrfs dev ready $CONFIG_root || return 1
+        READY=$(btrfs dev ready $CONFIG_root 2>&1)
+        if [ $? -eq 1 ]; then
+                echo $READY | grep -q Inappropriate && return 0 || return 1
+        fi
         [ "$(btrfs fi show $CONFIG_root | grep -c devid)" -gt 1 ] && export RESIZEERROR=1
     fi
 

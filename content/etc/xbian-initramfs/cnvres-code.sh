@@ -112,7 +112,7 @@ get_root() {
         btrfs dev scan || :
         READY=$(btrfs dev ready $CONFIG_root 2>&1)
         if [ $? -eq 1 ]; then
-                echo $READY | grep -q Inappropriate && return 0 || return 1
+                echo $READY | grep -q Inappropriate || return 1
         fi
         [ "$(btrfs fi show $CONFIG_root | grep -c devid)" -gt 1 ] && export RESIZEERROR=1
     fi

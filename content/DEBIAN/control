@@ -6,7 +6,7 @@ Essential: Yes
 Priority: standard
 Architecture: armhf
 Pre-Depends: initramfs-tools, triggerhappy
-Depends: udev, btrfs-tools (>=3.14.0), klibc-utils, xbian-package-kernel (>=1.3-6.3a) | linux-image-armmp, u-boot-tools
+Depends: udev, btrfs-tools (>=3.14.0), klibc-utils, xbian-package-kernel (>=1.3-6.3a) | linux-image-armmp | linux-image-bcm2836, u-boot-tools
 Replaces: xbian-update
 Maintainer: mk01 <development@xbian.org>
 Description: Initramfs handling tools.

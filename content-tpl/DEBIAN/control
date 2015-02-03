@@ -1,6 +1,6 @@
 Origin: XBian
 Package: xbian-package-initramfs-tools
-Version: 20150203-0
+Version: __DATE__
 Section: kernel
 Essential: Yes
 Priority: standard
@@ -9,4 +9,4 @@ Pre-Depends: initramfs-tools, triggerhappy
 Depends: udev, btrfs-tools (>=3.14.0), klibc-utils, xbian-package-kernel (>=1.3-6.3a) | linux-image-armmp | linux-image-bcm2836, u-boot-tools
 Replaces: xbian-update
 Maintainer: mk01 <development@xbian.org>
-Description: Initramfs handling tools 20150203-0
+Description: Initramfs handling tools __DATE__

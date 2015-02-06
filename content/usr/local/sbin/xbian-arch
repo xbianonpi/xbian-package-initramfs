@@ -1,5 +1,6 @@
 #!/bin/sh
 grep -q BCM2708 /proc/cpuinfo && platform='RPI'
+grep -q BCM2709 /proc/cpuinfo && platform='RPI'
 grep -q sun7i /proc/cpuinfo && platform='BPI'
 
 [ -z "$platform" ] && platform='iMX6'

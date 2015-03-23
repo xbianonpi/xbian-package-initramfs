@@ -1,3 +1,5 @@
 MAKEBACKUP=yes
 
 FORCEINITRAM=no
+
+LVM=no

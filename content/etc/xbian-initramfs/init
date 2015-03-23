@@ -179,6 +179,15 @@ fi
 
 test -n "$CONFIG_partswap" && create_swap
 
+### LVM
+if [ -e /sbin/lvm ]; then
+    test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="detecting LVM volumes..."
+    find /lib/modules -iname dm-mod.ko | xargs -n 1 insmod
+    lvm vgscan --ignorelockingfailure
+    lvm vgchange -aly --ignorelockingfailure
+fi
+### LVM end
+
 [ -n "$CONFIG_rescue" -o -e /run/do_drop ] && drop_shell
 # root needs to be rw for network settings update
 export CONFIG_rw='rw,'

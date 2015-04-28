@@ -25,7 +25,7 @@ case $z in
 	esac
 	;;
     /dev/mmcblk0*|/dev/nfs)
-	grep -q vers=4 /boot/cmdline.txt && ramfs=yes || ramfs=no
+	grep -q "vers=4\|rootfstype=f2fs" /boot/cmdline.txt && ramfs=yes || ramfs=no
 	;;
     *)
 	ramfs=yes
@@ -44,7 +44,7 @@ elif [ $platform = iMX6 ]; then
             ramfs=yes
             ;;
         /dev/mmcblk0*|/dev/nfs)
-            grep -q vers=4 /boot/boot.scr.txt && ramfs=yes || ramfs=no
+            grep -q "vers=4\|rootfstype=f2fs" /boot/boot.scr.txt && ramfs=yes || ramfs=no
             ;;
         *)
             ramfs=no

@@ -181,10 +181,10 @@ test -n "$CONFIG_partswap" && create_swap
 
 ### LVM
 if [ -e /sbin/lvm ]; then
-    test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="detecting LVM volumes..."
-    find /lib/modules -iname dm-mod.ko | xargs -n 1 insmod
-    lvm vgscan --ignorelockingfailure
-    lvm vgchange -aly --ignorelockingfailure
+   test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="detecting LVM volumes..."
+   modprobe dm-mod
+   lvm vgscan --ignorelockingfailure
+   lvm vgchange -aly --ignorelockingfailure
 fi
 ### LVM end
 

@@ -170,6 +170,31 @@ echo "$(cat /etc/fstab) $(cat /etc/fstab.d/*)" | awk '{print $3}' | uniq | grep 
                 ;;
         esac
     done
+
+## lvm
+if [ "$LVM" = "yes" ] && [ -e /sbin/lvm ]; then
+   if [ -e /etc/lvm/lvm.conf ]; then
+	mkdir -p ./etc/lvm
+	cp /etc/lvm/lvm.conf ./etc/lvm/
+   fi
+
+   mkdir -p ./lib/udev/rules.d/
+   for rules in 56-lvm.rules 60-persistent-storage-lvm.rules; do
+        if   [ -e /etc/udev/rules.d/$rules ]; then
+                cp -p /etc/udev/rules.d/$rules ./lib/udev/rules.d/
+        elif [ -e /lib/udev/rules.d/$rules ]; then
+                cp -p /lib/udev/rules.d/$rules ./lib/udev/rules.d/
+        fi
+   done
+
+   copy_with_libs /sbin/dmsetup
+   copy_with_libs /sbin/lvm
+   ln -s lvm ./sbin/vgchange
+
+   copy_modules "dm-mod"
+fi
+### end lvm
+
 depmod -b ./ $MODVER
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
@@ -292,30 +317,6 @@ copy_with_libs /usr/sbin/zfs
 copy_with_libs /usr/sbin/mount.zfs
 copy_with_libs /etc/zfs/zpool.cache
 copy_with_libs /etc/modprobe.d/zfs.conf
-
-## LVM
-if [ "$LVM" = "yes" ] && [ -e /sbin/lvm ]; then
-    if [ -e /etc/lvm/lvm.conf ]; then
-	mkdir -p ./etc/lvm
-	cp /etc/lvm/lvm.conf ./etc/lvm/
-    fi
-
-    mkdir -p ./lib/udev/rules.d/
-    for rules in 56-lvm.rules 60-persistent-storage-lvm.rules; do
-	if   [ -e /etc/udev/rules.d/$rules ]; then
-	    cp -p /etc/udev/rules.d/$rules ./lib/udev/rules.d/
-	elif [ -e /lib/udev/rules.d/$rules ]; then
-	    cp -p /lib/udev/rules.d/$rules ./lib/udev/rules.d/
-	fi
-    done
-
-    copy_with_libs /sbin/dmsetup
-    copy_with_libs /sbin/lvm
-    ln -s lvm ./sbin/vgchange
-    cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/md/dm-mod.ko ./
-    copy_modules "dm_mod"
-fi
-### LVM end
 
 need_umount=''
 if ! mountpoint -q /boot; then

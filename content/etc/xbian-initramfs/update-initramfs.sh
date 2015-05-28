@@ -302,6 +302,8 @@ fi
 if [ "$MAKEBACKUP" = "yes" ]; then
     test -e /boot/initramfs.gz && mv /boot/initramfs.gz /boot/initramfs.gz.old
     test -e /boot/initramfs.gz.notinuse && mv /boot/initramfs.gz.notinuse /boot/initramfs.gz.old
+else
+    rm -f /boot/initramfs.gz.notinuse /boot/initramfs.gz.old
 fi
 
 echo "Creating initram fs."

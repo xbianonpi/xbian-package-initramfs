@@ -16,6 +16,8 @@ if /bin/mountpoint -q "$t"; then
     /bin/mount -i --no-canonicalize -o remount,$(echo $@) $b $t || :
 else
 
+    trap "initctl emit -n mounted MOUNTPOINT='$2'" TERM EXIT
+
     [ $rootfstype != nfs ] || exit 0
     [ $rootfstype != btrfs ] && findmnt -S $b && exit 0
     while [ ! -b $b ]; do sleep 0.2; done

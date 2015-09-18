@@ -1,4 +1,19 @@
 #!/bin/sh
+
+platform=unknown
+revision=unknown
+
+if [ "$1" = revision ]; then
+    grep -q BCM2708 /proc/cpuinfo 2>/dev/null && revision=rpi
+    grep -q BCM2836 /proc/cpuinfo 2>/dev/null && revision=rpi
+    grep -q BCM2709 /proc/cpuinfo 2>/dev/null && revision=rpi2
+    grep -q "i.MX6" /proc/cpuinfo 2>/dev/null && revision=imx6
+    grep -q sun7i /proc/cpuinfo 2>/dev/null && revision=bpi
+    grep -q 'rpi2\-jessie' /etc/apt/sources.list.d/xbian.list && revision=rpi2
+    echo $revision
+    exit 0
+fi
+
 grep -q BCM2708 /proc/cpuinfo && platform='RPI'
 grep -q BCM2709 /proc/cpuinfo && platform='RPI'
 grep -q sun7i /proc/cpuinfo && platform='BPI'
@@ -6,7 +21,5 @@ grep -q "Freescale i.MX6" /proc/cpuinfo && platform='iMX6'
 grep -q "SolidRun i.MX6" /proc/cpuinfo && platform='iMX6'
 grep -q "HummingBoard" /proc/cpuinfo && platform='iMX6'
 grep -q "SolidRun Cubox-i" /proc/cpuinfo && platform='iMX6'
-
-[ -z "$platform" ] && platform='unknown'
 
 echo "$platform"

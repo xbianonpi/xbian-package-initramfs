@@ -2,6 +2,7 @@
 
 platform=unknown
 revision=unknown
+os=unknown
 
 if [ "$1" = revision ]; then
     grep -q BCM2708 /proc/cpuinfo 2>/dev/null && revision=rpi
@@ -11,6 +12,15 @@ if [ "$1" = revision ]; then
     grep -q sun7i /proc/cpuinfo 2>/dev/null && revision=bpi
     grep -q 'rpi2\-jessie' /etc/apt/sources.list.d/xbian.list && revision=rpi2
     echo $revision
+    exit 0
+elif [ "$1" = os ]; then
+    if which lsb_release >/dev/null; then
+        os=$(lsb_release -c -s);
+    elif [ -f /etc/debian_version ]; then
+        grep -q "7\..*" /etc/debian_version && os="wheezy"
+        grep -q "8\..*" /etc/debian_version && os="jessie"
+    fi
+    echo $os
     exit 0
 fi
 

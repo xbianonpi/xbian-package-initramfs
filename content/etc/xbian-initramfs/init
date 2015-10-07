@@ -195,11 +195,9 @@ fi
 ### LVM end
 
 [ -n "$CONFIG_rescue" -o -e /run/do_drop ] && drop_shell
-# root needs to be rw for network settings update
-export CONFIG_rw='rw,'
 # mount root partition
-echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o ${CONFIG_rw}${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot"
-eval $mount_bin -t ${CONFIG_rootfstype}   -o ${CONFIG_rw}${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot
+echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o ${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot"
+eval $mount_bin -t ${CONFIG_rootfstype}   -o ${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot
 if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"
 	drop_shell "noumount"
@@ -207,7 +205,6 @@ fi
 up "after mount"
 
 hostname -F ${CONFIG_newroot}/etc/hostname && touch /run/hostname.init
-[ -e /etc/resolv.conf ] && cp /etc/resolv.conf "${CONFIG_newroot}/etc/"
 
 [ -e /run/do_drop ] && drop_shell
 

@@ -2,6 +2,16 @@
 
 exec >/dev/null
 
+__devroot() {
+    [ ! -e /dev/root ] || return 0
+
+    export $(tr " " "\n" < /proc/cmdline | grep root=)
+    [ -n "$root" ] || root=/dev/mmcblk0p2
+    [ $root = /dev/nfs ] || ln -s $root /dev/root 2>/dev/null| :
+}
+
+__devroot
+
 t="$2"
 b=$1
 
@@ -16,11 +26,10 @@ if /bin/mountpoint -q "$t"; then
     /bin/mount -i --no-canonicalize -o remount,$(echo $@) $b $t || :
 else
 
-    trap "initctl emit -n mounted MOUNTPOINT='$2'" TERM EXIT
+    trap "initctl emit -n mounted MOUNTPOINT='$2'" TERM EXIT KILL
 
     [ $rootfstype != nfs ] || exit 0
     [ $rootfstype != btrfs ] && findmnt -S $b && exit 0
-    while [ ! -b $b ]; do sleep 0.2; done
 
     grep -w $b /etc/fstab | grep -w $t | \
         while read sa sb sc sd se sf; do

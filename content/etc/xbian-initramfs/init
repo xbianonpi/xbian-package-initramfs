@@ -238,7 +238,12 @@ if test -n "$CONFIG_startevent"; then set -- --startup-event=$CONFIG_startevent 
 #unset debug
 set +x
 up "$@"; rm /dev /proc /sys /run
-mkdir /dev; ln -s /rootfs/dev/console /dev/console
+
+mkdir /dev
+for f in tty console; do
+    ln -s /rootfs/dev/$f /dev/$f
+done
+
 echo "Switching root"
 if [ ${CONFIG_init} = 'switch_root' ]; then
 	exec /sbin/switch_root $CONFIG_newroot /sbin/init "$@" <$CONFIG_newroot/dev/console >$CONFIG_newroot/dev/console

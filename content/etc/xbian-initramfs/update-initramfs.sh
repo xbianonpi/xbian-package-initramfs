@@ -284,7 +284,12 @@ copy_with_libs /usr/bin/splash
 cp -d --remove-destination --parents /etc/default/template.json ./
 cp -d --remove-destination -aR --parents /usr/local/lib/splash ./
 copy_with_libs /usr/local/bin/splash-send
-copy_with_libs /usr/local/sbin/splash-daemon
+if [ -e /usr/local/sbin/splash-daemon-static ]; then
+    copy_with_libs /usr/local/sbin/splash-daemon-static
+    mv ./usr/local/sbin/splash-daemon-static ./usr/local/sbin/splash-daemon
+else
+    copy_with_libs /usr/local/sbin/splash-daemon
+fi
 
 copy_with_libs /usr/local/bin/modes-cubox
 cp -d --remove-destination -v --parents /lib/udev/{hotplug.functions,firmware.agent,ata_id,edd_id,scsi_id,vio_type,keymap,keyboard-force-release.sh,udev-acl} ./

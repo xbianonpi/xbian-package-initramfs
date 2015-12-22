@@ -197,7 +197,7 @@ fi
 [ -n "$CONFIG_rescue" -o -e /run/do_drop ] && drop_shell
 # mount root partition
 echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o ${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot"
-eval $mount_bin -t ${CONFIG_rootfstype}   -o ${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot
+eval $mount_bin -t ${CONFIG_rootfstype}   -o noatime,${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot
 if [ "$?" -ne '0' ]; then
 	echo "Mounting root partition ${CONFIG_root} failed"
 	drop_shell "noumount"

@@ -53,6 +53,7 @@ elif [ $platform = iMX6 ]; then
 fi
 
 { [ -e /var/run/reboot-required ] || [ "$FORCEINITRAM" = yes ] || grep -wq 'bootmenu\|rescue' /boot/cmdline.txt 2>/dev/null; } && ramfs=yes || :
+[ "$FORCEINITRAM" != disabled ] || ramfs=no
 
 if [ $platform = RPI ]; then
     case $ramfs in

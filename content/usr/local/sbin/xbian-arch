@@ -11,7 +11,7 @@ if [ "$1" = revision ]; then
     grep -q "i.MX6" /proc/cpuinfo 2>/dev/null && revision=imx6
     grep -q sun7i /proc/cpuinfo 2>/dev/null && revision=bpi
     grep -q 'rpi2\-jessie' /etc/apt/sources.list.d/xbian.list && revision=rpi2
-    grep -q 'Clearfog A1' /proc/cpuinfo 2>/dev/null && revision=a1
+    grep -q 'Clearfog A1' /proc/cpuinfo 2>/dev/null && revision=imx6
     echo $revision
     exit 0
 elif [ "$1" = os ]; then

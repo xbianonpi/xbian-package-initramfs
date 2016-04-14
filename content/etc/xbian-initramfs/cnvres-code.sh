@@ -22,12 +22,12 @@ mount_root_btrfs() {
 }
 
 update_resolv_helper() {
-for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do 
+for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do
     . $f
     [ -z "$IPV4DNS0" ] || echo "nameserver $IPV4DNS0"
     [ -z "$IPV4DNS1" -o "$IPV4DNS1" = '0.0.0.0' ] || echo "nameserver $IPV4DNS1"
     [ -z "$DNSDOMAIN" ] || echo "domain $DNSDOMAIN"
-    [ -z "$DOMAINSEARCH" ] && echo "search $DNSDOMAIN" || echo "search $DOMAINSEARCH" 
+    [ -z "$DOMAINSEARCH" ] && echo "search $DNSDOMAIN" || echo "search $DOMAINSEARCH"
 done
 #echo ""
 }
@@ -144,8 +144,8 @@ if [ "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfstype}" = "btrfs" -a "$FSCH
 				sed -i "s/gpu_mem_256=[0-9]*/gpu_mem_256=32/g" /boot/config.txt
 				umount /boot
 				reboot -f
-		fi	
-	
+		fi
+
 		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card convert..."
 		test -n "$CONFIG_splash" \
 || echo '
@@ -163,7 +163,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 		touch /run/splash_updater.kill
 		export FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
 	fi
-	
+
 	test ! -d /boot && mkdir /boot
 	/bin/mount "${DEV}${PARTdelim}1" /boot
 	test -e /boot/config.txt.convert && mv /boot/config.txt.convert /boot/config.txt
@@ -261,7 +261,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
             if grep -q rootflags /boot/cmdline.txt; then
                 sed -i 's/rootflags=.*? /rootflags=subvol=root\/@,autodefrag,compress=lzo/g' /boot/cmdline.txt
             else
-                l="$(cat /boot/cmdline.txt) rootflags=subvol=root/@,autodefrag,compress=lzo" 
+                l="$(cat /boot/cmdline.txt) rootflags=subvol=root/@,autodefrag,compress=lzo"
                 echo $l > /boot/cmdline.txt
             fi
 	fi
@@ -274,12 +274,10 @@ fi
 
 resize_part() {
 if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfstype}" != "nfs" ]; then
-	nrpart=$(sfdisk -s $DEV$PARTdelim? | grep -c .)
-	if [ "$nrpart" -gt "$PART" ]; then
-		test -z "$CONFIG_partswap" && echo "FATAL: only the last partition can be resized"
-		export RESIZEERROR='1'
-		export RESIZEERROR_NONFATAL=1
-		return 1
+	if [ "$PART" -gt "4" ]; then
+		nrpart=$(sfdisk -l $DEV 2>/dev/null | grep ^$DEV | grep -c .)
+	else
+		nrpart=$(sfdisk -s $DEV$PARTdelim? | grep -c .)
 	fi
 
 	#Save partition table to file
@@ -288,8 +286,21 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 	sectorTOTAL=$(blockdev --getsz ${DEV})
 	sectorSTART=$(grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $4}')
 	sectorSIZE=$(grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $6}')
+
+	if [ "$nrpart" -gt "$PART" ]; then
+		rm /tmp/part.txt &>/dev/null
+		if blkid -s LABEL -o value -p $DEV"$PARTdelim"1 | grep -q RECOVERY; then
+			export sectorNEW=$((sectorSIZE-16))
+			echo "NOTICE: we have NOOBS environment and root partition is not last one"
+			return 0
+		fi
+		test -z "$CONFIG_partswap" && echo "FATAL: only the last partition can be resized"
+		export RESIZEERROR='1'
+		export RESIZEERROR_NONFATAL=1
+		return 1
+	fi
+
 	export sectorNEW=$(( $sectorTOTAL - $sectorSTART ))
-	rm /tmp/part.txt &>/dev/null
 
 	if [ $sectorSIZE -lt $sectorNEW ]; then
 		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
@@ -303,6 +314,19 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88'
+
+		if [ "$nrpart" -gt "4" ]; then
+			EXTDEV=$(sfdisk -l ${DEV} | grep "Extended" | awk '{ print $1 }')
+			EXTPART=${EXTDEV#${EXTDEV%?}}
+			sectorexSTART=$(grep ${EXTDEV} /tmp/part.txt | awk '{printf "%d", $4}')
+			sectorexSIZE=$(grep ${EXTDEV} /tmp/part.txt | awk '{printf "%d", $6}')
+			export sectorexNEW=$(( $sectorTOTAL - $sectorexSTART ))
+			if [ $sectorexSIZE -lt $sectorexNEW ]; then
+				echo "resizing extended partition $EXTDEV ($EXTPART) ..."
+				echo ",${sectorexNEW},,," | sfdisk -uS -N${EXTPART} --force -q ${DEV} 2>/dev/null
+				/sbin/partprobe
+			fi
+		fi
 
 		pSIZE=$(sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}')
 		echo ",${sectorNEW},,," | sfdisk -uS -N${PART} --force -q ${DEV}
@@ -318,6 +342,7 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 	else
 		export RESIZEERROR="0"
 	fi
+	rm /tmp/part.txt &>/dev/null
 fi
 
 [ "$RESIZEERROR" -lt '0' ] && return 0 || return $RESIZEERROR
@@ -371,11 +396,11 @@ resize_btrfs() {
 if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "btrfs" -a "$FSCHECK" = 'btrfs' ]; then
 
         smsg="fs resize..."
-        [ -n "$1" ] && smsg="$1" 
+        [ -n "$1" ] && smsg="$1"
 
 	# check if the partition needs resizing
 	sectorDF=$(df -B512 -P | grep "$CONFIG_newroot" | awk '{printf "%d", $2}')
-	
+
 	# resize root partition
 	if [ "$sectorDF" -lt "$sectorNEW" ]; then
 		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt=$smsg
@@ -391,7 +416,7 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfsty
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88'
 		/sbin/btrfs fi resize max $CONFIG_newroot
 		/sbin/btrfs fi sync $CONFIG_newroot
-		
+
 		sectorDF=`df -B512 -P | grep "$CONFIG_newroot" | awk '{printf "%d", $2}'`
 
 		# check if parition was actually resized
@@ -429,8 +454,12 @@ ln -s $CONFIG_newroot/proc /proc
 
 create_swap() {
 if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_partswap" -eq '1' -a "$CONFIG_rootfstype" = "btrfs" -a "$FSCHECK" = 'btrfs' ]; then
-    nrpart=$(sfdisk -s $DEV$PARTdelim? | grep -c .)
-    [ $nrpart -gt $PART -o $PART -gt 3 ] && return 1
+    if [ "$PART" -gt "4" ]; then
+        nrpart=$(sfdisk -l $DEV 2>/dev/null | grep ^$DEV | grep -c .)
+    else
+        nrpart=$(sfdisk -s $DEV$PARTdelim? | grep -c .)
+    fi
+    [ $nrpart -gt $PART -o $PART -eq 4 ] && return 1
     [ "$(blkid -s TYPE -o value -p $DEV$PARTdelim$nrpart)" = swap ] && return 0
     mount_root_btrfs $CONFIG_root && resize_btrfs "creating swap..."
     mountpoint -q $CONFIG_newroot || return 1
@@ -443,10 +472,26 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_partswap" -eq '1' -a "$CONFIG_rootfstype
     swapsize=$(( $swapsize - 5 ))
     echo ",-$swapsize,,," | sfdisk -uM -N${PART} --force ${DEV}
     /sbin/partprobe
-    pend=$(sfdisk -l -uS ${DEV} 2>/dev/null| grep $CONFIG_root | awk '{print $3}')
+    pend=$(sfdisk -l -uS ${DEV} 2>/dev/null | grep $CONFIG_root | awk '{print $3}')
     pstart=$(( ($pend/2048 + 1) * 2048));pPART=$(($PART+1))
-    echo "$pstart,+,S,," | sfdisk -uS -N${pPART} --force ${DEV}
+    if [ "$nrpart" -gt "4" ]; then
+        echo "n
+l
+$pstart
+
+
+t
+
+82
+p
+w
+" | fdisk ${DEV}
+    else
+        echo "$pstart,+,S,," | sfdisk -uS -N${pPART} --force ${DEV}
+    fi
+    /sbin/swapoff -a
     /sbin/partprobe
+    /sbin/swapoff -a	# make sure that swap is turned off when making swap
     mkswap ${DEV}${PARTdelim}${pPART}
 fi
 }
@@ -482,7 +527,7 @@ drop_shell() {
 	cat /howto.txt
 	if [ -f /bin/bash ]; then
 		busybox cttyhack /bin/bash
-	else 
+	else
 		ENV=/.profile busybox cttyhack /bin/sh
 	fi
 	rm -fr /run/do_drop

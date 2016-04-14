@@ -281,6 +281,8 @@ cp --parents /usr/share/consolefonts/Lat2-Fixed16.psf.gz ./
 copy_with_libs /sbin/ip
 
 copy_with_libs /usr/bin/splash
+copy_with_libs /sbin/fdisk
+copy_with_libs /sbin/swapoff
 cp -d --remove-destination --parents /etc/default/template.json ./
 cp -d --remove-destination -aR --parents /usr/local/lib/splash ./
 copy_with_libs /usr/local/bin/splash-send

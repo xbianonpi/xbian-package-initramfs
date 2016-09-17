@@ -42,9 +42,9 @@ elif [ $1 == "triggered" ]; then
 
         case $(xbian-arch) in 
             RPI)
-            if ! grep -q "initramfs initramfs.gz  0x1000000" /boot/config.txt; then
+            if ! grep -q "initramfs initramfs.gz" /boot/config.txt; then
                 cat /boot/config.txt | grep -v initramfs > /boot/config.txt.new
-                echo "initramfs initramfs.gz  0x1000000" > /boot/config.txt
+                echo "initramfs initramfs.gz  0x1500000" > /boot/config.txt
                 cat /boot/config.txt.new >> /boot/config.txt
                 rm /boot/config.txt.new
             fi

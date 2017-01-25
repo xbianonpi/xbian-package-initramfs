@@ -251,9 +251,9 @@ rm /bin/switch_root
 copy_with_libs /sbin/switch_root
 #rm -fr ./bin/find
 #copy_with_libs /usr/bin/find
-copy_with_libs /sbin/btrfs 
-copy_with_libs /sbin/btrfs-convert 
-copy_with_libs /sbin/btrfs-zero-log
+copy_with_libs $(which btrfs)
+copy_with_libs $(which btrfs-convert)
+copy_with_libs $(which btrfs-zero-log)
 copy_with_libs /usr/sbin/thd
 copy_with_libs /usr/sbin/th-cmd
 copy_with_libs /usr/bin/nice

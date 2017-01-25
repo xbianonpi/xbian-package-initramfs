@@ -170,24 +170,24 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 	test "$FSCHECK" = "ext4" && sed -i "s/rootfstype=btrfs/rootfstype=ext4/g" /boot/cmdline.txt
 	if [ "$FSCHECK" = "btrfs" ]; then
 		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="post conversion tasks..."
-		/sbin/btrfs fi label ${CONFIG_root} xbian-root-btrfs
+		btrfs fi label ${CONFIG_root} xbian-root-btrfs
 		mount_root_btrfs
 		create_fsck $CONFIG_newroot
-		/sbin/btrfs sub delete $CONFIG_newroot/ext2_saved
+		btrfs sub delete $CONFIG_newroot/ext2_saved
 
-		/sbin/btrfs sub create $CONFIG_newroot/ROOT
+		btrfs sub create $CONFIG_newroot/ROOT
 		echo "Moving root..."
 		test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="moving root..."
-		/sbin/btrfs sub snap $CONFIG_newroot $CONFIG_newroot/ROOT/@
+		btrfs sub snap $CONFIG_newroot $CONFIG_newroot/ROOT/@
 
                 mount && echo '============================' && sleep 15
 		for f in $(ls $CONFIG_newroot | grep -vw ROOT); do rm -fr $CONFIG_newroot/$f >/dev/null 2>&1; done
 
 		mv $CONFIG_newroot/ROOT $CONFIG_newroot/root
-		/sbin/btrfs sub create $CONFIG_newroot/home
-		/sbin/btrfs sub create $CONFIG_newroot/home/@
-		/sbin/btrfs sub create $CONFIG_newroot/modules
-		/sbin/btrfs sub create $CONFIG_newroot/modules/@
+		btrfs sub create $CONFIG_newroot/home
+		btrfs sub create $CONFIG_newroot/home/@
+		btrfs sub create $CONFIG_newroot/modules
+		btrfs sub create $CONFIG_newroot/modules/@
 		mv $CONFIG_newroot/root/@/home/* $CONFIG_newroot/home/@
 		mv $CONFIG_newroot/root/@/lib/modules/* $CONFIG_newroot/modules/@
 		cp $CONFIG_newroot/root/@/etc/fstab $CONFIG_newroot/root/@/etc/fstab.ext4
@@ -281,7 +281,7 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 	fi
 
 	#Save partition table to file
-	/sbin/sfdisk -u S -d ${DEV} > /tmp/part.txt
+	/sbin/sfdisk -uS -d ${DEV} > /tmp/part.txt
 	#Read partition sizes
 	sectorTOTAL=$(blockdev --getsz ${DEV})
 	sectorSTART=$(grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $4}')
@@ -300,7 +300,7 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 		return 1
 	fi
 
-	export sectorNEW=$(( $sectorTOTAL - $sectorSTART ))
+	export sectorNEW=$(( $sectorTOTAL - $sectorSTART - 2048 ))
 
 	if [ $sectorSIZE -lt $sectorNEW ]; then
 		test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
@@ -320,16 +320,16 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 			EXTPART=${EXTDEV#${EXTDEV%?}}
 			sectorexSTART=$(grep ${EXTDEV} /tmp/part.txt | awk '{printf "%d", $4}')
 			sectorexSIZE=$(grep ${EXTDEV} /tmp/part.txt | awk '{printf "%d", $6}')
-			export sectorexNEW=$(( $sectorTOTAL - $sectorexSTART ))
+			export sectorexNEW=$(( $sectorTOTAL - $sectorexSTART - 2048 ))
 			if [ $sectorexSIZE -lt $sectorexNEW ]; then
 				echo "resizing extended partition $EXTDEV ($EXTPART) ..."
-				echo ",${sectorexNEW},,," | sfdisk -uS -N${EXTPART} --force -q ${DEV} 2>/dev/null
+				echo ",+,,," | sfdisk -uS -N${EXTPART} --force -q ${DEV} 2>/dev/null
 				/sbin/partprobe
 			fi
 		fi
 
 		pSIZE=$(sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}')
-		echo ",${sectorNEW},,," | sfdisk -uS -N${PART} --force -q ${DEV}
+		echo ",+,,," | sfdisk -uS -N${PART} --force -q ${DEV}
 		/sbin/partprobe
 		nSIZE=$(sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}')
 
@@ -414,8 +414,8 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfsty
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88'
-		/sbin/btrfs fi resize max $CONFIG_newroot
-		/sbin/btrfs fi sync $CONFIG_newroot
+		btrfs fi resize max $CONFIG_newroot
+		btrfs fi sync $CONFIG_newroot
 
 		sectorDF=`df -B512 -P | grep "$CONFIG_newroot" | awk '{printf "%d", $2}'`
 
@@ -466,11 +466,11 @@ if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_partswap" -eq '1' -a "$CONFIG_rootfstype
 
     swapsize=$(( $(blockdev --getsize64 $CONFIG_root) /10/1024/1024)); [ $swapsize -gt 250 ] && swapsize=250
 
-    /sbin/btrfs fi resize -${swapsize}M $CONFIG_newroot || { umount $CONFIG_newroot; return 1; }
-    /sbin/btrfs fi sync $CONFIG_newroot
+    btrfs fi resize -${swapsize}M $CONFIG_newroot || { umount $CONFIG_newroot; return 1; }
+    btrfs fi sync $CONFIG_newroot
     umount $CONFIG_newroot
-    swapsize=$(( $swapsize - 5 ))
-    echo ",-$swapsize,,," | sfdisk -uM -N${PART} --force ${DEV}
+    swapsize=$(( ( $swapsize - 5 ) * 1024*2 ))
+    echo ",-$swapsize,,," | sfdisk -uS -N${PART} --force ${DEV}
     /sbin/partprobe
     pend=$(sfdisk -l -uS ${DEV} 2>/dev/null | grep $CONFIG_root | awk '{print $3}')
     pstart=$(( ($pend/2048 + 1) * 2048));pPART=$(($PART+1))

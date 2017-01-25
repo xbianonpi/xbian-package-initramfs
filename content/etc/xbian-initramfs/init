@@ -31,7 +31,7 @@ up "/run";  chmod 666 /run/uptime-init.log
 
 [ ! -e /etc/udev/udev.conf ] || . /etc/udev/udev.conf
 echo > /sys/kernel/uevent_helper
-udevd --daemon --resolve-names=never
+[ -x /sbin/udevd ] && udevd --daemon --resolve-names=never || /lib/systemd/systemd-udevd --daemon --resolve-names=never
 udevadm trigger --action=add
 up "started udev"
 

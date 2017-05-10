@@ -38,26 +38,28 @@ elif [ $1 == "triggered" ]; then
 #        { mountpoint -q /boot && [ "$(findmnt -o source -n /boot)" = '/dev/mmcblk0p1' ]; } || { umount /boot >/dev/null 2>&1; mount -t vfat /dev/mmcblk0p1 /boot || { echo "CAN'T MOUNT BOOT"; exit 1; }; }
         mountpoint -q /boot || mount /boot || exit 1
 
-        /etc/xbian-initramfs/update-initramfs.sh > /dev/null 2>&1
+        /etc/xbian-initramfs/update-initramfs.sh &>/dev/null
 
         case $(xbian-arch) in 
             RPI)
-            if ! grep -q "initramfs initramfs.gz" /boot/config.txt; then
-                cat /boot/config.txt | grep -v initramfs > /boot/config.txt.new
-                echo "initramfs initramfs.gz  0x1500000" > /boot/config.txt
-                cat /boot/config.txt.new >> /boot/config.txt
-                rm /boot/config.txt.new
-            fi
+                if grep -q "initramfs initramfs.gz" /boot/config.txt; then
+                    sed  -i "s/initramfs.gz[\t ]*0x10/initramfs.gz  0x15/g" /boot/config.txt
+                else
+                    cat /boot/config.txt | grep -v initramfs > /boot/config.txt.new
+                    echo "initramfs initramfs.gz  0x1500000" > /boot/config.txt
+                    cat /boot/config.txt.new >> /boot/config.txt
+                    rm /boot/config.txt.new
+                fi
 
-            if [ -e /etc/xbian_version ] || grep -q 'rootfstype=btrfs' /boot/cmdline.txt; then
-                :
-            else
-                echo " SETTING rootfstype=btrfs in cmdline.txt. This will start filesystem conversion during next reboot. As soon as DPKG and APT processes terminate, reboot your RPI " 
-                sed -i 's/rootfstype=[a-zA-Z0-9]*/rootfstype=btrfs/' /boot/cmdline.txt
-            fi
-            ;;
+                if [ -e /etc/xbian_version ] || grep -q 'rootfstype=btrfs' /boot/cmdline.txt; then
+                    :
+                else
+                    echo " SETTING rootfstype=btrfs in cmdline.txt. This will start filesystem conversion during next reboot. As soon as DPKG and APT processes terminate, reboot your RPI "
+                    sed -i 's/rootfstype=[a-zA-Z0-9]*/rootfstype=btrfs/' /boot/cmdline.txt
+                fi
+                ;;
             *)
-            ;;
+                ;;
         esac
 
 fi

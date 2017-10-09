@@ -82,7 +82,7 @@ fi
 
 get_root() {
     [ -n "$CONFIG_roottxt" ] && export CONFIG_root="$CONFIG_roottxt"
-    if echo $CONFIG_root | grep -q ^'UUID=\|LABEL='; then
+    if echo $CONFIG_root | grep -q ^'UUID=\|LABEL=\|PARTUUID='; then
         export CONFIG_roottxt=$CONFIG_root
         export CONFIG_root=$(findfs $CONFIG_roottxt 2>/dev/null)
         [ -z $CONFIG_root ] && return 1

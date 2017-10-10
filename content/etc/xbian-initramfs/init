@@ -95,9 +95,9 @@ busybox ifconfig lo inet 127.0.0.1
 test -n "$CONFIG_splash" && { /usr/bin/splash --infinitebar --msgtxt="init process..." ; }
 
 if [ -z "$CONFIG_norescuekbd" ]; then
-    echo "Looking for keyboards"
+    echo "Looking for keyboards ..."
     { X=0; while test ! -d /dev/input && test $X -le '7'; do sleep 0.2; X=$(($X+1)); done; }
-    while true; do if test -e /dev/input/event0; then nice -n -10 /usr/sbin/thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d); break; else sleep 0.2; fi; done & pid=$!
+    while true; do if test -e /dev/input/event0; then echo "Keyboard ready ..."; nice -n -10 /usr/sbin/thd --daemon --triggers /trigg.shift $(find /dev/input ! -type d); break; else sleep 0.2; fi; done & pid=$!
     up "dev keyb"
 fi
 

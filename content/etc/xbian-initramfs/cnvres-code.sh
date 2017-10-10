@@ -275,7 +275,7 @@ fi
 resize_part() {
 if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfstype}" != "nfs" ]; then
 	if [ "$PART" -gt "4" ]; then
-		nrpart=$(sfdisk -l $DEV 2>/dev/null | grep ^$DEV | grep -c .)
+		for nrpart in $(sfdisk -l ${DEV} 2>/dev/null | grep ^$DEV | awk '{printf "%s", $1}'); do nrpart="${nrpart##*$DEV$PARTdelim}"; done
 	else
 		nrpart=$(sfdisk -s $DEV$PARTdelim? | grep -c .)
 	fi
@@ -291,7 +291,7 @@ if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfst
 		rm /tmp/part.txt &>/dev/null
 		if blkid -s LABEL -o value -p $DEV"$PARTdelim"1 | grep -q RECOVERY; then
 			export sectorNEW=$((sectorSIZE-16))
-			echo "NOTICE: we have NOOBS environment and root partition is not last one"
+			echo "NOTICE: running under NOOBS/PINN environment and root partition is not at the end"
 			return 0
 		fi
 		test -z "$CONFIG_partswap" && echo "FATAL: only the last partition can be resized"
@@ -455,7 +455,7 @@ ln -s $CONFIG_newroot/proc /proc
 create_swap() {
 if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_partswap" -eq '1' -a "$CONFIG_rootfstype" = "btrfs" -a "$FSCHECK" = 'btrfs' ]; then
     if [ "$PART" -gt "4" ]; then
-        nrpart=$(sfdisk -l $DEV 2>/dev/null | grep ^$DEV | grep -c .)
+        for nrpart in $(sfdisk -l ${DEV} 2>/dev/null | grep ^$DEV | awk '{printf "%s", $1}'); do nrpart="${nrpart##*$DEV$PARTdelim}"; done
     else
         nrpart=$(sfdisk -s $DEV$PARTdelim? | grep -c .)
     fi
@@ -508,10 +508,11 @@ drop_shell() {
 	set +x
 
 	[ ! -d /boot ] && mkdir /boot
-	/bin/mount /dev/mmcblk0p1 /boot
 
 	if [ "$1" != noumount ]; then
 	    mountpoint -q $CONFIG_newroot || eval $mount_bin -t ${CONFIG_rootfstype} -o rw,"$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
+	    [ -e $CONFIG_newroot/etc/fstab ] && /bin/mount "$(cat $CONFIG_newroot/etc/fstab | grep /boot | awk '{ print $1 }')" /boot
+	    mountpoint -q /boot || /bin/mount /dev/mmcblk0p1 /boot
 	    mountpoint -q $CONFIG_newroot/proc || /bin/mount -o bind /proc $CONFIG_newroot/proc
 	    mountpoint -q $CONFIG_newroot/boot || /bin/mount -o bind /boot $CONFIG_newroot/boot
 	    mountpoint -q $CONFIG_newroot/dev || /bin/mount -o bind /dev $CONFIG_newroot/dev
@@ -519,6 +520,8 @@ drop_shell() {
 	    mountpoint -q $CONFIG_newroot/sys || /bin/mount -o bind /sys $CONFIG_newroot/sys
 	    mountpoint -q $CONFIG_newroot/run || /bin/mount -o bind /run $CONFIG_newroot/run
 	    [ "$CONFIG_rootfstype" = btrfs ] && ! mountpoint -q $CONFIG_newroot/lib/modules  && /bin/mount -t ${CONFIG_rootfstype} -o rw,subvol=modules/@ "${CONFIG_root}" $CONFIG_newroot/lib/modules
+	else
+            /bin/mount /dev/mmcblk0p1 /boot
 	fi
 	mountpoint -q $CONFIG_newroot && ln -s /rootfs /run/initramfs/rootfs
 	[ -n "${CONFIG_console}" ] && exec > /dev/$CONFIG_console

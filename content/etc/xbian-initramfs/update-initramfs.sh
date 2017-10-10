@@ -121,8 +121,8 @@ trap "{ cd ..; { rm -fr '${TMPDIR}' & }; exit 0; }" INT TERM EXIT
 mkdir bin dev etc lib proc rootfs run sbin sys tmp usr mnt var
 cat << \EOF > ./.profile
 export PS1='\w # '
-alias rum='umount -a'
-alias reb='umount -a; sync; reboot -nf'
+alias rum='findmnt /rootfs >/dev/null && umount -R /rootfs; umount -a'
+alias reb='findmnt /rootfs >/dev/null && umount -R /rootfs; umount -a; sync; reboot -nf'
 alias rch='chroot /rootfs /bin/bash'
 EOF
 cp .profile .bashrc

@@ -152,8 +152,8 @@ cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 cp /etc/xbian_version ./etc/
 
 cat /etc/modules | grep -v ^# | grep -v lirc_ >> ./etc/modules
-copy_modules "ext4 usb_storage vchiq spl zfs"
-put_to_modules "nfs sunrpc rpcsec_gss_krb5 lz4 cfq-iosched f2fs spl zavl znvpair zcommon zunicode zfs"
+copy_modules "ext4 usb_storage vchiq spl zfs evdev"
+put_to_modules "nfs sunrpc rpcsec_gss_krb5 lz4 cfq-iosched f2fs spl zavl znvpair zcommon zunicode zfs evdev"
 copy_modules "$(cat ./etc/modules)"
 echo "$(cat /etc/fstab) $(cat /etc/fstab.d/*)" | awk '{print $3}' | uniq | grep -v ^$ | grep 'nfs\|nfs4\|cifs' \
     | while read fstype; do

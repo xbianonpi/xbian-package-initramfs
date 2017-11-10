@@ -12,23 +12,32 @@ if [ $platform = RPI ]; then
 
 case $z in
     UUID=*|LABEL=*)
-	ramfs=yes
 	root=$(findfs $(echo $z|tr -d '"') 2>/dev/null)
 	case $root in 
-	    /dev/mmcblk0*)
-		eval $(echo "sed -i 's%root=$z%root=$root%'") /boot/cmdline.txt
+	    /dev/mmcblk0*|/dev/sd*)
+		sed -i "s%root=$z%root=$root%" /boot/cmdline.txt
 		z=$root
 		ramfs=no
-	    ;;
+	        ;;
 	    *)
 	    ;;
 	esac
 	;;
-    /dev/mmcblk0*|/dev/nfs)
-	grep -q "vers=4\|rootfstype=f2fs" /boot/cmdline.txt && ramfs=yes || ramfs=no
+    PARTUUID=*)
+	root=$(findfs $(echo $z|tr -d '"') 2>/dev/null)
+	case $root in
+	    /dev/mmcblk0*|/dev/sd*)
+		z=$root
+		ramfs=no
+	        ;;
+	    *)
+	        ;;
+	esac
+        ;;
+    /dev/mmcblk0*|/dev/sd*|/dev/nfs)
+	grep -q "vers=4\|rootfstype=f2fs" /boot/cmdline.txt || ramfs=no
 	;;
     *)
-	ramfs=yes
 	;;
 esac
 elif [ $platform = iMX6 ]; then

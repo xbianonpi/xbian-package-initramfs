@@ -94,7 +94,8 @@ elif ! grep -q ip= $bootfile 2>/dev/null; then
     fi
 fi
 
-cd /boot
-[ -n "$(find ./ -iname boot.scr.txt -newer boot.scr 2>/dev/null)" ] && ./mks
-cd /; umount /boot
+cd /boot; [ -n "$(find ./ -iname boot.scr.txt -newer boot.scr 2>/dev/null)" ] && ./mks
+
+cd /; [ x"$1" = xupdate ] || umount /boot
+
 exit 0

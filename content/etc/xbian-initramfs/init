@@ -119,6 +119,7 @@ if [ -n "$CONFIG_cnet" ]; then
 			ipconfig "$CONFIG_cnet"
 			;;
 	esac 
+	export CONFIG_ip=$CONFIG_cnet
 	test -n "$(find /run/net-*.conf ! -type d 2>/dev/null | grep -v net-lo.conf )" && update_resolv > /etc/resolv.conf
 	up "after ipconfig"
 fi
@@ -176,9 +177,15 @@ if [ "$CONFIG_rootfstype" != "nfs" ]; then
         up "after resize, convert"
     fi
 else
-    for i in 0 1 2 3 4 5 6 7 8 9 10; do
-        ! ping ${CONFIG_root%%\:*} -c 1 >/dev/null || break
-        echo "waiting for server"
+    if echo $CONFIG_root | grep -q ^"[0-9.]*:/"; then
+       export CONFIG_server=${CONFIG_root%%\:*}
+    else
+       export CONFIG_server=$(echo $CONFIG_ip | tr ':' ' ' | awk '{print $2}')
+       CONFIG_root=$CONFIG_server:$CONFIG_root
+    fi
+    for i in $(seq 0 10); do
+        ! ping $CONFIG_server -c 1 >/dev/null || break
+        echo "waiting for server $CONFIG_server"
         sleep 1
     done
 fi

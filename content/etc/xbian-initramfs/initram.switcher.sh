@@ -41,7 +41,7 @@ function ramfs_check() {
             z=${z##ZFS=}
         ;;
 
-        /dev/mmcblk*|/dev/sd*|/dev/nfs)
+        /dev/mmcblk*|/dev/sd*)
             grep -q "vers=4\|rootfstype=f2fs" $bootfile || ramfs=no
         ;;
 

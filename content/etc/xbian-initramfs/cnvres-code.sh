@@ -7,9 +7,9 @@ telnetrun() {
 }
 
 vncrun() {
-    find /lib/modules -iname vchiq.ko | xargs -n 1 insmod
+    modprobe -q vchiq
     modprobe -q uinput
-    vncserver &
+    which vncserver >/dev/null && { vncserver >/dev/null & } || echo "No VNC server available"
 }
 
 up() {

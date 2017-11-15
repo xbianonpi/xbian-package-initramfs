@@ -10,6 +10,11 @@ if [ ! -e /etc/xbian_version ]; then
     sed -i 's/ --startup-event mountall//g' /boot/boot.scr.txt
 fi
 
+case "$(xbian-arch)" in
+    RPI)  bootfile=/boot/cmdline.txt ;;
+    iMX6) bootfile=/boot/boot.scr.txt ;;
+esac
+
 . /etc/default/xbian-initramfs
 
 test -e /run/trigger-xbian-update-initramfs && MODVER=$(cat /run/trigger-xbian-update-initramfs)
@@ -222,7 +227,6 @@ copy_with_libs /sbin/sfdisk
 copy_with_libs /sbin/tune2fs
 copy_with_libs /sbin/e2fsck 
 copy_with_libs /sbin/resize2fs 
-#copy_with_libs /usr/local/sbin/dispman_vncserver
 
 #copy_with_libs /bin/kmod
 #rm -fr ./bin/modprobe
@@ -271,13 +275,6 @@ copy_with_libs /lib/terminfo
 
 cp --parents /usr/share/consolefonts/Lat2-Fixed16.psf.gz ./
 
-#if [ -e ./usr/local/sbin/dispman_vncserver ]; then
-#    copy_with_libs /sbin/ldconfig
-#    cp --parents /etc/ld.so.conf.d/xbian-firmware.conf ./
-#    cp --parents /etc/ld.so.conf ./
-#    chroot ./ /sbin/ldconfig 
-#fi
-
 copy_with_libs /sbin/ip
 
 copy_with_libs /usr/bin/splash
@@ -317,6 +314,22 @@ copy_with_libs /usr/bin/stdbuf
 copy_with_libs /usr/lib/coreutils/libstdbuf.so
 copy_with_libs /usr/bin/setterm
 copy_with_libs /usr/bin/mkimage
+
+##
+# Include VNC stuff if needed
+##
+if [ x"$VNC" = xyes ] || grep -q vnc $bootfile; then
+    case "$(xbian-arch)" in
+        RPI)  copy_with_libs /usr/local/sbin/rpi-vncserver; mv ./usr/local/sbin/rpi-vncserver ./usr/local/sbin/vncserver ;;
+        iMX6) copy_with_libs /usr/local/sbin/imx-vncserver; mv ./usr/local/sbin/imx6-vncserver ./usr/local/sbin/vncserver ;;
+    esac
+    if [ -e ./usr/local/sbin/vncserver ]; then
+        copy_with_libs /sbin/ldconfig
+        cp --parents /etc/ld.so.conf.d/xbian-firmware.conf ./
+        cp --parents /etc/ld.so.conf ./
+        chroot ./ /sbin/ldconfig
+    fi
+fi
 
 ### zfs
 copy_with_libs /usr/sbin/zpool

@@ -9,7 +9,7 @@ telnetrun() {
 vncrun() {
     find /lib/modules -iname vchiq.ko | xargs -n 1 insmod
     modprobe -q uinput
-    /usr/local/sbin/dispman_vncserver &
+    vncserver &
 }
 
 up() {

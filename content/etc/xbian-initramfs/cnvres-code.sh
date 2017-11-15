@@ -507,11 +507,12 @@ drop_shell() {
 	kill_splash
 	set +x
 
-	[ ! -d /boot ] && mkdir /boot
+	mkdir -p /boot
 
 	if [ "$1" != noumount ]; then
 	    mountpoint -q $CONFIG_newroot || eval $mount_bin -t ${CONFIG_rootfstype} -o rw,"$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
-	    [ -e $CONFIG_newroot/etc/fstab ] && /bin/mount "$(cat $CONFIG_newroot/etc/fstab | grep /boot | awk '{ print $1 }')" /boot
+	    [ -e $CONFIG_newroot/etc/fstab ] && /bin/mount "$(grep /boot $CONFIG_newroot/etc/fstab| awk '{ print $1 }')" /boot
+	    mountpoint -q /boot || { [ -e /etc/fstab ] && /bin/mount "$(grep /boot /etc/fstab | awk '{ print $1 }')" /boot; }
 	    mountpoint -q /boot || /bin/mount /dev/mmcblk0p1 /boot
 	    mountpoint -q $CONFIG_newroot/proc || /bin/mount -o bind /proc $CONFIG_newroot/proc
 	    mountpoint -q $CONFIG_newroot/boot || /bin/mount -o bind /boot $CONFIG_newroot/boot
@@ -521,7 +522,8 @@ drop_shell() {
 	    mountpoint -q $CONFIG_newroot/run || /bin/mount -o bind /run $CONFIG_newroot/run
 	    [ "$CONFIG_rootfstype" = btrfs ] && ! mountpoint -q $CONFIG_newroot/lib/modules  && /bin/mount -t ${CONFIG_rootfstype} -o rw,subvol=modules/@ "${CONFIG_root}" $CONFIG_newroot/lib/modules
 	else
-            /bin/mount /dev/mmcblk0p1 /boot
+	    [ -e /etc/fstab ] && /bin/mount "$(grep /boot /etc/fstab | awk '{ print $1 }')" /boot
+	    mountpoint -q /boot || /bin/mount /dev/mmcblk0p1 /boot
 	fi
 	mountpoint -q $CONFIG_newroot && ln -s /rootfs /run/initramfs/rootfs
 	[ -n "${CONFIG_console}" ] && exec > /dev/$CONFIG_console

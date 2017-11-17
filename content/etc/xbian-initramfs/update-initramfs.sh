@@ -298,7 +298,7 @@ cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-k
 #cat /lib/udev/findkeyboards | sed 's/--dry-run//g' > ./lib/udev/findkeyboards
 #chmod +x ./lib/udev/findkeyboards
 
-for fw in $FIRMWARE; do for f in "$fw"; do copy_with_libs "$f"; done; done
+for fw in $INCLUDEFILES; do for f in "$fw"; do copy_with_libs "$f"; done; done
 grep /boot /etc/fstab > ./etc/fstab
 
 cp /etc/group ./etc

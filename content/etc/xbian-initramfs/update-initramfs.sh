@@ -297,6 +297,9 @@ cp -d --remove-destination -av --parents /lib/udev/rules.d/{50-udev-default.rule
 cp -d --remove-destination -av --parents /lib/udev/rules.d/{95-keymap.rules,95-keyboard-force-release.rules,??-local-xbian.rules} ./
 #cat /lib/udev/findkeyboards | sed 's/--dry-run//g' > ./lib/udev/findkeyboards
 #chmod +x ./lib/udev/findkeyboards
+
+for fw in $FIRMWARE; do for f in "$fw"; do copy_with_libs "$f"; done; done
+
 cp /etc/group ./etc
 
 cp /etc/xbian-initramfs/init ./

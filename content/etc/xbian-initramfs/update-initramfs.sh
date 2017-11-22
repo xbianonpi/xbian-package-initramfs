@@ -355,19 +355,18 @@ else
     rm -f /boot/initramfs.gz.notinuse /boot/initramfs.gz.old
 fi
 
-echo "Creating initram fs."
-
-#find . | cpio -H newc -o | lz4 -cl > /boot/initramfs.gz
-find . | cpio -H newc -o | gzip > /boot/initramfs.gz
 case "$(xbian-arch)" in
     iMX6|BPI)
-            echo "Creating image."
-            mv /boot/initramfs.gz /tmp
-            mkimage -O linux -A arm -T ramdisk -C gzip -d /tmp/initramfs.gz /boot/initramfs.gz
-            ( cd /boot; ./mks; )
-            ;;
+        echo "Creating initram image /boot/initramfs.gz"
+        find . | cpio -H newc -o | gzip > /tmp/initramfs.gz
+        mkimage -O linux -A arm -T ramdisk -C gzip -d /tmp/initramfs.gz /boot/initramfs.gz
+        ( cd /boot; ./mks; )
+    ;;
     *)
-            ;;
+        echo "Creating initram fs /boot/initramfs.gz"
+        #find . | cpio -H newc -o | lz4 -cl > /boot/initramfs.gz
+        find . | cpio -H newc -o | gzip > /boot/initramfs.gz
+    ;;
 esac
 
 [ "$need_umount" = "yes" ] && umount /boot

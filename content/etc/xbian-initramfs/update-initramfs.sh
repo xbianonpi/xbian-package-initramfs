@@ -263,8 +263,6 @@ copy_with_libs /usr/sbin/th-cmd
 copy_with_libs /usr/bin/nice
 copy_with_libs /sbin/partprobe
 
-#copy_with_libs /sbin/iwconfig 
-#copy_with_libs /sbin/wpa_supplicant 
 cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin
 cp --remove-destination /usr/lib/klibc/bin/run-init ./sbin
 cp --remove-destination /usr/lib/klibc/bin/kinit ./sbin
@@ -333,6 +331,43 @@ if [ x"$VNC" = xyes ] || grep -q vnc $bootfile; then
         cp --parents /etc/ld.so.conf ./
         chroot ./ /sbin/ldconfig
     fi
+fi
+
+##
+# Include WLAN stuff if needed
+##
+if [ x"$WLAN" = xyes ] || ( grep -qwE "wlan[0-9]|ra[0-9]" $bootfile && [ x"$WLAN" != xno ] ); then
+    copy_with_libs /sbin/wpa_supplicant
+    copy_with_libs /sbin/wpa_cli
+    cp -a /etc/wpa_supplicant ./etc
+    if [ -e /etc/network/interfaces ] && grep -qm1 wpa-ssid /etc/network/interfaces && grep -qm1 wpa-psk /etc/network/interfaces; then
+        SSID=$(grep -m1 wpa-ssid /etc/network/interfaces | awk '{print $2}')
+        PSK=$(grep -m1 wpa-psk /etc/network/interfaces | awk '{print $2}')
+        cat << \EOF > ./etc/wpa_supplicant/wpa_supplicant.conf
+network={
+        ssid="__SSID__"
+        proto=WPA2
+        key_mgmt=WPA-PSK
+        psk="__PSK__"
+}
+EOF
+        sed -i "s/__SSID__/$SSID/;s/__PSK__/$PSK/" ./etc/wpa_supplicant/wpa_supplicant.conf
+    else
+        sed -i "/^\(ctrl_interface\|update_config\)/s/^\(.*\)/#\1/g" ./etc/wpa_supplicant/wpa_supplicant.conf
+    fi
+    grep -q ^brcmfmac ./etc/modules && for f in /lib/firmware/brcm/brcmfmac43430-sdio.* /lib/firmware/brcm/brcmfmac4330-sdio.*; do copy_with_libs $f; done
+    grep -q ^mt7601u ./etc/modules && copy_with_libs /lib/firmware/mt7601u.bin
+    grep -q ^mt7610u_sta ./etc/modules copy_with_libs /etc/Wireless
+    grep -q ^8192cu ./etc/modules copy_with_libs /etc/modprobe.d/8192cu.conf
+    grep -q ^8192eu ./etc/modules copy_with_libs /etc/modprobe.d/8192eu.conf
+    cp -d /etc/network/if-down.d/wpasupplicant ./etc/network/if-down.d
+    cp -d /etc/network/if-post-down.d/wpasupplicant ./etc/network/if-post-down.d
+    cp -d /etc/network/if-pre-up.d/wpasupplicant ./etc/network/if-pre-up.d
+    cp -d /etc/network/if-up.d/wpasupplicant ./etc/network/if-up.d
+    copy_with_libs /sbin/ifup
+    copy_with_libs /sbin/ifdown
+    copy_with_libs /sbin/dhclient
+    copy_with_libs /sbin/dhclient-script
 fi
 
 ### zfs

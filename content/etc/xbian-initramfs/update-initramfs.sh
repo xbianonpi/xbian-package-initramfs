@@ -288,6 +288,12 @@ else
     copy_with_libs /usr/local/sbin/splash-daemon
 fi
 
+cat << \EOF > ./sbin/initctl
+#!/bin/sh
+true
+EOF
+chmod +x ./sbin/initctl
+
 copy_with_libs /usr/local/bin/modes-cubox
 cp -d --remove-destination -v --parents /lib/udev/{hotplug.functions,firmware.agent,ata_id,edd_id,scsi_id,vio_type,keymap,keyboard-force-release.sh,udev-acl} ./
 #cp -d --remove-destination -v --parents -R /lib/udev/keymaps/* ./

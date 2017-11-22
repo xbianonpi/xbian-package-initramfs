@@ -101,27 +101,98 @@ if [ -z "$CONFIG_norescuekbd" ]; then
     up "dev keyb"
 fi
 
-up "before ipconfig"
 if [ -n "$CONFIG_cnet" ]; then
-	test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="configuring network..."
-	case "$CONFIG_cnet" in 
-		dhcp|auto|on)
-			cd /sys/class/net
-			for f in *; do
-				test $f != "lo" && test $f != "wlan0" && ipconfig $f
-			done
-			cd /
-			export CONFIG_cnet="dhcp"
-			;;
-		off|no)
-			;;
-		*)	
-			ipconfig "$CONFIG_cnet"
-			;;
-	esac 
-	export CONFIG_ip=$CONFIG_cnet
-	test -n "$(find /run/net-*.conf ! -type d 2>/dev/null | grep -v net-lo.conf )" && update_resolv > /etc/resolv.conf
-	up "after ipconfig"
+    up "before ipconfig"
+    test -n "$CONFIG_splash" && splash --msgtxt="configuring network..." --percentage=30
+    mkdir -p /run/network /var/lib/dhcp
+    rm -f /etc/network/interfaces
+    # client-ip:[server-ip]:[gw-ip]:[netmask]:[hostname]:[device][:autoconf]
+    cip=$(echo $CONFIG_cnet | cut -f1 -d ':')
+    case "$cip" in
+        dhcp|auto|on)
+            cip=; cnf=dhcp
+        ;;
+        eth*|wlan*|ra*)
+            dev=$cip; cip=; cnf=dhcp
+        ;;
+        *)
+            gip=$(echo $CONFIG_cnet | cut -f3 -d ':')
+            msk=$(echo $CONFIG_cnet | cut -f4 -d ':')
+            dev=$(echo $CONFIG_cnet | cut -f6 -d ':')
+            cnf=$(echo $CONFIG_cnet | cut -f7 -d ':')
+            [ -z $cnf ] || [ $cnf = auto ] || [ $cnf = on ] && cnf=dhcp
+        ;;
+    esac
+    if [ -z $dev ] && [ $cnf = dhcp ]; then
+        cd /sys/class/net
+        for dev in $(ls -L); do devs="$devs $dev"; done
+        echo $devs | grep -q eth0 || devs="$devs eth0"
+        cd /
+    else
+        [ -z $dev ] && dev=eth0
+        devs=$dev
+    fi
+    case "$cnf" in
+        dhcp)
+            for dev in $devs; do
+                echo "Configuring $dev ($cnf) ..."
+                case "$dev" in
+                    lo)
+                    ;;
+                    wlan*|ra*)
+                        echo    "iface $dev inet dhcp" >> /etc/network/interfaces
+                        echo    "    wpa-iface $dev"  >> /etc/network/interfaces
+                        echo    "    wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf" >> /etc/network/interfaces
+                        echo -e "    wireless-power off\n" >> /etc/network/interfaces
+                        ifup $dev
+                    ;;
+                    *)
+                        for i in $(seq 0 10); do
+                            if [ -e /sys/class/net/$dev ]; then
+                                ipconfig $dev &
+                                for j in $(seq 0 10); do
+                                    sleep 0.5
+                                    pidof ipconfig >/dev/null
+                                    [ $? -eq 0 ] || break
+                                done
+                                kill $(pidof ipconfig) >/dev/null 2>&1
+                                break
+                            fi
+                            sleep 1
+                        done
+                    ;;
+                esac
+            done
+        ;;
+        dis|disable)
+        ;;
+        *)
+            echo "Configuring $dev ($cip,$msk,$gip) ..."
+            case "$dev" in
+                wlan*|ra*)
+                    echo    "iface $dev inet static" >> /etc/network/interfaces
+                    echo    "    address $cip" >> /etc/network/interfaces
+                    [ -z $msk ] || echo "    netmask $msk" >> /etc/network/interfaces
+                    [ -z $gip ] || echo "    gateway $gip" >> /etc/network/interfaces
+                    echo    "    wpa-iface $dev"  >> /etc/network/interfaces
+                    echo    "    wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf" >> /etc/network/interfaces
+                    echo -e "    wireless-power off\n" >> /etc/network/interfaces
+                    ifup $dev
+                ;;
+                *)
+                    for i in $(seq 0 10); do
+                        [ -e /sys/class/net/$dev ] && { ipconfig "$cip::$gip:$msk::$dev:none"; break; }
+                        sleep 1
+                    done
+                ;;
+            esac
+        ;;
+    esac
+    export CONFIG_ip=$CONFIG_cnet
+    test -n "$(find /run/net-*.conf ! -type d 2>/dev/null | grep -v net-lo.conf )" && update_resolv > /etc/resolv.conf
+    test -n "$CONFIG_splash" && splash --msgtxt="network started..." --percentage=
+    test -n "$CONFIG_splash" && splash --msgtxt="network started..." --percentage=
+    up "after ipconfig"
 fi
 
 export CONFIG_root=$(echo ${CONFIG_root} | tr -d '"')

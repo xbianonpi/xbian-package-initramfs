@@ -51,6 +51,7 @@ export CONFIG_noresizesd='0'
 export CONFIG_noconvertsd='0'
 export CONFIG_newroot="/rootfs"
 export CONFIG_console="tty1"
+export CONFIG_rooton='local'
 
 exp=''
 export CMDLINE="$(cat /proc/cmdline)"
@@ -214,11 +215,12 @@ case ${CONFIG_rootfstype} in
 		export CONFIG_rootfsopts="${CONFIG_nfsroot#*,}"
 		echo ${CONFIG_nfsroot#*,} | grep -q vers=4 || export CONFIG_rootfsopts="${CONFIG_rootfsopts},nolock"
 		export CONFIG_noresizesd='1'
+		export CONFIG_rooton='nfs'
 		chmod 777 $CONFIG_newroot
 		;;
 	*)
 		[ -z "$CONFIG_rootfsopts" ] && export CONFIG_rootfsopts="${CONFIG_root#*,}"
-		echo $CONFIG_root | grep -q ^'iSCSI=' || export CONFIG_root="${CONFIG_root%%,*}"
+		echo $CONFIG_root | grep -q ^'iSCSI=' && export CONFIG_rooton='iscsi' || export CONFIG_root="${CONFIG_root%%,*}"
 		;;
 esac
 if [ "${CONFIG_rootfsopts}" = "${CONFIG_root}" ]; then
@@ -284,9 +286,10 @@ up "after mount"
 
 hostname -F ${CONFIG_newroot}/etc/hostname && touch /run/hostname.init
 
-[ -e /run/do_drop ] && drop_shell
-
+[ "${CONFIG_rooton}" = local ] || modify_interfaces
 up "after net/interfaces file"
+
+[ -e /run/do_drop ] && drop_shell
 
 test "$CONFIG_rootfstype" != "nfs" && resize_btrfs
 up "after resize_btrfs"

@@ -274,6 +274,7 @@ copy_with_libs /lib/terminfo
 cp --parents /usr/share/consolefonts/Lat2-Fixed16.psf.gz ./
 
 copy_with_libs /sbin/ip
+copy_with_libs /bin/netstat
 
 copy_with_libs /usr/bin/splash
 copy_with_libs /sbin/fdisk

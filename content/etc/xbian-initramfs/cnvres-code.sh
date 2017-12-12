@@ -58,6 +58,27 @@ update_interfaces() {
     done
 }
 
+modify_interfaces() {
+    getused() {
+        h=''
+        for n in $(ip addr | grep state | grep -vwE 'lo|dummy[0-9]|tun[0-9]' | awk '{ sub(":","",$2); print $2; }'); do
+            [ x"$(ip a show $n | sed -n -e 's/:127\.0\.0\.1 //g' -e 's/ *inet \([0-9.]\+\).*/\1/gp')" = x"$1" ] && h=$n" $h"
+        done
+        echo $h
+    }
+
+    if [ "${CONFIG_rooton}" = nfs ]; then
+        usedDEV=$(getused $(netstat -nt | grep -m1 $(findmnt -n ${CONFIG_newroot} | awk '{ sub(".*,addr=",""); sub(",.*",""); print $0; }'):2049 | \
+            awk '{ split($4, a, ":"); print a[1]; }'))
+    elif [ "${CONFIG_rooton}" = iscsi ]; then
+        usedDEV=$(getused $(netstat -nt | grep :$(iscsiadm -m session | awk '{ split($3, a, ":"); split(a[2], b, ","); print b[1]; }') | \
+            awk '{ split($4, a, ":"); print a[1]; }'))
+    fi
+    for d in $usedDEV; do
+        grep -q "iface $d inet manual" ${CONFIG_newroot}/etc/network/interfaces || sed -i "s%iface $d inet .*%iface $d inet manual%" ${CONFIG_newroot}/etc/network/interfaces
+    done
+}
+
 cp_splash() {
     copyto="$1"
 

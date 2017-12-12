@@ -86,13 +86,24 @@ get_root() {
         export CONFIG_roottxt=$CONFIG_root
         export CONFIG_root=$(findfs $CONFIG_roottxt 2>/dev/null)
         [ -z $CONFIG_root ] && return 1
+    elif echo $CONFIG_root | grep -q ^'iSCSI='; then
+        export CONFIG_roottxt=$CONFIG_root
+        export CONFIG_root=${CONFIG_root##iSCSI=}
+        export CONFIG_target=$(echo ${CONFIG_root%,*} | sed 's/,/ -p /g')
+        export CONFIG_root=${CONFIG_root##*,}
+        iscsiadm -m node -T $CONFIG_target --login
+        if echo $CONFIG_root | grep -q ^'UUID=\|LABEL=\|PARTUUID='; then
+            export CONFIG_root=$(findfs $CONFIG_root 2>/dev/null)
+            [ -z $CONFIG_root ] && return 1
+        fi
+        [ -b $CONFIG_root ] || return 1
     elif echo $CONFIG_root | grep -q ^'ZFS='; then
         export CONFIG_roottxt="$CONFIG_root"
         export CONFIG_root=${CONFIG_root##ZFS=}
         if [ -f /etc/zfs/zpool.cache ]; then
-                zpool list ${CONFIG_root} >/dev/null 2>&1|| zpool import -f -N ${CONFIG_root} 2>&1
+            zpool list ${CONFIG_root} >/dev/null 2>&1|| zpool import -f -N ${CONFIG_root} 2>&1
         else
-                zpool import -f -N ${CONFIG_root} 2>&1
+            zpool import -f -N ${CONFIG_root} 2>&1
         fi
         [ $? -ne 0 ] && return 1
         export CONFIG_rootfs=$(zpool list -H -o bootfs ${CONFIG_root} 2>/dev/null)
@@ -112,7 +123,7 @@ get_root() {
         btrfs dev scan || :
         READY=$(btrfs dev ready $CONFIG_root 2>&1)
         if [ $? -eq 1 ]; then
-                echo $READY | grep -q Inappropriate || return 1
+            echo $READY | grep -q Inappropriate || return 1
         fi
         [ "$(btrfs fi show $CONFIG_root | grep -c devid)" -gt 1 ] && export RESIZEERROR=1
     fi

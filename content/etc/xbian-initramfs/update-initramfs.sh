@@ -340,6 +340,19 @@ if [ x"$VNC" = xyes ] || grep -q vnc $bootfile; then
 fi
 
 ##
+# Include iSCSI stuff if needed
+##
+if [ x"$iSCSI" = xyes ] || ( grep -q "root=iSCSI=" $bootfile && [ x"$iSCSI" != xno ] ); then
+    copy_modules "iscsi_tcp"
+    copy_with_libs /sbin/iscsid
+    copy_with_libs /usr/bin/iscsiadm
+    copy_with_libs /lib/arm-linux-gnueabihf/libnss_compat.so.2
+    copy_with_libs /lib/arm-linux-gnueabihf/libnsl.so.1
+    cp -a /etc/iscsi ./etc
+    cp /etc/passwd ./etc
+fi
+
+##
 # Include WLAN stuff if needed
 ##
 if [ x"$WLAN" = xyes ] || ( grep -qwE "wlan[0-9]|ra[0-9]" $bootfile && [ x"$WLAN" != xno ] ); then

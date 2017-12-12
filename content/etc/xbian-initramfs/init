@@ -23,7 +23,7 @@ echo "To dropdown to shell, press and hold shift on usb attached keyboard..."
 
 /bin/mount -t devtmpfs -o size=262144,mode=0755 udev /dev && mkdir /dev/.udev && mkdir /dev/pts
 /bin/mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
-/bin/mount -t tmpfs -o rw,nosuid,noexec,noatime,size=$RUN_SIZE,mode=755 tmpfs /run && touch /run/.tmpfs && mkdir /run/initramfs && ln -s /run/initramfs /dev/.initramfs && mkdir /run/sendsigs.omit.d
+/bin/mount -t tmpfs -o rw,nosuid,noexec,noatime,size=$RUN_SIZE,mode=755 tmpfs /run && touch /run/.tmpfs && mkdir /run/initramfs && ln -s /run/initramfs /dev/.initramfs && mkdir /run/sendsigs.omit.d && mkdir /run/lock
 up "/run";  chmod 666 /run/uptime-init.log
 
 #mkdir -p /var/log
@@ -218,7 +218,7 @@ case ${CONFIG_rootfstype} in
 		;;
 	*)
 		[ -z "$CONFIG_rootfsopts" ] && export CONFIG_rootfsopts="${CONFIG_root#*,}"
-		export CONFIG_root="${CONFIG_root%%,*}"
+		echo $CONFIG_root | grep -q ^'iSCSI=' || export CONFIG_root="${CONFIG_root%%,*}"
 		;;
 esac
 if [ "${CONFIG_rootfsopts}" = "${CONFIG_root}" ]; then

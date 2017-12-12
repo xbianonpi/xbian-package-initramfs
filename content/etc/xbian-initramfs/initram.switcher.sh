@@ -37,6 +37,10 @@ function ramfs_check() {
             esac
         ;;
 
+        iSCSI=*)
+            z=${z##iSCSI=}; z=${z##*,}; z=$(findfs $(echo $z|tr -d '"') 2>/dev/null)
+        ;;
+
         ZFS=*)
             z=${z##ZFS=}
         ;;

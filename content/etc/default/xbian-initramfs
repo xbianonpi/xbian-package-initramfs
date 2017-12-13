@@ -20,7 +20,7 @@ LVM=no
 #
 # Include VNC server into initramfs. If variable is set to 'yes', it will be
 # included always, if set to 'auto', if will be included if vnc string is found
-# in /boot/cmdline.txt or /boot/boot.scr.txt
+# in /boot/cmdline.txt or /boot/boot.scr.txt. 'no' disables it at all
 #
 VNC=auto
 

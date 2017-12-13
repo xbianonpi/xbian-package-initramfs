@@ -327,7 +327,7 @@ copy_with_libs /usr/bin/mkimage
 ##
 # Include VNC stuff if needed
 ##
-if [ x"$VNC" = xyes ] || grep -q vnc $bootfile; then
+if [ x"$VNC" = xyes ] || ( grep -q vnc $bootfile && [ x"$VNC" != xno ] ); then
     case "$(xbian-arch)" in
         RPI)  copy_with_libs /usr/local/sbin/rpi-vncserver; mv ./usr/local/sbin/rpi-vncserver ./usr/local/sbin/vncserver ;;
         iMX6) copy_with_libs /usr/local/sbin/imx-vncserver; mv ./usr/local/sbin/imx-vncserver ./usr/local/sbin/vncserver ;;

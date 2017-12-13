@@ -4,7 +4,17 @@ exec 2>/dev/null
 
 if [ $1 == "configure" ]; then
 
-	grep -q FORCEINITRAM /etc/default/xbian-initramfs || echo "FORCEINITRAM=no" >> /etc/default/xbian-initramfs
+	[ -e /etc/default/xbian-initramfs.preinst ] && mv /etc/default/xbian-initramfs.preinst /etc/default/xbian-initramfs
+	PARMS=$(sed 's/^[ \t]*//;/^#/d;/^$/d;s/=.*//' /var/tmp/xbian-initramfs)
+	if [ -e /etc/default/xbian-initramfs ]; then
+		for PARM in $PARMS; do
+			if grep -q ^$PARM= /etc/default/xbian-initramfs; then
+				p=$(grep ^"$PARM=" /etc/default/xbian-initramfs)
+				sed -i "s%^$PARM=.*%$p%g" /var/tmp/xbian-initramfs
+			fi
+		done
+	fi
+	mv /var/tmp/xbian-initramfs /etc/default/
 
 	dpkg-trigger --no-await trigger-xbian-update-initramfs
 

@@ -1,5 +1,5 @@
 #!/bin/bash
 
 if [ $1 == "install" -o $1 == "upgrade" ]; then
-        true
+	[ -e /etc/default/xbian-initramfs ] && mv /etc/default/xbian-initramfs /etc/default/xbian-initramfs.preinst
 fi

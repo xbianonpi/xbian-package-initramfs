@@ -200,8 +200,6 @@ if [ "$LVM" = "yes" ] && [ -e /sbin/lvm ]; then
 fi
 ### end lvm
 
-depmod -b ./ $MODVER
-
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
 for f in /usr/local/sbin/{xbian-hwrng,xbian-frandom,xbian-arch}; do
@@ -395,6 +393,8 @@ copy_with_libs /usr/sbin/zfs
 copy_with_libs /usr/sbin/mount.zfs
 copy_with_libs /etc/zfs/zpool.cache
 copy_with_libs /etc/modprobe.d/zfs.conf
+
+depmod -b ./ $MODVER
 
 need_umount=''
 if ! mountpoint -q /boot; then

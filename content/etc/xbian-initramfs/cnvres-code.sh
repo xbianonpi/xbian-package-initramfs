@@ -68,10 +68,10 @@ modify_interfaces() {
     }
 
     if [ "${CONFIG_rooton}" = nfs ]; then
-        usedDEV=$(getused $(netstat -nt | grep -m1 $(findmnt -n ${CONFIG_newroot} | awk '{ sub(".*,addr=",""); sub(",.*",""); print $0; }'):2049 | \
+        usedDEV=$(getused $(netstat -nt 2>/dev/null | grep -m1 $(findmnt -n ${CONFIG_newroot} | awk '{ sub(".*,addr=",""); sub(",.*",""); print $0; }'):2049 | \
             awk '{ split($4, a, ":"); print a[1]; }'))
     elif [ "${CONFIG_rooton}" = iscsi ]; then
-        usedDEV=$(getused $(netstat -nt | grep :$(iscsiadm -m session | awk '{ split($3, a, ":"); split(a[2], b, ","); print b[1]; }') | \
+        usedDEV=$(getused $(netstat -nt 2>/dev/null | grep :$(iscsiadm -m session | awk '{ split($3, a, ":"); split(a[2], b, ","); print b[1]; }') | \
             awk '{ split($4, a, ":"); print a[1]; }'))
     fi
     for d in $usedDEV; do

@@ -32,12 +32,12 @@ VNC=auto
 iSCSI=auto
 
 #
-# Include WLAN stuff into initramfs. If included, using root fs on NFS is possible
+# Include (W)LAN stuff into initramfs. If included, using root fs on NFS is possible
 # by WLAN connections. If variable is set to 'yes', it will be included always,
 # if set to 'auto', it will be included if wlan string is found in /boot/cmdline.txt
 # or /boot/boot.scr.txt. 'no' disables it at all
 #
-WLAN=auto
+LAN=auto
 
 #
 # This variable specifies the files which should be included into initramfs. Usually

@@ -351,9 +351,12 @@ if [ x"$iSCSI" = xyes ] || ( grep -q "root=iSCSI=" $bootfile && [ x"$iSCSI" != x
 fi
 
 ##
-# Include WLAN stuff if needed
+# Include (W)LAN stuff if needed
 ##
-if [ x"$WLAN" = xyes ] || ( grep -qwE "wlan[0-9]|ra[0-9]" $bootfile && [ x"$WLAN" != xno ] ); then
+if [ x"$LAN" = xyes ] || ( grep -qwE "wlan[0-9]|ra[0-9]" $bootfile && [ x"$LAN" != xno ] ); then
+    add_modules() {
+        grep -q ^$1 /{etc,proc}/modules && put_to_modules $1
+    }
     copy_with_libs /sbin/wpa_supplicant
     copy_with_libs /sbin/wpa_cli
     cp -a /etc/wpa_supplicant ./etc
@@ -370,13 +373,14 @@ network={
 EOF
         sed -i "s/__SSID__/$SSID/;s/__PSK__/$PSK/" ./etc/wpa_supplicant/wpa_supplicant.conf
     else
-        sed -i "/^\(ctrl_interface\|update_config\)/s/^\(.*\)/#\1/g" ./etc/wpa_supplicant/wpa_supplicant.conf
+        sed -i "/^\(ctrl_interface\|update_config\)/s/^\(.*\)/#\1/g" ./etc/wpa_supplicant/wpa_supplicant.conf &>/dev/null || :
     fi
-    grep -q ^brcmfmac ./etc/modules && for f in /lib/firmware/brcm/brcmfmac43430-sdio.* /lib/firmware/brcm/brcmfmac4330-sdio.*; do copy_with_libs $f; done
-    grep -q ^mt7601u ./etc/modules && copy_with_libs /lib/firmware/mt7601u.bin
-    grep -q ^mt7610u_sta ./etc/modules copy_with_libs /etc/Wireless
-    grep -q ^8192cu ./etc/modules copy_with_libs /etc/modprobe.d/8192cu.conf
-    grep -q ^8192eu ./etc/modules copy_with_libs /etc/modprobe.d/8192eu.conf
+    add_modules smsc95xx
+    add_modules brcmfmac    && for f in /lib/firmware/brcm/brcmfmac43430-sdio.* /lib/firmware/brcm/brcmfmac4330-sdio.*; do copy_with_libs $f; done
+    add_modules mt7601u     && copy_with_libs /lib/firmware/mt7601u.bin
+    add_modules mt7610u_sta && copy_with_libs /etc/Wireless
+    add_modules 8192cu      && copy_with_libs /etc/modprobe.d/8192cu.conf
+    add_modules 8192eu      && copy_with_libs /etc/modprobe.d/8192eu.conf
     cp -d /etc/network/if-down.d/wpasupplicant ./etc/network/if-down.d
     cp -d /etc/network/if-post-down.d/wpasupplicant ./etc/network/if-post-down.d
     cp -d /etc/network/if-pre-up.d/wpasupplicant ./etc/network/if-pre-up.d

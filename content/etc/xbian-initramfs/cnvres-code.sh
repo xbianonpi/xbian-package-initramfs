@@ -77,6 +77,10 @@ modify_interfaces() {
     for d in $usedDEV; do
         grep -q "iface $d inet manual" ${CONFIG_newroot}/etc/network/interfaces || sed -i "s%iface $d inet .*%iface $d inet manual%" ${CONFIG_newroot}/etc/network/interfaces
     done
+
+    [ -n "$CONFIG_cnet" ] && ! grep -q 'LAN=yes' ${CONFIG_newroot}/etc/default/xbian-initramfs && sed -i 's/LAN=.*/LAN=yes/g' /etc/default/xbian-initramfs
+    [ "$CONFIG_rooton" = iscsi ] && { grep -q 'iSCSI=no' ${CONFIG_newroot}/etc/default/xbian-initramfs && sed -i 's/iSCSI=no/iSCSI=auto/g' ${CONFIG_newroot}/etc/default/xbian-initramfs; \
+                                      [ -e ${CONFIG_newroot}/etc/iscsi/iscsi.initramfs ] || touch ${CONFIG_newroot}/etc/iscsi/iscsi.initramfs; }
 }
 
 cp_splash() {

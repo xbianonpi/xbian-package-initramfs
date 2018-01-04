@@ -394,7 +394,7 @@ fi
 ##
 # Include ZFS stuff (optional)
 ##
-if [ x"$ZFS" = xyes ] || ( grep -q "root=ZFS=" $bootfile && [ x"$ZFS" != xno ] ); then
+if [ x"$ZFS" = xyes ] || ( ( grep -q "root=ZFS=" $bootfile || grep -q ^zfs /{etc,proc}/modules ) && [ x"$ZFS" != xno ] ); then
     copy_with_libs `which zpool`
     copy_with_libs `which zfs`
     copy_with_libs `which mount.zfs`

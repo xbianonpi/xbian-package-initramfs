@@ -40,6 +40,13 @@ iSCSI=auto
 LAN=auto
 
 #
+# Include ZFS stuff into initramfs. If variable is set to 'yes', it will be
+# included always, if set to 'auto', it will be included if root=ZFS= string
+# is found in /boot/cmdline.txt or /boot/boot.scr.txt. 'no' disables it at all
+#
+ZFS=auto
+
+#
 # This variable specifies the files which should be included into initramfs. Usually
 # used for firmware files, but all others are possible though. Wildcards are
 # supported

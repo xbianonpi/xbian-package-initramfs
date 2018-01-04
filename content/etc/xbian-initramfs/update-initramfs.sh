@@ -322,7 +322,7 @@ copy_with_libs /usr/bin/setterm
 copy_with_libs /usr/bin/mkimage
 
 ##
-# Include VNC stuff if needed
+# Include VNC stuff (optional)
 ##
 if [ x"$VNC" = xyes ] || ( grep -q vnc $bootfile && [ x"$VNC" != xno ] ); then
     case "$(xbian-arch)" in
@@ -338,7 +338,7 @@ if [ x"$VNC" = xyes ] || ( grep -q vnc $bootfile && [ x"$VNC" != xno ] ); then
 fi
 
 ##
-# Include iSCSI stuff if needed
+# Include iSCSI stuff (optional)
 ##
 if [ x"$iSCSI" = xyes ] || ( grep -q "root=iSCSI=" $bootfile && [ x"$iSCSI" != xno ] ); then
     copy_modules "iscsi_tcp"
@@ -351,7 +351,7 @@ if [ x"$iSCSI" = xyes ] || ( grep -q "root=iSCSI=" $bootfile && [ x"$iSCSI" != x
 fi
 
 ##
-# Include (W)LAN stuff if needed
+# Include (W)LAN stuff (optional)
 ##
 if [ x"$LAN" = xyes ] || ( grep -qwE "wlan[0-9]|ra[0-9]" $bootfile && [ x"$LAN" != xno ] ); then
     add_modules() {
@@ -391,12 +391,16 @@ EOF
     copy_with_libs /sbin/dhclient-script
 fi
 
-### zfs
-copy_with_libs /usr/sbin/zpool
-copy_with_libs /usr/sbin/zfs
-copy_with_libs /usr/sbin/mount.zfs
-copy_with_libs /etc/zfs/zpool.cache
-copy_with_libs /etc/modprobe.d/zfs.conf
+##
+# Include ZFS stuff (optional)
+##
+if [ x"$ZFS" = xyes ] || ( grep -q "root=ZFS=" $bootfile && [ x"$ZFS" != xno ] ); then
+    copy_with_libs `which zpool`
+    copy_with_libs `which zfs`
+    copy_with_libs `which mount.zfs`
+    copy_with_libs /etc/zfs/zpool.cache
+    copy_with_libs /etc/modprobe.d/zfs.conf
+fi
 
 depmod -b ./ $MODVER
 

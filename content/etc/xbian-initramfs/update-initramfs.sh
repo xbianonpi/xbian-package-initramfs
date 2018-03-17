@@ -376,7 +376,8 @@ EOF
         sed -i "/^\(ctrl_interface\|update_config\)/s/^\(.*\)/#\1/g" ./etc/wpa_supplicant/wpa_supplicant.conf &>/dev/null || :
     fi
     add_modules smsc95xx
-    add_modules brcmfmac    && for f in /lib/firmware/brcm/brcmfmac43430-sdio.* /lib/firmware/brcm/brcmfmac4330-sdio.*; do copy_with_libs $f; done
+    add_modules lan78xx
+    add_modules brcmfmac    && for f in /lib/firmware/brcm/brcmfmac434{30,55}-sdio.* /lib/firmware/brcm/brcmfmac4330-sdio.*; do copy_with_libs $f; done
     add_modules mt7601u     && copy_with_libs /lib/firmware/mt7601u.bin
     add_modules mt7610u_sta && copy_with_libs /etc/Wireless
     add_modules 8192cu      && copy_with_libs /etc/modprobe.d/8192cu.conf

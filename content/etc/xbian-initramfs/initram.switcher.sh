@@ -53,8 +53,8 @@ function ramfs_check() {
         ;;
     esac
 
+    [ "$FORCEINITRAM" = disabled ] && ramfs=no
     { [ -e /var/run/reboot-required ] || [ "$FORCEINITRAM" = yes ] || grep -wq 'bootmenu\|rescue' /boot/cmdline.txt 2>/dev/null; } && ramfs=yes || :
-    [ "$FORCEINITRAM" != disabled ] || ramfs=no
 }
 
 case $(xbian-arch) in

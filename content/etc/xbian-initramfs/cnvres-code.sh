@@ -9,7 +9,8 @@ telnetrun() {
 vncrun() {
     modprobe -q vchiq
     modprobe -q uinput
-    which vncserver >/dev/null && { vncserver >/dev/null & } || echo "No VNC server available"
+    [ -e /etc/default/vnc-server ] && . /etc/default/vnc-server
+    which vncserver >/dev/null && { vncserver $OPTIONS >/dev/null & } || echo "No VNC server available"
 }
 
 up() {

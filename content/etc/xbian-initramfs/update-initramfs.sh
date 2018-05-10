@@ -334,6 +334,7 @@ if [ x"$VNC" = xyes ] || ( grep -q vnc $bootfile && [ x"$VNC" != xno ] ); then
         cp --parents /etc/ld.so.conf.d/xbian-firmware.conf ./
         cp --parents /etc/ld.so.conf ./
         chroot ./ /sbin/ldconfig
+        cp --parents /etc/default/vnc-server ./
     fi
 fi
 

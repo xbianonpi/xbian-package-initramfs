@@ -450,10 +450,10 @@ resize_btrfs() {
             btrfs fi resize max $CONFIG_newroot
             btrfs fi sync $CONFIG_newroot
 
-            sectorDF=`df -B512 -P | grep "$CONFIG_newroot" | awk '{printf "%d", $2}'`
+            sectorDFN=`df -B512 -P | grep "$CONFIG_newroot" | awk '{printf "%d", $2}'`
 
             # check if parition was actually resized
-            if [ "$sectorDF" -lt "$sectorNEW" ]; then
+            if [ "$sectorDFN" -le "$sectorDF" ]; then
                 export RESIZEERROR="1"
             fi
         fi

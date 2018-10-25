@@ -335,6 +335,14 @@ if [ x"$VNC" = xyes ] || ( grep -q vnc $bootfile && [ x"$VNC" != xno ] ); then
         cp --parents /etc/ld.so.conf ./
         chroot ./ /sbin/ldconfig
         cp --parents /etc/default/vnc-server ./
+        if [ -e ./etc/default/vnc-server ]; then
+            . ./etc/default/vnc-server
+            if ! echo "$OPTIONS" | grep -q "\-p"; then
+                dpkg --compare-versions "$(dpkg -l | grep "xbian-package-xbmc " | awk '{print $3}')" ge "18" && OPTIONS="-p rel $OPTIONS"
+                sed -i "s/^OPTIONS=.*/OPTIONS=\"$OPTIONS\"/g" ./etc/default/vnc-server
+                cat ./etc/default/vnc-server
+            fi
+        fi
     fi
 fi
 

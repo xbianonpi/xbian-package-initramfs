@@ -154,14 +154,14 @@ get_root() {
         [ "$(btrfs fi show $CONFIG_root | grep -c devid)" -gt 1 ] && export RESIZEERROR=1
     fi
 
-    export DEV="${CONFIG_root%[0-9]}"
+    export DEV="${CONFIG_root%[0-9]}"; DEV="${DEV%[0-9]}"
     if [ ! -e ${DEV} ]; then
 	export DEV=${DEV%p}
 	export PARTdelim='p'
     else
 	export PARTdelim=''
     fi
-    export PART=${CONFIG_root#${CONFIG_root%?}}
+    export PART=${CONFIG_root##*[a-z]}
 
     return 0
 }

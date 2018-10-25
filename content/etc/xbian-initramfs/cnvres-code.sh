@@ -386,17 +386,17 @@ resize_part() {
 resize_ext4() {
     if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$FSCHECK" = "ext4" ]; then
 
-        if [ "${FSCHECK}" = 'ext4' ]; then
-            # check if the partition needs resizing
-            TUNE2FS=$(/sbin/tune2fs -l ${CONFIG_root})
-            TUNEBLOCKSIZE=$(echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}')
-            TUNEBLOCKCOUNT=$(echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}')
-            export BLOCKNEW=$(($sectorNEW / ($TUNEBLOCKSIZE / 512) ))
+        # check if the partition needs resizing
+        [ -e /etc/mtab ] || ln -s /proc/mounts /etc/mtab
+        TUNE2FS=$(/sbin/tune2fs -l ${CONFIG_root})
+        TUNEBLOCKSIZE=$(echo -e "${TUNE2FS}" | grep "Block size" | awk '{printf "%d", $3}')
+        TUNEBLOCKCOUNT=$(echo -e "${TUNE2FS}" | grep "Block count" | awk '{printf "%d", $3}')
+        export BLOCKNEW=$(($sectorNEW / ($TUNEBLOCKSIZE / 512) ))
 
-            # resize root partition
-            if [ "$TUNEBLOCKCOUNT" -lt "$BLOCKNEW" ]; then
-                test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="fs resize..."
-                test -n "$CONFIG_splash" || echo '
+        # resize root partition
+        if [ "$TUNEBLOCKCOUNT" -lt "$BLOCKNEW" ]; then
+            test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="fs resize..."
+            test -n "$CONFIG_splash" || echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
 888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
 888    888 888        Y88b.        888        d88P     888   88888b  888 888    888
@@ -405,30 +405,28 @@ resize_ext4() {
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88';
-                e2fsck -p -f ${CONFIG_root}
-                /bin/mount -t ext4 ${CONFIG_root} "$CONFIG_newroot"
-                TUNEBLOCKCOUNT=$(/sbin/resize2fs ${CONFIG_root} | grep now | rev | awk '{print $3}' | rev)
-                if [ "$?" -eq '0' ]; then
-                    TUNEBLOCKCOUNT=${BLOCKNEW}
-                fi
-                umount ${CONFIG_root}
-
-                # check if parition was actually resized
-                if [ "${TUNEBLOCKCOUNT}" -lt "${BLOCKNEW}" ]; then
-                    echo "Resizing failed..."
-                    export RESIZEERROR="1"
-                else
-                    echo "Filesystem resized..."
-                fi
-                #e2fsck -p -f ${CONFIG_root}
+            e2fsck -p -f ${CONFIG_root}
+            /bin/mount -t ext4 ${CONFIG_root} "$CONFIG_newroot"
+            TUNEBLOCKCOUNT=$(/sbin/resize2fs ${CONFIG_root} | grep now | rev | awk '{print $3}' | rev)
+            if [ "$?" -eq '0' ]; then
+                TUNEBLOCKCOUNT=${BLOCKNEW}
             fi
+            umount ${CONFIG_root}
+
+            # check if parition was actually resized
+            if [ "${TUNEBLOCKCOUNT}" -lt "${BLOCKNEW}" ]; then
+                echo "Resizing failed..."
+                export RESIZEERROR="1"
+            else
+                echo "Filesystem resized..."
+            fi
+            #e2fsck -p -f ${CONFIG_root}
         fi
     fi
 }
 
 resize_btrfs() {
     if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "btrfs" -a "$FSCHECK" = 'btrfs' ]; then
-
         smsg="fs resize..."
         [ -n "$1" ] && smsg="$1"
 

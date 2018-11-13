@@ -518,6 +518,17 @@ w
         /sbin/partprobe
         /sbin/swapoff -a	# make sure that swap is turned off when making swap
         mkswap ${DEV}${PARTdelim}${pPART}
+
+    elif [ "$RESIZEERROR" -eq "0" -a "$CONFIG_partswap" -eq '1' -a "$CONFIG_rootfstype" = "zfs" ]; then
+        pool="${CONFIG_root%%/*}"
+        if [ ! -b /dev/zvol/$pool/swap ]; then
+            test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="creating swap..."
+            zfs create -V 250M -b $(getconf PAGESIZE) -o compression=zle -o logbias=throughput -o sync=always -o primarycache=metadata -o secondarycache=none -o com.sun:auto-snapshot=false $pool/swap
+            sleep 0.5
+        fi
+        if [ "$(blkid -s TYPE -o value -p /dev/zvol/$pool/swap 2>/dev/null)" != swap ]; then
+            mkswap /dev/zvol/$pool/swap
+        fi
     fi
 }
 

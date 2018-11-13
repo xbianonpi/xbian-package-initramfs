@@ -107,29 +107,23 @@ true
 }
 
 get_root() {
-    [ -n "$CONFIG_roottxt" ] && export CONFIG_root="$CONFIG_roottxt"
-    if echo $CONFIG_root | grep -q ^'UUID=\|LABEL=\|PARTUUID='; then
-        export CONFIG_roottxt=$CONFIG_root
-        export CONFIG_root=$(findfs $CONFIG_roottxt 2>/dev/null)
-        [ -z $CONFIG_root ] && return 1
-    elif echo $CONFIG_root | grep -q ^'iSCSI='; then
-        export CONFIG_roottxt=$CONFIG_root
+    [ -n "$CONFIG_roottxt" ] && export CONFIG_root="$CONFIG_roottxt" || export CONFIG_roottxt="$CONFIG_root"
+
+    if echo $CONFIG_root | grep -q ^'iSCSI='; then
         export CONFIG_root=${CONFIG_root##iSCSI=}
         export CONFIG_target=$(echo ${CONFIG_root%,*} | sed 's/,/ -p /g')
         export CONFIG_root=${CONFIG_root##*,}
         iscsiadm -m node -T $CONFIG_target --login
-        if echo $CONFIG_root | grep -q ^'UUID=\|LABEL=\|PARTUUID='; then
-            export CONFIG_root=$(findfs $CONFIG_root 2>/dev/null)
-            [ -z $CONFIG_root ] && return 1
-        fi
-        [ -b $CONFIG_root ] || return 1
+    fi
+    if echo $CONFIG_root | grep -q ^'UUID=\|LABEL=\|PARTUUID='; then
+        export CONFIG_root=$(findfs $CONFIG_root 2>/dev/null)
+        [ -z $CONFIG_root ] && return 1
     elif echo $CONFIG_root | grep -q ^'ZFS='; then
-        export CONFIG_roottxt="$CONFIG_root"
         export CONFIG_root=${CONFIG_root##ZFS=}
         if [ -f /etc/zfs/zpool.cache ]; then
-            zpool list ${CONFIG_root} >/dev/null 2>&1|| zpool import -f -N ${CONFIG_root} 2>&1
+            zpool list ${CONFIG_root} >/dev/null 2>&1 || zpool import -f -N ${CONFIG_root} 2>/dev/null
         else
-            zpool import -f -N ${CONFIG_root} 2>&1
+            zpool import -f -N ${CONFIG_root} 2>/dev/null
         fi
         [ $? -ne 0 ] && return 1
         export CONFIG_rootfs=$(zpool list -H -o bootfs ${CONFIG_root} 2>/dev/null)
@@ -139,11 +133,11 @@ get_root() {
         export CONFIG_root="$CONFIG_rootfs"
         export CONFIG_rootfstype=zfs
         export CONFIG_rootfsopts=zfsutil
-        [ "$(zfs get atime -H "$CONFIG_root"|awk '{print $3}')" = off ] && export CONFIG_rootfsopts="$CONFIG_rootfsopts,noatime"
+        [ "$(zfs get atime -H "$CONFIG_root" | awk '{print $3}')" = off ] && export CONFIG_rootfsopts="$CONFIG_rootfsopts,noatime"
         return 0
-    else
-        [ -b $CONFIG_root ] || return 1
     fi
+
+    [ -b $CONFIG_root ] || return 1
 
     if [ $CONFIG_rootfstype = btrfs ]; then
         btrfs dev scan || :

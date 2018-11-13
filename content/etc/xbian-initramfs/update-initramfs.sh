@@ -405,6 +405,20 @@ fi
 # Include ZFS stuff (optional)
 ##
 if [ x"$ZFS" = xyes ] || ( ( grep -q "root=ZFS=" $bootfile || grep -q ^zfs /{etc,proc}/modules ) && [ x"$ZFS" != xno ] ); then
+
+    mkdir -p ./lib/udev/rules.d/
+    for rules in 60-zvol.rules 69-vdev.rules 90-zfs.rules; do
+         if   [ -e /etc/udev/rules.d/$rules ]; then
+             cp -p /etc/udev/rules.d/$rules ./lib/udev/rules.d/
+         elif [ -e /lib/udev/rules.d/$rules ]; then
+             cp -p /lib/udev/rules.d/$rules ./lib/udev/rules.d/
+         fi
+    done
+
+    copy_with_libs /lib/udev/vdev_id
+    copy_with_libs /lib/udev/zvol_id
+
+    copy_with_libs `which getconf`
     copy_with_libs `which zpool`
     copy_with_libs `which zfs`
     copy_with_libs `which mount.zfs`

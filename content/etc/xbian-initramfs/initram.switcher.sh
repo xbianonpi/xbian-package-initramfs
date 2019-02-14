@@ -1,60 +1,69 @@
-#!/bin/bash
+#!/bin/sh
 
 mountpoint -q /boot || exit 0
+
+exec 2>/dev/null
 
 ramfs=yes
 
 [ ! -e /etc/default/xbian-initramfs ] || . /etc/default/xbian-initramfs
 
-function ramfs_check() {
+ramfs_check() {
     bootfile=$1
-    { z=$(grep root= $bootfile); z=$(echo ${z##* root=} | awk '{print $1}'); }
+    root=$(awk -F 'root=' '/root=/{sub(" .*","",$2);print $2}' $bootfile)
 
-    case $z in
+    echo "configured root=$root" >&2
+
+    case $root in
 
         UUID=*|LABEL=*)
-            root=$(findfs $(echo $z|tr -d '"') 2>/dev/null)
-            case $root in
+            r=$(findfs $(echo $root | tr -d '"'))
+            case $r in
                 /dev/mmcblk*|/dev/sd*)
-	            sed -i "s%root=$z%root=$root%" $bootfile
-	            z=$root
+	            sed -i "s%root=$root%root=$r%" $bootfile
+	            root=$r
 	            ramfs=no
-                ;;
-                *)
                 ;;
             esac
         ;;
 
         PARTUUID=*)
-            root=$(findfs $(echo $z|tr -d '"') 2>/dev/null)
-            case $root in
+            r=$(findfs $(echo $root | tr -d '"'))
+            case $r in
                 /dev/mmcblk0*|/dev/sd*)
-	            z=$root
+	            root=$r
 	            ramfs=no
-                ;;
-                *)
                 ;;
             esac
         ;;
 
-        iSCSI=*)
-            z=${z##iSCSI=}; z=${z##*,}; z=$(findfs $(echo $z|tr -d '"') 2>/dev/null)
+        ZFS=*|iSCSI=*,ZFS=*)
+            root=$(zpool list -H -o bootfs ${root##*ZFS=})
+            echo "ZFS root=$root" >&2
         ;;
 
-        ZFS=*)
-            z=${z##ZFS=}
+        iSCSI=*)
+            root=${root##iSCSI=}; root=${root##*,}; root=$(findfs $(echo $root | tr -d '"'))
+            echo "iSCSI root=$root" >&2
         ;;
 
         /dev/mmcblk*|/dev/sd*)
-            grep -q "vers=4\|rootfstype=f2fs" $bootfile || ramfs=no
+            grep -q "rootfstype=f2fs" $bootfile || ramfs=no
         ;;
 
-        *)
+        /dev/nfs)
+            modinfo -k $(dpkg -l | awk '/(linux-image-|xbian-package-kernel)/{v=$3;sub("-.*","",v);sub("~","-",v);print v}') nfs >/dev/null || ramfs=no
+            r=$(awk -F 'nfsroot=' '/nfsroot=/{sub(",.*","",$2);print $2}' $bootfile)
+            if ! echo $r | grep -q ^"[0-9.]*:/"; then
+                root="$(grep -oE "ip=[^ ]*|cnet=[^ ]*" $bootfile | awk -F ':' '{print $2}'):$r"
+            fi
+            echo "NFSROOT root=$root" >&2
         ;;
+
     esac
 
     [ "$FORCEINITRAM" = disabled ] && ramfs=no
-    { [ -e /var/run/reboot-required ] || [ "$FORCEINITRAM" = yes ] || grep -wq 'bootmenu\|rescue' /boot/cmdline.txt 2>/dev/null; } && ramfs=yes || :
+    { [ -e /var/run/reboot-required ] || [ "$FORCEINITRAM" = yes ] || grep -wqsE 'bootmenu|rescue|vnc|cnet' $bootfile; } && ramfs=yes || :
 }
 
 case $(xbian-arch) in
@@ -81,25 +90,26 @@ case $(xbian-arch) in
             ;;
         esac
     ;;
-
-    *)
-    ;;
 esac
 
-if grep -q ip= $bootfile 2>/dev/null; then
-    if [ $z = $(findmnt -r -n -v -o SOURCE /) ] && grep -q 'iface eth0 inet dhcp' /etc/network/interfaces; then
-        sed -i 's%iface eth0 inet dhcp%iface eth0 inet manual%' /etc/network/interfaces
-        touch /etc/xbian-initramfs/eth0.swap.eth0
+if grep -qE 'ip=|cnet=' $bootfile; then
+    n=$(grep -oE "ip=[^ ]*|cnet=[^ ]*" $bootfile | grep -oE "eth[0-9]|wlan[0-9]|ra[0-9]")
+    [ -n "$n" ] || n='eth0'
+    if [ "$root" = $(findmnt -r -n -v -o SOURCE /) ] && grep -qE "iface $n inet dhcp|iface $n inet static" /etc/network/interfaces; then
+        grep -qs "iface $n inet manual" /etc/xbian-initramfs/netXset2manual || grep "iface $n inet " /etc/network/interfaces >> /etc/xbian-initramfs/netXset2manual
+        sed -i "s%iface $n inet .*%iface $n inet manual%" /etc/network/interfaces
     fi
-elif ! grep -q ip= $bootfile 2>/dev/null; then
-    if [ $z = $(findmnt -r -n -v -o SOURCE /) -a -e /etc/xbian-initramfs/eth0.swap.eth0 ]; then
-        sed -i 's%iface eth0 inet manual%iface eth0 inet dhcp%' /etc/network/interfaces
-        rm -f /etc/xbian-initramfs/eth0.swap.eth0
+else
+    if [ "$root" = $(findmnt -r -n -v -o SOURCE /) -a -e /etc/xbian-initramfs/netXset2manual ]; then
+        while read l; do
+            sed -i "s%iface $(echo "$l" | awk '{print $2}') inet manual%$l%" /etc/network/interfaces
+        done < /etc/xbian-initramfs/netXset2manual
+        rm -f /etc/xbian-initramfs/netXset2manual
     fi
 fi
 
-cd /boot; [ -n "$(find ./ -iname boot.scr.txt -newer boot.scr 2>/dev/null)" ] && ./mks
+[ -e /boot/boot.scr.txt ] && ( cd /boot; [ -n "$(find ./ -iname boot.scr.txt -newer boot.scr)" ] && ./mks )
 
-cd /; [ x"$1" = xupdate ] || umount /boot
+[ "$1" = update ] || umount /boot
 
 exit 0

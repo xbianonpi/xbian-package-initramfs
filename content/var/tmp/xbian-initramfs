@@ -6,8 +6,12 @@ MAKEBACKUP=yes
 
 #
 # This defines if initram will be used always (=yes), never (=disabled)
-# or if required (=no). initramfs is required if you're running ZFS, F2FS or NFS as
-# root fs, or root partition has been defined as UUID= or LABEL=.
+# or if required (=no). initramfs is required if you're running ZFS, F2FS
+# or NFS as root fs (if ethernet network driver not compiled in kernel),
+# or root partition has been defined as iSCSI=, UUID= or LABEL=, or last
+# but not least cnet= parameter has been given in kernels cmdline
+#
+# Recommended value: no
 #
 FORCEINITRAM=no
 
@@ -29,13 +33,17 @@ VNC=auto
 # included always, if set to 'auto', it will be included if root=iSCSI= string
 # is found in /boot/cmdline.txt or /boot/boot.scr.txt. 'no' disables it at all
 #
+# Recommended value: auto
+#
 iSCSI=auto
 
 #
 # Include (W)LAN stuff into initramfs. If included, using root fs on NFS is possible
 # by WLAN connections. If variable is set to 'yes', it will be included always,
-# if set to 'auto', it will be included if wlan string is found in /boot/cmdline.txt
-# or /boot/boot.scr.txt. 'no' disables it at all
+# if set to 'auto', it will be included if WLAN or RA string is found in
+# /boot/cmdline.txt or /boot/boot.scr.txt. 'no' disables it at all
+#
+# Recommended value: auto
 #
 LAN=auto
 
@@ -43,6 +51,8 @@ LAN=auto
 # Include ZFS stuff into initramfs. If variable is set to 'yes', it will be
 # included always, if set to 'auto', it will be included if root=ZFS= string
 # is found in /boot/cmdline.txt or /boot/boot.scr.txt. 'no' disables it at all
+#
+# Recommended value: auto
 #
 ZFS=auto
 

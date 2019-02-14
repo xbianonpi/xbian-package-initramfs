@@ -1,6 +1,9 @@
 #!/bin/bash
 
-exec 2>/dev/null
+NP=/run/$$.pipe
+mknod $NP p
+tee <$NP /tmp/$(basename $0).log &
+exec 1>$NP 2>/dev/null
 
 if [ ! -e /usr/local/bin/busybox ]; then
     [ ! -e /bin/busybox ] && exit 99
@@ -22,7 +25,7 @@ grep -q initramfs.gz /var/lib/dpkg/info/xbian-update.list && sed -i "/\(\/boot\/
 
 
 if [ -z "$MODVER" ]; then
-	test -z "$1" && MODVER=$(uname -r)
+	test -z "$1" && MODVER="$(dpkg -l | awk '/(linux-image-|xbian-package-kernel)/{v=$3;sub("-.*","",v);sub("~","-",v);print v}')"
 	test -z "$MODVER" && MODVER="$1"
 fi
 
@@ -60,7 +63,7 @@ copy_modules() {
 
 put_to_modules(){
     for m in $1; do
-        echo "$(cat ./etc/modules 2>/dev/null)" | grep -qx $m  || echo $m >> ./etc/modules
+        grep -qsx $m ./etc/modules || echo $m >> ./etc/modules
         copy_modules $m
     done
 }
@@ -73,7 +76,7 @@ copy_file() {
         test -e "$fl" || fl="$dr/$fl"
         case $lib_done in
                 *" $fl "*)
-                        echo "again $fl"
+                        echo "again $fl" >&2
                         return 
                         ;;
                 *)
@@ -121,7 +124,7 @@ copy_with_libs() {
 
 TMPDIR=$(mktemp -d)
 cd $TMPDIR
-trap "{ cd ..; { rm -fr '${TMPDIR}' & }; exit 0; }" INT TERM EXIT
+trap "{ cd ..; { rm -fr '${TMPDIR}' & }; rm -f $NP; exit 0; }" INT TERM EXIT
 
 mkdir bin dev etc lib proc rootfs run sbin sys tmp usr mnt var
 cat << \EOF > ./.profile
@@ -156,22 +159,19 @@ cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 cp /etc/xbian_version ./etc/
 
-cat /etc/modules | grep -v ^# | grep -v lirc_ >> ./etc/modules
-copy_modules "ext4 usb_storage vchiq spl zfs evdev"
-put_to_modules "nfs sunrpc rpcsec_gss_krb5 lz4 cfq-iosched f2fs spl zavl znvpair zcommon zunicode zfs evdev"
+grep -sv ^'#' /etc/modules | grep -v lirc_ >> ./etc/modules
+copy_modules "usb_storage vchiq"
+put_to_modules "lz4 cfq-iosched ext4 f2fs zfs evdev"
 copy_modules "$(cat ./etc/modules)"
-echo "$(cat /etc/fstab) $(cat /etc/fstab.d/*)" | awk '{print $3}' | uniq | grep -v ^$ | grep 'nfs\|nfs4\|cifs' \
+grep -shv ^'#' {/etc/fstab,/etc/fstab.d/*} | awk '/(nfs|nfs4|cifs)/{print $3}' | sort -u \
     | while read fstype; do
         case $fstype in
             nfs|nfs4)
-                list="nfsv4 nfsv3 nfs sunrpc rpcsec_gss_krb5"
-                copy_modules "$list"
-                put_to_modules "$list"
+                put_to_modules "nfsv4 nfsv3 nfs sunrpc rpcsec_gss_krb5"
                 ;;
             cifs)
                 list=cifs
-                copy_modules "$list"
-                put_to_modules "$list"
+                put_to_modules "cifs"
                 ;;
         esac
     done
@@ -324,7 +324,7 @@ copy_with_libs /usr/bin/mkimage
 ##
 # Include VNC stuff (optional)
 ##
-if [ x"$VNC" = xyes ] || ( grep -q vnc $bootfile && [ x"$VNC" != xno ] ); then
+if [ "$VNC" = yes ] || ( grep -q vnc $bootfile && [ "$VNC" != no ] ); then
     case "$(xbian-arch)" in
         RPI)  copy_with_libs /usr/local/sbin/rpi-vncserver; mv ./usr/local/sbin/rpi-vncserver ./usr/local/sbin/vncserver ;;
         iMX6) copy_with_libs /usr/local/sbin/imx-vncserver; mv ./usr/local/sbin/imx-vncserver ./usr/local/sbin/vncserver ;;
@@ -349,7 +349,7 @@ fi
 ##
 # Include iSCSI stuff (optional)
 ##
-if [ x"$iSCSI" = xyes ] || ( grep -q "root=iSCSI=" $bootfile && [ x"$iSCSI" != xno ] ); then
+if [ "$iSCSI" = yes ] || ( grep -q "root=iSCSI=" $bootfile && [ "$iSCSI" != no ] ); then
     copy_modules "iscsi_tcp"
     copy_with_libs /sbin/iscsid
     copy_with_libs /usr/bin/iscsiadm
@@ -362,7 +362,20 @@ fi
 ##
 # Include (W)LAN stuff (optional)
 ##
-if [ x"$LAN" = xyes ] || ( grep -qwE "wlan[0-9]|ra[0-9]" $bootfile && [ x"$LAN" != xno ] ); then
+if grep -q "ip=" $bootfile; then
+    for f in /sys/class/net/eth*; do
+        dev=$(basename $f)
+        driver=$(readlink $f/device/driver/module)
+        if [ $driver ]; then
+            driver=$(basename $driver)
+            if modinfo -k $MODVER $driver >/dev/null && grep -q "ip=.*$dev" $bootfile; then
+                sed -i "s/ip=/cnet=/g" $bootfile
+                break
+            fi
+        fi
+    done
+fi
+if [ "$LAN" = yes ] || ( grep -qwE "wlan[0-9]|ra[0-9]|cnet" $bootfile && [ "$LAN" != no ] ); then
     add_modules() {
         grep -q ^$1 /{etc,proc}/modules && put_to_modules $1
     }
@@ -382,10 +395,9 @@ network={
 EOF
         sed -i "s/__SSID__/$SSID/;s/__PSK__/$PSK/" ./etc/wpa_supplicant/wpa_supplicant.conf
     else
-        sed -i "/^\(ctrl_interface\|update_config\)/s/^\(.*\)/#\1/g" ./etc/wpa_supplicant/wpa_supplicant.conf &>/dev/null || :
+        sed -i "/^\(ctrl_interface\|update_config\)/s/^\(.*\)/#\1/g" ./etc/wpa_supplicant/wpa_supplicant.conf || :
     fi
-    add_modules smsc95xx
-    add_modules lan78xx
+    put_to_modules "smsc95xx lan78xx"
     add_modules brcmfmac    && for f in /lib/firmware/brcm/brcmfmac434{30,55}-sdio.* /lib/firmware/brcm/brcmfmac4330-sdio.*; do copy_with_libs $f; done
     add_modules mt7601u     && copy_with_libs /lib/firmware/mt7601u.bin
     add_modules mt7610u_sta && copy_with_libs /etc/Wireless
@@ -406,7 +418,7 @@ fi
 ##
 # Include ZFS stuff (optional)
 ##
-if [ x"$ZFS" = xyes ] || ( ( grep -q "root=ZFS=" $bootfile || grep -q ^zfs /{etc,proc}/modules ) && [ x"$ZFS" != xno ] ); then
+if [ "$ZFS" = yes ] || ( ( grep -q "root=ZFS=" $bootfile || grep -q ^zfs /{etc,proc}/modules ) && [ "$ZFS" != no ] ); then
 
     mkdir -p ./lib/udev/rules.d/
     for rules in 60-zvol.rules 69-vdev.rules 90-zfs.rules; do
@@ -435,6 +447,8 @@ if ! mountpoint -q /boot; then
         mount /boot || { echo "FATAL: /boot can't be mounted"; exit 1; }
         need_umount="yes"
 fi
+
+[ -x /etc/xbian-initramfs/initram.switcher.sh ] && /etc/xbian-initramfs/initram.switcher.sh update
 
 if [ "$MAKEBACKUP" = "yes" ]; then
     test -e /boot/initramfs.gz && mv /boot/initramfs.gz /boot/initramfs.gz.old

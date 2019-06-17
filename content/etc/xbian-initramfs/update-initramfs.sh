@@ -13,19 +13,21 @@ if [ ! -e /etc/xbian_version ]; then
     sed -i 's/ --startup-event mountall//g' /boot/boot.scr.txt
 fi
 
+. /etc/default/xbian-initramfs
+
 case "$(xbian-arch)" in
     RPI)  bootfile=/boot/cmdline.txt ;;
-    iMX6) bootfile=/boot/boot.scr.txt ;;
+    *)    bootfile=/boot/boot.scr.txt; "INCLUDEFILES=/usr/bin/mkimage $INCLUDEFILES" ;;
 esac
 
-. /etc/default/xbian-initramfs
+rootfs="$(findmnt / -no FSTYPE)"
 
 test -e /run/trigger-xbian-update-initramfs && MODVER=$(cat /run/trigger-xbian-update-initramfs)
 grep -q initramfs.gz /var/lib/dpkg/info/xbian-update.list && sed -i "/\(\/boot\/initramfs.gz\)/d" /var/lib/dpkg/info/xbian-update.list
 
 
 if [ -z "$MODVER" ]; then
-	test -z "$1" && MODVER="$(dpkg -l | awk '/(linux-image-|xbian-package-kernel)/{v=$3;sub("-.*","",v);sub("~","-",v);print v}')"
+	test -z "$1" && MODVER="$(dpkg -l | awk '/(linux-image-[ab]|xbian-package-kernel)/{v=$3;sub("-.*","",v);sub("~","-",v);print v}')"
 	test -z "$MODVER" && MODVER="$1"
 fi
 
@@ -124,27 +126,24 @@ copy_with_libs() {
 
 TMPDIR=$(mktemp -d)
 cd $TMPDIR
-trap "{ cd ..; { rm -fr '${TMPDIR}' & }; rm -f $NP; exit 0; }" INT TERM EXIT
+trap "{ cd ..; { rm -fr '${TMPDIR}' & }; rm -f $NP /run/initramfs.gz; exit 0; }" INT TERM EXIT
 
-mkdir bin dev etc lib proc rootfs run sbin sys tmp usr mnt var
+mkdir -p bin dev etc/network etc/wpa_supplicant etc/network/if-down.d etc/network/if-up.d etc/network/if-post-down.d etc/network/if-pre-up.d \
+    lib/modules mnt proc rootfs run sbin sys tmp usr/bin usr/lib/arm-linux-gnueabihf var
+
 cat << \EOF > ./.profile
 export PS1='\w # '
-alias rum='findmnt /rootfs >/dev/null && umount -R /rootfs; umount -a'
-alias reb='findmnt /rootfs >/dev/null && umount -R /rootfs; umount -a; sync; reboot -nf'
+export FTYPES=ext2,ext4,btrfs,zfs,f2fs
+alias rum='umount -alt $FTYPES'
+alias reb='umount -alt $FTYPES; sync; echo b >/proc/sysrq-trigger'
 alias rch='chroot /rootfs /bin/bash'
 EOF
 cp .profile .bashrc
 ln -s /run ./var/run
-mkdir usr/bin
-mkdir etc/udhcpc etc/network etc/wpa_supplicant
-mkdir etc/network/if-down.d etc/network/if-up.d etc/network/if-post-down.d etc/network/if-pre-up.d
-mkdir lib/modules
-mkdir -p usr/bin
-mkdir -p usr/lib/arm-linux-gnueabihf
 
 copy_with_libs /usr/local/bin/busybox
 /usr/local/bin/busybox --install -s $(readlink -f ./bin)
-( cd ./bin; ln -s /usr/local/bin/busybox ./; )
+( cd ./bin; ln -s /usr/local/bin/busybox ./; cd ./sbin; ln -s /usr/local/bin/busybox udhcpc; ln -s /usr/local/bin/busybox udhcpc6; )
 
 cp -d --remove-destination --parents /etc/udev/* ./
 cp -d --remove-destination --parents /etc/default/{tmpfs,rcS,xbian-rnd} ./
@@ -158,10 +157,13 @@ cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
 cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 cp /etc/xbian_version ./etc/
+cp /etc/resolv.conf ./etc/
+cp /etc/nsswitch.conf ./etc/
 
 grep -sv ^'#' /etc/modules | grep -v lirc_ >> ./etc/modules
+
 copy_modules "usb_storage vchiq"
-put_to_modules "lz4 cfq-iosched ext4 f2fs zfs evdev"
+put_to_modules "lz4 cfq-iosched ext4 f2fs evdev"
 copy_modules "$(cat ./etc/modules)"
 grep -shv ^'#' {/etc/fstab,/etc/fstab.d/*} | awk '/(nfs|nfs4|cifs)/{print $3}' | sort -u \
     | while read fstype; do
@@ -202,80 +204,28 @@ fi
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
-for f in /usr/local/sbin/{xbian-hwrng,xbian-frandom,xbian-arch}; do
+for f in /usr/local/sbin/{xbian-hwrng,xbian-frandom,xbian-arch} /lib/arm-linux-gnueabihf/libresolv.so* /lib/arm-linux-gnueabihf/libnss_dns.so*; do
     copy_with_libs $f ./
 done
-copy_with_libs /usr/bin/whiptail ./
 #copy_with_libs /bin/bash ./
 #copy_with_libs /bin/dash ./
 #copy_with_libs /bin/sh ./
-copy_with_libs /sbin/kexec ./
-copy_with_libs /bin/findmnt ./
-copy_with_libs /usr/bin/pkill ./
-copy_with_libs /usr/sbin/chroot
-cp /etc/xbian-initramfs/bootmenu ./
-cp /etc/xbian-initramfs/bootmenu_timeout ./
-copy_with_libs /bin/mountpoint ./
 copy_with_libs /sbin/udevd ./
 copy_with_libs /sbin/udevadm ./
 copy_with_libs /lib/systemd/systemd-udevd ./
-copy_with_libs /sbin/findfs
-copy_with_libs /sbin/blkid 
-copy_with_libs /sbin/sfdisk
-copy_with_libs /sbin/tune2fs
-copy_with_libs /sbin/e2fsck 
-copy_with_libs /sbin/resize2fs 
 
-#copy_with_libs /bin/kmod
-#rm -fr ./bin/modprobe
-#copy_with_libs /sbin/modprobe
-#copy_with_libs /sbin/lsmod
-#copy_with_libs /sbin/rmmod
-#copy_with_libs /sbin/insmod
 for f in lsmod rmmod insmod modprobe; do
     ln -s /bin/$f ./sbin/$f
 done
 
-rm -fr ./bin/awk
-copy_with_libs /usr/bin/mawk
-ln ./usr/bin/mawk ./usr/bin/awk
-rm -fr ./bin/mount
-rm -fr ./bin/umount
-rm -fr ./bin/date
-rm -fr ./bin/grep
-copy_with_libs /bin/mount
-copy_with_libs /bin/umount
-copy_with_libs /bin/date
-copy_with_libs /bin/grep
-copy_with_libs /sbin/killall5
-copy_with_libs /bin/pidof
-rm /bin/switch_root
-copy_with_libs /sbin/switch_root
-#rm -fr ./bin/find
-#copy_with_libs /usr/bin/find
-copy_with_libs $(which btrfs)
-copy_with_libs $(which btrfs-convert)
-copy_with_libs $(which btrfs-zero-log)
 copy_with_libs /usr/sbin/thd
-copy_with_libs /usr/sbin/th-cmd
-copy_with_libs /usr/bin/nice
-copy_with_libs /sbin/partprobe
-
-cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin
-cp --remove-destination /usr/lib/klibc/bin/run-init ./sbin
-cp --remove-destination /usr/lib/klibc/bin/kinit ./sbin
-cp --remove-destination /usr/lib/klibc/bin/nuke ./sbin
-cp --remove-destination /usr/lib/klibc/bin/nfsmount ./sbin
-
 copy_with_libs /lib/terminfo
 
 cp --parents /usr/share/consolefonts/Lat2-Fixed16.psf.gz ./
 
-copy_with_libs /sbin/ip
-
 copy_with_libs /usr/bin/splash
-copy_with_libs /sbin/fdisk
-copy_with_libs /sbin/swapoff
+copy_with_libs /sbin/parted
+copy_with_libs /sbin/partprobe
 cp -d --remove-destination --parents /etc/default/template.json ./
 cp -d --remove-destination -aR --parents /usr/local/lib/splash ./
 copy_with_libs /usr/local/bin/splash-send
@@ -307,19 +257,26 @@ cp /etc/group ./etc
 
 cp /etc/xbian-initramfs/init ./
 grep . /etc/motd -m10 > ./motd
-cp /etc/xbian-initramfs/howto ./bin
 cp /etc/xbian-initramfs/howto.txt ./
 
 cp /etc/xbian-initramfs/trigg.shift ./
-cp /etc/xbian-initramfs/bootmenu ./
-cp /etc/xbian-initramfs/bootmenu_timeout ./
 cp /etc/xbian-initramfs/cnvres-code.sh ./
 cp /etc/xbian-initramfs/splash_updater.sh ./
 
-copy_with_libs /usr/bin/stdbuf
-copy_with_libs /usr/lib/coreutils/libstdbuf.so
-copy_with_libs /usr/bin/setterm
 copy_with_libs /usr/bin/mkimage
+
+##
+# Include BOOTMENU stuff (optional)
+##
+if [ "$BOOTMENU" = yes ] || ( grep -q bootmenu $bootfile && [ "$BOOTMENU" != no ] ); then
+    cp /etc/xbian-initramfs/bootmenu ./
+    cp /etc/xbian-initramfs/bootmenu_timeout ./
+    copy_with_libs /sbin/blkid
+    copy_with_libs /usr/bin/whiptail ./
+    copy_with_libs /usr/bin/setterm
+    copy_with_libs /sbin/kexec ./
+    copy_with_libs /sbin/killall5
+fi
 
 ##
 # Include VNC stuff (optional)
@@ -334,13 +291,14 @@ if [ "$VNC" = yes ] || ( grep -q vnc $bootfile && [ "$VNC" != no ] ); then
         cp --parents /etc/ld.so.conf.d/xbian-firmware.conf ./
         cp --parents /etc/ld.so.conf ./
         chroot ./ /sbin/ldconfig
+        rm -f ./sbin/ldconfig
         cp --parents /etc/default/vnc-server ./
         if [ -e ./etc/default/vnc-server ]; then
             . ./etc/default/vnc-server
             if ! echo "$OPTIONS" | grep -q "\-p"; then
                 dpkg --compare-versions "$(dpkg -l | grep "xbian-package-xbmc " | awk '{print $3}')" ge "18" && OPTIONS="-p rel $OPTIONS"
                 sed -i "s/^OPTIONS=.*/OPTIONS=\"$OPTIONS\"/g" ./etc/default/vnc-server
-                cat ./etc/default/vnc-server
+                cat ./etc/default/vnc-server >&2
             fi
         fi
     fi
@@ -349,14 +307,14 @@ fi
 ##
 # Include iSCSI stuff (optional)
 ##
-if [ "$iSCSI" = yes ] || ( grep -q "root=iSCSI=" $bootfile && [ "$iSCSI" != no ] ); then
+if [ "$iSCSI" = yes ] || grep -q "root=iSCSI=" $bootfile; then
     copy_modules "iscsi_tcp"
     copy_with_libs /sbin/iscsid
     copy_with_libs /usr/bin/iscsiadm
-    copy_with_libs /lib/arm-linux-gnueabihf/libnss_compat.so.2
-    copy_with_libs /lib/arm-linux-gnueabihf/libnsl.so.1
-    cp -a /etc/iscsi ./etc
-    cp /etc/passwd ./etc
+    copy_with_libs /lib/arm-linux-gnueabihf/libnss_compat.so*
+    copy_with_libs /lib/arm-linux-gnueabihf/libnsl.so*
+
+    cp --parents /etc/iscsi/* /etc/passwd ./
 fi
 
 ##
@@ -375,27 +333,30 @@ if grep -q "ip=" $bootfile; then
         fi
     done
 fi
-if [ "$LAN" = yes ] || ( grep -qwE "wlan[0-9]|ra[0-9]|cnet" $bootfile && [ "$LAN" != no ] ); then
+if [ "$LAN" = yes ] || grep -qwE "wlan[0-9]|ra[0-9]|br[0-9]|bond[0-9]|cnet" $bootfile; then
     add_modules() {
         grep -q ^$1 /{etc,proc}/modules && put_to_modules $1
     }
     copy_with_libs /sbin/wpa_supplicant
     copy_with_libs /sbin/wpa_cli
     cp -a /etc/wpa_supplicant ./etc
-    if [ -e /etc/network/interfaces ] && grep -qm1 wpa-ssid /etc/network/interfaces && grep -qm1 wpa-psk /etc/network/interfaces; then
-        SSID=$(grep -m1 wpa-ssid /etc/network/interfaces | awk '{print $2}')
-        PSK=$(grep -m1 wpa-psk /etc/network/interfaces | awk '{print $2}')
+    if [ -e /etc/network/interfaces ] && grep -qm1 ^"[ \t]*wpa-ssid" /etc/network/interfaces && grep -qm1 ^"[ \t]*wpa-psk" /etc/network/interfaces; then
+        SSID=$(grep -m1 ^"[ \t]*wpa-ssid" /etc/network/interfaces | awk '{print $2}')
+        PSK=$(grep -m1 ^"[ \t]*wpa-psk" /etc/network/interfaces | awk '{print $2}')
         cat << \EOF > ./etc/wpa_supplicant/wpa_supplicant.conf
+ctrl_interface=DIR=/run/wpa_supplicant GROUP=netdev
+update_config=1
+
 network={
         ssid="__SSID__"
-        proto=WPA2
+        proto=RSN
         key_mgmt=WPA-PSK
         psk="__PSK__"
 }
 EOF
         sed -i "s/__SSID__/$SSID/;s/__PSK__/$PSK/" ./etc/wpa_supplicant/wpa_supplicant.conf
-    else
-        sed -i "/^\(ctrl_interface\|update_config\)/s/^\(.*\)/#\1/g" ./etc/wpa_supplicant/wpa_supplicant.conf || :
+    #else
+    #    sed -i "/^\(ctrl_interface\|update_config\)/s/^\(.*\)/#\1/g" ./etc/wpa_supplicant/wpa_supplicant.conf || :
     fi
     put_to_modules "smsc95xx lan78xx"
     add_modules brcmfmac    && for f in /lib/firmware/brcm/brcmfmac434{30,55}-sdio.* /lib/firmware/brcm/brcmfmac4330-sdio.*; do copy_with_libs $f; done
@@ -405,21 +366,58 @@ EOF
     add_modules mt76x2u     && for f in /lib/firmware/mediatek/mt7662u*.bin; do copy_with_libs $f; done
     add_modules 8192cu      && copy_with_libs /etc/modprobe.d/8192cu.conf
     add_modules 8192eu      && copy_with_libs /etc/modprobe.d/8192eu.conf
+
+    cp --parents /etc/xbian-udhcpc/xbian-udhcpc ./
     cp -d /etc/network/if-down.d/wpasupplicant ./etc/network/if-down.d
     cp -d /etc/network/if-post-down.d/wpasupplicant ./etc/network/if-post-down.d
     cp -d /etc/network/if-pre-up.d/wpasupplicant ./etc/network/if-pre-up.d
     cp -d /etc/network/if-up.d/wpasupplicant ./etc/network/if-up.d
-    copy_with_libs /sbin/ifup
-    copy_with_libs /sbin/ifdown
-    copy_with_libs /sbin/dhclient
-    copy_with_libs /sbin/dhclient-script
+
+    if grep -q "cnet=.*br[0-9]" $bootfile; then
+        put_to_modules "bridge"
+        #copy_with_libs /sbin/brctl
+        #cp --parents /lib/bridge-utils/ifupdown.sh ./
+        #cp --parents /lib/bridge-utils/bridge-utils.sh ./
+        #cp -d /etc/network/if-pre-up.d/bridge ./etc/network/if-pre-up.d
+        #cp -d /etc/network/if-post-down.d/bridge ./etc/network/if-post-down.d
+    fi
+    if grep -q "cnet=.*bond[0-9]" $bootfile; then
+        put_to_modules "bonding"
+        [ -e /etc/modprobe.d/bonding ] || echo "options bonding mode=1 miimon=100 updelay=200 downdelay=200" > /etc/modprobe.d/bonding
+        cp --parents /etc/modprobe.d/bonding ./
+        cp --parents /etc/network/if-pre-up.d/ifenslave ./
+        cp --parents /etc/network/if-up.d/ifenslave ./
+        cp --parents /etc/network/if-post-down.d/ifenslave ./
+    fi
+else
+    #cp --remove-destination /usr/lib/klibc/bin/kinit ./sbin	# FIXME: Do we really need this?
+    cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin
+    #cp --remove-destination /usr/lib/klibc/bin/nfsmount ./sbin	# FIXME: Do we really need this?
+fi
+
+##
+# Include EXT fs tools (optional)
+##
+if [ "$EXTFS" = yes ] || [ -z "$rootfs" ] || [[ "$rootfs" =~ ext ]]; then
+    copy_with_libs /sbin/tune2fs
+    copy_with_libs /sbin/e2fsck
+    copy_with_libs /sbin/resize2fs
+    copy_with_libs /usr/bin/stdbuf
+    copy_with_libs /usr/lib/arm-linux-gnueabihf/coreutils/libstdbuf.so
+    copy_with_libs `which btrfs-convert`
+fi
+
+##
+# Include BTRFS fs tools (optional)
+##
+if [ "$BTRFS" = yes ] || [ -z "$rootfs" ] || [[ "$rootfs" =~ btrfs ]]; then
+    copy_with_libs `which btrfs`
 fi
 
 ##
 # Include ZFS stuff (optional)
 ##
-if [ "$ZFS" = yes ] || ( ( grep -q "root=ZFS=" $bootfile || grep -q ^zfs /{etc,proc}/modules ) && [ "$ZFS" != no ] ); then
-
+if [ "$ZFS" = yes ] || grep -q  "root=ZFS=" $bootfile || grep -q ^zfs /{etc,proc}/modules || [[ "$rootfs" =~ zfs ]]; then
     mkdir -p ./lib/udev/rules.d/
     for rules in 60-zvol.rules 69-vdev.rules 90-zfs.rules; do
          if   [ -e /etc/udev/rules.d/$rules ]; then
@@ -428,6 +426,8 @@ if [ "$ZFS" = yes ] || ( ( grep -q "root=ZFS=" $bootfile || grep -q ^zfs /{etc,p
              cp -p /lib/udev/rules.d/$rules ./lib/udev/rules.d/
          fi
     done
+
+    put_to_modules "zfs"
 
     copy_with_libs /lib/udev/vdev_id
     copy_with_libs /lib/udev/zvol_id
@@ -457,24 +457,38 @@ else
     rm -f /boot/initramfs.gz.notinuse /boot/initramfs.gz.old
 fi
 
-case "$(xbian-arch)" in
-    iMX6|BPI)
-        echo "Creating initram image /boot/initramfs.gz"
-        find . | cpio -H newc -o | gzip > /tmp/initramfs.gz
-        mkimage -O linux -A arm -T ramdisk -C gzip -d /tmp/initramfs.gz /boot/initramfs.gz
-        ( cd /boot; ./mks; )
-    ;;
-    *)
-        echo "Creating initram fs /boot/initramfs.gz"
-        #find . | cpio -H newc -o | lz4 -cl > /boot/initramfs.gz
-        find . | cpio -H newc -o | gzip > /boot/initramfs.gz
-    ;;
-esac
+create_initram() {
+    modprobe -q configs
+    case "$COMPRESS" in
+        xz)         zcat /proc/config.gz | grep -q CONFIG_RD_XZ=y && find . | cpio -H newc -o | xz -cz --threads=0 --check=crc32 > $1 ;;
+        lzma)       zcat /proc/config.gz | grep -q CONFIG_RD_LZMA=y && find . | cpio -H newc -o | lzma -cz --threads=0 --check=crc32 > $1 ;;
+        lz4)        zcat /proc/config.gz | grep -q CONFIG_RD_LZ4=y && find . | cpio -H newc -o | lz4 -cl > $1 ;;
+        bz2|bzip2)  zcat /proc/config.gz | grep -q CONFIG_RD_BZIP2=y && find . | cpio -H newc -o | bzip2 > $1 COMPRESS=bzip2 ;;
+        *)          find . | cpio -H newc -o | gzip > $1; COMPRESS=gzip ;;
+    esac
+}
+
+echo "Creating initram image /boot/initramfs.gz"
+if ! create_initram /run/initramfs.gz; then
+    COMPRESS=gzip
+    create_initram /run/initramfs.gz
+fi
+if [ $? = 0 ]; then
+    if [ "$(xbian-arch)" = RPI ]; then
+        mv /run/initramfs.gz /boot
+    else
+        mkimage -O linux -A arm -T ramdisk -C $COMPRESS -d /run/initramfs.gz /boot/initramfs.gz && mks
+    fi
+    RC=$?
+else
+    echo "FATAL: can not create initram image /boot/initramfs.gz"
+    RC=1
+fi
 
 [ "$need_umount" = "yes" ] && umount /boot
 
 echo initramfs-tools >> /run/reboot-required
 sync
 
-exit 0
+exit $RC
 

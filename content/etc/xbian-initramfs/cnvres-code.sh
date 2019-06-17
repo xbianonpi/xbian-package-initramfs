@@ -1,9 +1,9 @@
 # part of code, which is relevant to block devices ... to keep init readable
 
 telnetrun() {
-    [ -e /bin/bash ] && shl=/bin/bash || shl=/bin/sh
+    [ -f /bin/bash -a ! -h /bin/bash ] && shl=/bin/bash || shl=/bin/sh
     echo "ENV=/.profile exec $shl" > /cmd.sh; chmod +x /cmd.sh
-    busybox cttyhack busybox telnetd -f /howto.txt -F -l /cmd.sh & echo $! > /telnetd.pid
+    cttyhack telnetd -f /howto.txt -F -l /cmd.sh & pids2kill="$pids2kill $!"
 }
 
 vncrun() {
@@ -22,19 +22,24 @@ mount_root_btrfs() {
     /bin/mount -t btrfs -o compress=lzo,rw,noatime,space_cache $device $CONFIG_newroot
 }
 
-update_resolv_helper() {
-    for f in `ls /run/net-*.conf | grep -v net-lo.conf`; do
+gen_resolv() {
+    r=''
+    for f in `ls /run/net-*.conf 2>/dev/null | grep -v net-lo.conf`; do
         . $f
-        [ -z "$IPV4DNS0" ] || echo "nameserver $IPV4DNS0"
-        [ -z "$IPV4DNS1" -o "$IPV4DNS1" = '0.0.0.0' ] || echo "nameserver $IPV4DNS1"
-        [ -z "$DNSDOMAIN" ] || echo "domain $DNSDOMAIN"
-        [ -z "$DOMAINSEARCH" ] && echo "search $DNSDOMAIN" || echo "search $DOMAINSEARCH"
+        [ -z "$IPV4DNS0" ] || r="${r}nameserver $IPV4DNS0\n"
+        [ -z "$IPV4DNS1" -o "$IPV4DNS1" = '0.0.0.0' ] || r="${r}nameserver $IPV4DNS1\n"
+        [ -z "$DNSDOMAIN" ] || r="${r}domain $DNSDOMAIN\n"
+        [ -z "$DOMAINSEARCH" ] && r="${r}search $DNSDOMAIN\n" || r="${r}search $DOMAINSEARCH\n"
+        [ -z "$ROOTSERVER" ] || export CONFIG_server=$ROOTSERVER
     done
-    #echo ""
-}
-
-update_resolv() {
-    printf "%s\n" "$(update_resolv_helper)" | uniq
+    if [ -z "$r" ]; then
+        if [ -e /proc/net/pnp ]; then
+            export CONFIG_server=$(awk '/bootserver/{print $2}' /proc/net/pnp)
+            sed '/bootserver.*/d' /proc/net/pnp >$1
+        fi
+    else
+        echo -en "$r" | awk '!x[$0]++' >$1
+    fi
 }
 
 update_interfaces() {
@@ -62,38 +67,31 @@ update_interfaces() {
 modify_interfaces() {
     getused() {
         h=''
-        for n in $(ip addr | grep state | grep -vwE 'lo|dummy[0-9]|tun[0-9]' | awk '{ sub(":","",$2); print $2; }'); do
+        for n in $(ip a | grep -vwE 'lo|dummy[0-9]|tun[0-9]' | awk '/^[0-9]/{ sub(":","",$2); print $2; }'); do
             [ x"$(ip a show $n | sed -n -e 's/:127\.0\.0\.1 //g' -e 's/ *inet \([0-9.]\+\).*/\1/gp')" = x"$1" ] && h=$n" $h"
         done
         echo $h
     }
 
+    if [ -n "$CONFIG_cnet" ] && [ ! -e $CONFIG_newroot/etc/network/interfaces.initbak ]; then
+        mv $CONFIG_newroot/etc/network/interfaces $CONFIG_newroot/etc/network/interfaces.initbak
+        cp /etc/network/interfaces $CONFIG_newroot/etc/network/
+    fi
+
     if [ "${CONFIG_rooton}" = nfs ]; then
-        usedDEV=$(getused $(netstat -nt 2>/dev/null | grep -m1 $(findmnt -n ${CONFIG_newroot} | awk '{ sub(".*,addr=",""); sub(",.*",""); print $0; }'):2049 | \
+        usedDEV=$(getused $(netstat -nt 2>/dev/null | grep -m1 $(grep -w ${CONFIG_newroot} /proc/mounts | awk '{ sub(".*,addr=",""); sub(",.*",""); print $1; }'):2049 | \
             awk '{ split($4, a, ":"); print a[1]; }'))
     elif [ "${CONFIG_rooton}" = iscsi ]; then
         usedDEV=$(getused $(netstat -nt 2>/dev/null | grep :$(iscsiadm -m session | awk '{ split($3, a, ":"); split(a[2], b, ","); print b[1]; }') | \
             awk '{ split($4, a, ":"); print a[1]; }'))
     fi
     for d in $usedDEV; do
-        grep -q "iface $d inet manual" ${CONFIG_newroot}/etc/network/interfaces || sed -i "s%iface $d inet .*%iface $d inet manual%" ${CONFIG_newroot}/etc/network/interfaces
+        grep -q "iface $d inet manual" ${CONFIG_newroot}/etc/network/interfaces || sed -i "s%iface $d inet .*%no-auto-down $d\niface $d inet manual%" ${CONFIG_newroot}/etc/network/interfaces
     done
 
-    [ -n "$CONFIG_cnet" ] && ! grep -q 'LAN=yes' ${CONFIG_newroot}/etc/default/xbian-initramfs && sed -i 's/LAN=.*/LAN=yes/g' /etc/default/xbian-initramfs
+    [ -n "$CONFIG_cnet" ] && ! grep -q 'LAN=yes' ${CONFIG_newroot}/etc/default/xbian-initramfs && sed -i 's/LAN=.*/LAN=yes/g' ${CONFIG_newroot}/etc/default/xbian-initramfs
     [ "$CONFIG_rooton" = iscsi ] && { grep -q 'iSCSI=no' ${CONFIG_newroot}/etc/default/xbian-initramfs && sed -i 's/iSCSI=no/iSCSI=auto/g' ${CONFIG_newroot}/etc/default/xbian-initramfs; \
                                       [ -e ${CONFIG_newroot}/etc/iscsi/iscsi.initramfs ] || touch ${CONFIG_newroot}/etc/iscsi/iscsi.initramfs; }
-}
-
-cp_splash() {
-    copyto="$1"
-
-    cp -d -a --parents /usr/bin/splash "$copyto"/
-    mkdir -p /run/initramfs/usr/share/fonts/splash
-    mkdir -p /run/initramfs/usr/share/images/splash
-    cp -d -aR --parents /usr/share/fonts/splash "$copyto"/
-    cp -d -aR --parents /usr/share/images/splash "$copyto"/
-    cp -d --parents /usr/bin/splash.images "$copyto"/
-    cp -d --parents /usr/bin/splash.fonts "$copyto"/
 }
 
 create_fsck() {
@@ -106,38 +104,78 @@ true
     fi
 }
 
+set_time() {
+    if ! dmesg | grep -q 'setting system clock' && [ ! -e /run/hwclock.init -a -e $CONFIG_newroot/etc/default/hwclock.fake ]; then
+        $CONFIG_newroot/bin/date --set="$(cat $CONFIG_newroot/etc/default/hwclock.fake)" >/dev/null && touch /run/hwclock.init
+    fi
+}
+
+get_partdata() {
+    parttbl="$(parted -sm ${DEV} unit s print)"
+    export NRPART=$(echo "$parttbl" | awk -F: 'END{print $1}')
+    export FSCHECK=$(echo "$parttbl" | awk -F: "/^$PART/"'{print $5}')
+    export sectorTOTAL=$(echo "$parttbl" | awk -F: '/^\//{printf "%d", $2}')
+    export sectorSTART=$(echo "$parttbl" | awk -F: "/^$PART/"'{printf "%d", $2}')
+    export sectorEND=$(echo "$parttbl" | awk -F: "/^$PART/"'{printf "%d", $3}')
+    export sectorSIZE=$(echo "$parttbl" | awk -F: "/^$PART/"'{printf "%d", $4}')
+    export sectorUSED=$(echo "$parttbl" | awk -F: "/^$NRPART/"'{printf "%d", $3}')
+    if [ "$NRPART" -gt 4 ]; then
+        export PARTEX=$(echo "$parttbl" | awk -F: '/:::/{printf "%d", $1}')
+        #export sectorexTOTAL=$(echo "$parttbl" | awk -F: '/:::/{printf "%d", $4}')
+        export sectorexSIZE=$(echo "$parttbl" | awk -F: '/:::/{printf "%d", $4}')
+        export sectorexSTART=$(echo "$parttbl" | awk -F: '/:::/{printf "%d", $2}')
+        export sectorexEND=$(echo "$parttbl" | awk -F: '/:::/{printf "%d", $3}')
+        export sectorexNEW=$(( $sectorTOTAL - $sectorexSTART - 2048 ))
+        export sectorNEW=$(( $sectorexSIZE - $sectorSTART - 2048 ))
+    else
+        export sectorNEW=$(( $sectorTOTAL - $sectorSTART - 2048 ))
+    fi
+    ! echo "$parttbl" | grep -q "linux-swap(v[0-9])" || export haveSWAP=1
+}
+
 get_root() {
     [ -n "$CONFIG_roottxt" ] && export CONFIG_root="$CONFIG_roottxt" || export CONFIG_roottxt="$CONFIG_root"
 
     if echo $CONFIG_root | grep -q ^'iSCSI='; then
         export CONFIG_root=${CONFIG_root##iSCSI=}
-        export CONFIG_target=$(echo ${CONFIG_root%,*} | sed 's/,/ -p /g')
+        CONFIG_portal=${CONFIG_root%,*}
+        export CONFIG_iqn=${CONFIG_portal%,*}
+        export CONFIG_portal=${CONFIG_portal##*,}
         export CONFIG_root=${CONFIG_root##*,}
-        iscsiadm -m node -T $CONFIG_target --login
-    fi
-    if echo $CONFIG_root | grep -q ^'UUID=\|LABEL=\|PARTUUID='; then
-        export CONFIG_root=$(findfs $CONFIG_root 2>/dev/null)
-        [ -z $CONFIG_root ] && return 1
-    elif echo $CONFIG_root | grep -q ^'ZFS='; then
-        export CONFIG_root=${CONFIG_root##ZFS=}
-        if [ -f /etc/zfs/zpool.cache ]; then
-            zpool list ${CONFIG_root} >/dev/null 2>&1 || zpool import -f -N ${CONFIG_root} 2>/dev/null
-        else
-            zpool import -f -N ${CONFIG_root} 2>/dev/null
-        fi
-        [ $? -ne 0 ] && return 1
-        export CONFIG_rootfs=$(zpool list -H -o bootfs ${CONFIG_root} 2>/dev/null)
-        [ -z "$CONFIG_rootfs" -o "$CONFIG_rootfs" = - ] && return 1
-        zfs list "$CONFIG_rootfs" >/dev/null 2>&1 || return 1
-        zfs set mountpoint=/ "$CONFIG_rootfs" >/dev/null 2>&1 || return 1
-        export CONFIG_root="$CONFIG_rootfs"
-        export CONFIG_rootfstype=zfs
-        export CONFIG_rootfsopts=zfsutil
-        [ "$(zfs get atime -H "$CONFIG_root" | awk '{print $3}')" = off ] && export CONFIG_rootfsopts="$CONFIG_rootfsopts,noatime"
-        return 0
+        [ ! -d /etc/iscsi/nodes/$CONFIG_iqn/$(echo $CONFIG_portal | tr ':' ','),*/ ] && iscsiadm -m discovery -t sendtargets -p $CONFIG_portal
+        iscsiadm -m node -T $CONFIG_iqn -p $CONFIG_portal --login && sleep 0.5 && pgrep /sbin/iscsid >/run/sendsigs.omit.d/iscsid
     fi
 
-    [ -b $CONFIG_root ] || return 1
+    case $CONFIG_root in
+        UUID=*|LABEL=*)
+            export CONFIG_root=$(findfs $CONFIG_root 2>/dev/null)
+        ;;
+        PARTUUID=*) # busybox findfs currently does not support PARTUUID
+            export CONFIG_root="$(readlink -fn /dev/disk/by-partuuid/${CONFIG_root##PARTUUID=})"
+        ;;
+        ZFS=*)
+            export CONFIG_zfspool=${CONFIG_root##ZFS=}
+            if [ ! -f /etc/zfs/zpool.cache ] || ! zpool list ${CONFIG_zfspool} 2>/dev/null; then
+                zi=$(zpool import)
+                export CONFIG_zfspoolid=$(echo "$zi" | grep -B2 "state: ONLINE" | grep -A1 "pool: ${CONFIG_zfspool}" | awk '/id:/{print $2}')
+                [ -n "$CONFIG_zfspoolid" ] && zpool import -fN ${CONFIG_zfspoolid}
+            fi
+            if [ $? -ne 0 ]; then
+                export CONFIG_zfspoolid=$(echo "$zi" | grep -B2 "state: ONLINE" | awk '/id:/{print $2}')
+                ! zpool import -fN ${CONFIG_zfspoolid} ${CONFIG_zfspool} && return 1
+            fi
+            export CONFIG_rootfs=$(zpool list -H -o bootfs ${CONFIG_zfspool} 2>/dev/null)
+            [ -z "$CONFIG_rootfs" -o "$CONFIG_rootfs" = - ] && return 1
+            zfs list "$CONFIG_rootfs" >/dev/null 2>&1 || return 1
+            zfs set mountpoint=/ "$CONFIG_rootfs" >/dev/null 2>&1 || return 1
+            export CONFIG_rootfstype=zfs
+            export CONFIG_rootfsopts=zfsutil
+            [ "$(zfs get atime -H "$CONFIG_rootfs" | awk '{print $3}')" = off ] && export CONFIG_rootfsopts="$CONFIG_rootfsopts,noatime"
+            export CONFIG_root=$(zpool status -P $CONFIG_zfspool | awk "/\/.*ONLINE/"'{dev=$1} END{print dev}')
+        ;;
+    esac
+
+    [ -b "$CONFIG_root" ] || return 1
 
     if [ $CONFIG_rootfstype = btrfs ]; then
         btrfs dev scan || :
@@ -150,19 +188,19 @@ get_root() {
 
     export DEV="${CONFIG_root%[0-9]}"; DEV="${DEV%[0-9]}"
     if [ ! -e ${DEV} ]; then
-	export DEV=${DEV%p}
-	export PARTdelim='p'
+        export DEV=${DEV%p}
+        export PARTdelim='p'
     else
-	export PARTdelim=''
+        export PARTdelim=''
     fi
     export PART=${CONFIG_root##*[a-z]}
 
-    return 0
+    get_partdata
 }
 
 convert_btrfs() {
     # Check for the existance of tune2fs through the RESIZEERROR variable
-    if [ "$CONFIG_noconvertsd" -eq '0' -a "${CONFIG_rootfstype}" = "btrfs" -a "$FSCHECK" != "btrfs" ]; then
+    if [ "$FSCHECK" != "btrfs" ] && [ "$CONFIG_convertfs" -eq '1' -a "${CONFIG_rootfstype}" = "btrfs" -a -x /sbin/e2fsck ]; then
         [ "$RESIZEERROR" -gt '0' -a "$RESIZEERROR_NONFATAL" -ne '1' ] && return 0
         if [ "${FSCHECK}" = 'ext4' ]; then
             # Make sure we have enough memory available for live conversion
@@ -177,7 +215,7 @@ convert_btrfs() {
                 reboot -f
             fi
 
-            test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card convert..."
+            test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init: sd card convert..."
             test -n "$CONFIG_splash" || echo '
  .d8888b.   .d88888b.  888b    888 888     888 8888888888 8888888b. 88888888888
 d88P  Y88b d88P" "Y88b 8888b   888 888     888 888        888   Y88b    888
@@ -191,7 +229,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
             /splash_updater.sh &
             stdbuf -o 0 -e 0 btrfs-convert -d ${CONFIG_root} 2>&1 > /tmp/output.grab
             touch /run/splash_updater.kill
-            export FSCHECK=`blkid -s TYPE -o value -p ${CONFIG_root} `
+            get_partdata
         fi
 
         test ! -d /boot && mkdir /boot
@@ -199,7 +237,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
         test -e /boot/config.txt.convert && mv /boot/config.txt.convert /boot/config.txt
         test "$FSCHECK" = "ext4" && sed -i "s/rootfstype=btrfs/rootfstype=ext4/g" /boot/cmdline.txt
         if [ "$FSCHECK" = "btrfs" ]; then
-            test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="post conversion tasks..."
+            test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="init: post conversion tasks..."
             btrfs fi label ${CONFIG_root} xbian-root-btrfs
             mount_root_btrfs
             create_fsck $CONFIG_newroot
@@ -207,7 +245,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 
             btrfs sub create $CONFIG_newroot/ROOT
             echo "Moving root..."
-            test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="moving root..."
+            test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="init: moving root..."
             btrfs sub snap $CONFIG_newroot $CONFIG_newroot/ROOT/@
 
             mount && echo '============================' && sleep 15
@@ -281,7 +319,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
             fi
             # end edit fstab
             echo "rebalancing filesystem..."
-            test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="rebalancing filesystem..."
+            test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="init: rebalancing filesystem..."
             btrfs fi bal "$CONFIG_newroot"
             umount $CONFIG_newroot
         fi
@@ -295,7 +333,7 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
                 echo $l > /boot/cmdline.txt
             fi
         fi
-        test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="rebooting..."
+        test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="init: rebooting..."
         umount /boot
         sync
         reboot -nf
@@ -304,36 +342,30 @@ Y88b  d88P Y88b. .d88P 888   Y8888    Y888P    888        888  T88b     888
 
 resize_part() {
     if [ "$RESIZEERROR" -eq '0' -a "$CONFIG_noresizesd" -eq '0' -a "${CONFIG_rootfstype}" != "nfs" ]; then
-        if [ "$PART" -gt "4" ]; then
-            for nrpart in $(sfdisk -l ${DEV} 2>/dev/null | grep ^$DEV | awk '{printf "%s", $1}'); do nrpart="${nrpart##*$DEV$PARTdelim}"; done
-        else
-            nrpart=$(sfdisk -s $DEV$PARTdelim? | grep -c .)
-        fi
 
-        #Save partition table to file
-        /sbin/sfdisk -uS -d ${DEV} > /tmp/part.txt
-        #Read partition sizes
-        sectorTOTAL=$(blockdev --getsz ${DEV})
-        sectorSTART=$(grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $4}')
-        sectorSIZE=$(grep ${CONFIG_root} /tmp/part.txt | awk '{printf "%d", $6}')
-
-        if [ "$nrpart" -gt "$PART" ]; then
-            rm /tmp/part.txt &>/dev/null
-            if blkid -s LABEL -o value -p $DEV"$PARTdelim"1 | grep -q RECOVERY; then
-                export sectorNEW=$((sectorSIZE-16))
-                echo "NOTICE: running under NOOBS/PINN environment and root partition is not at the end"
-                return 0
+        if [ -n "$PARTEX" ] && [ $sectorexSIZE -lt $sectorexNEW -a -n "$CONFIG_extresize" ]; then
+            echo "Expanding extended partition $PARTEX..."
+            if ! parted -s $DEV unit % resizepart $PARTEX 100%; then
+                echo "Resizing extended partition failed..."
             fi
-            test -z "$CONFIG_partswap" && echo "FATAL: only the last partition can be resized"
-            export RESIZEERROR='1'
-            export RESIZEERROR_NONFATAL=1
-            return 1
+            partprobe
+            get_partdata
         fi
 
-        export sectorNEW=$(( $sectorTOTAL - $sectorSTART - 2048 ))
+        if [ "$NRPART" -gt "$PART" ]; then
+            if [ "$(findfs LABEL=RECOVERY 2>/dev/null)" = "${DEV}${PARTdelim}1" ]; then
+                echo "NOTICE: running under NOOBS/PINN environment and root partition is not at the end" >&2
+                return 0
+            else
+                test -z "$CONFIG_partswap" && echo "FATAL: only the last partition can be resized" >&2
+                export RESIZEERROR='1'
+                export RESIZEERROR_NONFATAL=1
+                return 1
+            fi
+        fi
 
         if [ $sectorSIZE -lt $sectorNEW ]; then
-            test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="sd card resize..."
+            test -n "$CONFIG_splash" && /usr/bin/splash --infinitebar --msgtxt="init: sd card resize..."
             test -n "$CONFIG_splash" || echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
 888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
@@ -344,41 +376,26 @@ resize_part() {
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88'
 
-            if [ "$nrpart" -gt "4" ]; then
-                EXTDEV=$(sfdisk -l ${DEV} | grep "Extended" | awk '{ print $1 }')
-                EXTPART=${EXTDEV#${EXTDEV%?}}
-                sectorexSTART=$(grep ${EXTDEV} /tmp/part.txt | awk '{printf "%d", $4}')
-                sectorexSIZE=$(grep ${EXTDEV} /tmp/part.txt | awk '{printf "%d", $6}')
-                export sectorexNEW=$(( $sectorTOTAL - $sectorexSTART - 2048 ))
-                if [ $sectorexSIZE -lt $sectorexNEW ]; then
-                    echo "resizing extended partition $EXTDEV ($EXTPART) ..."
-                    echo ",+,,," | sfdisk -uS -N${EXTPART} --force -q ${DEV} 2>/dev/null
-                    /sbin/partprobe
-                fi
-            fi
-
-            pSIZE=$(sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}')
-            echo ",+,,," | sfdisk -uS -N${PART} --force -q ${DEV}
-            /sbin/partprobe
-            nSIZE=$(sfdisk -s ${CONFIG_root} | awk -F'\n' '{ sum += $1 } END {print sum}')
-
-            if [ ! $nSIZE -gt $pSIZE ]; then
+            #if parted -s $DEV unit s resizepart $PART $(( $sectorSTART + $sectorNEW ))s; then
+            if parted -s $DEV unit % resizepart $PART 100%; then
+                echo "Partition $PART resized..."
+                export sectorRESIZED=1
+            else
                 echo "Resizing failed..."
                 export RESIZEERROR="1"
-            else
-                echo "Partition resized..."
             fi
+            partprobe
+            get_partdata
         else
             export RESIZEERROR="0"
         fi
-        rm /tmp/part.txt &>/dev/null
     fi
 
     [ "$RESIZEERROR" -lt '0' ] && return 0 || return $RESIZEERROR
 }
 
 resize_ext4() {
-    if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$FSCHECK" = "ext4" ]; then
+    if [ "$FSCHECK" = "ext4" ] && [ "$RESIZEERROR" -eq "0" -o -n "$RESIZEERROR_NONFATAL" ] && [ "$CONFIG_noresizesd" -eq '0' -a -x /sbin/resize2fs ]; then
 
         # check if the partition needs resizing
         [ -e /etc/mtab ] || ln -s /proc/mounts /etc/mtab
@@ -389,7 +406,7 @@ resize_ext4() {
 
         # resize root partition
         if [ "$TUNEBLOCKCOUNT" -lt "$BLOCKNEW" ]; then
-            test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="fs resize..."
+            test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="init: fs resize..."
             test -n "$CONFIG_splash" || echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
 888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
@@ -420,16 +437,10 @@ resize_ext4() {
 }
 
 resize_btrfs() {
-    if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "btrfs" -a "$FSCHECK" = 'btrfs' ]; then
-        smsg="fs resize..."
-        [ -n "$1" ] && smsg="$1"
+    if [ "$FSCHECK" = 'btrfs' ] && [ "$RESIZEERROR" -eq "0" -o -n "$RESIZEERROR_NONFATAL" ] && [ "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "btrfs" ]; then
 
-        # check if the partition needs resizing
-        sectorDF=$(df -B512 -P | grep "$CONFIG_newroot" | awk '{printf "%d", $2}')
-
-        # resize root partition
-        if [ "$sectorDF" -lt "$sectorNEW" ]; then
-            test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt=$smsg
+        if [ -n "$sectorRESIZED" ] || [ "$(df -B512 -P $CONFIG_newroot | awk 'END{print $2}')" -lt "$sectorSIZE" ]; then
+            test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="init: $1"
             test -n "$CONFIG_splash" || echo '
 8888888b.  8888888888  .d8888b.  8888888 8888888888P 8888888 888b    888  .d8888b.
 888   Y88b 888        d88P  Y88b   888         d88P    888   8888b   888 d88P  Y88b
@@ -439,117 +450,150 @@ resize_btrfs() {
 888 T88b   888              "888   888     d88P        888   888  Y88888 888    888
 888  T88b  888        Y88b  d88P   888    d88P         888   888   Y8888 Y88b  d88P
 888   T88b 8888888888  "Y8888P"  8888888 d8888888888 8888888 888    Y888  "Y8888P88'
-            btrfs fi resize max $CONFIG_newroot
-            btrfs fi sync $CONFIG_newroot
-
-            sectorDFN=`df -B512 -P | grep "$CONFIG_newroot" | awk '{printf "%d", $2}'`
-
-            # check if parition was actually resized
-            if [ "$sectorDFN" -le "$sectorDF" ]; then
+            if ! btrfs fi resize max $CONFIG_newroot; then
                 export RESIZEERROR="1"
             fi
+            btrfs fi sync $CONFIG_newroot
+        fi
+    fi
+}
+
+resize_zfspool() {
+    if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_noresizesd" -eq '0' -a "$CONFIG_rootfstype" = "zfs" ]; then
+        if [ "$(zpool get -H -o value autoexpand $CONFIG_zfspool)" != on ]; then
+            zpool set autoexpand=on $CONFIG_zfspool
+            zpool export $CONFIG_zfspool
+            dd if=/dev/zero of=${DEV} bs=512 count=2048 seek=$(( $sectorEND - 2047 )) 2>/dev/null
+            sync
+            #sync && sleep 0.5 && partprobe
+            zpool import -fN $CONFIG_zfspoolid
+            zfs list # Debug
+            zpool online -e $CONFIG_zfspool "${DEV##*/}${PARTdelim}${PART}"
+            zfs list # Debug
+            #partprobe
+            #sync && sleep 1.5 && partprobe
+            #zfs list # Debug
         fi
     fi
 }
 
 move_root() {
     [ ! -e /etc/blkid.tab ] || cp /etc/blkid.tab $CONFIG_newroot/etc
+    [ ! -e /etc/resolv.conf -o -e $CONFIG_newroot/etc/resolv.conf ] || cp /etc/resolv.conf $CONFIG_newroot/etc
 
-    /bin/mount --move /run $CONFIG_newroot/run
-    rm -fr /run
-    ln -s $CONFIG_newroot/run /run
+    for d in run dev sys proc; do
+        mount --move /$d $CONFIG_newroot/$d
+        rm -fr /$d
+        ln -s $CONFIG_newroot/$d /$d
+    done
 
     udevadm control --exit
     if [ -e /etc/udev/udev.conf ]; then
-      . /etc/udev/udev.conf
+        . /etc/udev/udev.conf
     fi
-
-    /bin/mount --move /dev $CONFIG_newroot/dev
-    rm -fr /dev
-    ln -s $CONFIG_newroot/dev /dev
-
-    /bin/mount --move /sys $CONFIG_newroot/sys
-    rm -fr /sys
-    ln -s $CONFIG_newroot/sys /sys
-
-    /bin/mount --move /proc $CONFIG_newroot/proc
-    rm -fr /proc
-    ln -s $CONFIG_newroot/proc /proc
 }
 
 create_swap() {
-    if [ "$RESIZEERROR" -eq "0" -a "$CONFIG_partswap" -eq '1' -a "$CONFIG_rootfstype" = "btrfs" -a "$FSCHECK" = 'btrfs' ]; then
-        if [ "$PART" -gt "4" ]; then
-            for nrpart in $(sfdisk -l ${DEV} 2>/dev/null | grep ^$DEV | awk '{printf "%s", $1}'); do nrpart="${nrpart##*$DEV$PARTdelim}"; done
+    if [ "$RESIZEERROR" -eq "0" -a -n "$CONFIG_partswap" -a "$CONFIG_rootfstype" = "btrfs" -a "$FSCHECK" = 'btrfs' ]; then
+
+        [ -n "$haveSWAP" ] && return 0
+        [ "$PART" -eq 4 ] && return 1
+
+        if [ "$NRPART" -gt 4 ]; then
+            ptype=logical
         else
-            nrpart=$(sfdisk -s $DEV$PARTdelim? | grep -c .)
+            ptype=primary
         fi
-        [ $nrpart -gt $PART -o $PART -eq 4 ] && return 1
-        [ "$(blkid -s TYPE -o value -p $DEV$PARTdelim$nrpart)" = swap ] && return 0
-        mount_root_btrfs $CONFIG_root && resize_btrfs "creating swap..."
-        mountpoint -q $CONFIG_newroot || return 1
-
-        swapsize=$(( $(blockdev --getsize64 $CONFIG_root) /10/1024/1024)); [ $swapsize -gt 250 ] && swapsize=250
-
-        btrfs fi resize -${swapsize}M $CONFIG_newroot || { umount $CONFIG_newroot; return 1; }
-        btrfs fi sync $CONFIG_newroot
-        umount $CONFIG_newroot
-        swapsize=$(( ( $swapsize - 5 ) * 1024*2 ))
-        echo ",-$swapsize,,," | sfdisk -uS -N${PART} --force ${DEV}
-        /sbin/partprobe
-        pend=$(sfdisk -l -uS ${DEV} 2>/dev/null | grep $CONFIG_root | awk '{print $3}')
-        pstart=$(( ($pend/2048 + 1) * 2048));pPART=$(($PART+1))
-        if [ "$nrpart" -gt "4" ]; then
-            echo "n
-l
-$pstart
-
-
-t
-
-82
-p
-w
-"           | fdisk ${DEV}
+        if [ "$NRPART" -gt "$PART" ]; then
+            pstart=$(( ( $sectorUSED/2048 + 1 ) * 2048 ))
+            if ! parted -s ${DEV} -a none mkpart $ptype linux-swap ${pstart}s $(( $pstart + $CONFIG_partswap*1024*2 ))s 2>/dev/null; then
+                pstart=$(( ( $sectorUSED/2048 + 2 ) * 2048 ))
+                parted -s ${DEV} -a none mkpart $ptype linux-swap ${pstart}s $(( $pstart + $CONFIG_partswap*1024*2 ))s
+            fi
+            if [ $? -eq 0 ]; then
+                partprobe
+                swapoff -a  # make sure that swap is turned off when making swap
+                mkswap ${DEV}${PARTdelim}$(($NRPART+1))
+            fi
+            if [ $? -ne 0 ]; then
+                echo "Creating of swap failed..."
+            fi
         else
-            echo "$pstart,+,S,," | sfdisk -uS -N${pPART} --force ${DEV}
-        fi
-        /sbin/swapoff -a
-        /sbin/partprobe
-        /sbin/swapoff -a	# make sure that swap is turned off when making swap
-        mkswap ${DEV}${PARTdelim}${pPART}
+            mount_root_btrfs $CONFIG_root && resize_btrfs "creating swap..."
+            mountpoint -q $CONFIG_newroot || return 1
 
-    elif [ "$RESIZEERROR" -eq "0" -a "$CONFIG_partswap" -eq '1' -a "$CONFIG_rootfstype" = "zfs" ]; then
-        pool="${CONFIG_root%%/*}"
-        if [ ! -b /dev/zvol/$pool/swap ]; then
-            test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="creating swap..."
-            zfs create -V 250M -b $(getconf PAGESIZE) -o compression=zle -o logbias=throughput -o sync=always -o primarycache=metadata -o secondarycache=none -o com.sun:auto-snapshot=false $pool/swap
-            sleep 0.5
+            swapsize=$(( $sectorSIZE /10/2/1024)); [ $swapsize -gt $CONFIG_partswap ] && swapsize=$CONFIG_partswap
+
+            btrfs fi resize max $CONFIG_newroot && btrfs fi resize -${swapsize}M $CONFIG_newroot || { umount $CONFIG_newroot; return 1; }
+            btrfs fi sync $CONFIG_newroot
+            umount $CONFIG_newroot
+
+            sectorSWAP=$(( ( $swapsize - 5 ) * 1024*2 ))
+            if parted $DEV resizepart $PART $(( $sectorSTART + $(( $sectorSIZE - $sectorSWAP )) - 1 ))s yes 2>/dev/null; then
+                echo "Partition $PART shrinked..."
+                partprobe
+                get_partdata
+                if [ "$NRPART" -gt 4 ]; then
+                    pend=$sectorexEND
+                else
+                    pend=$(( $sectorTOTAL - 1 ))
+                fi
+                pstart=$(( ( $sectorEND/2048 + 1 ) * 2048 ))
+                if ! parted -s ${DEV} -a none unit s mkpart $ptype linux-swap ${pstart}s ${pend}s 2>/dev/null; then
+                    pstart=$(( ( $sectorEND/2048 + 2 ) * 2048 ))
+                    parted -s ${DEV} -a none unit s mkpart $ptype linux-swap ${pstart}s ${pend}s
+                fi
+                if [ $? -eq 0 ]; then
+                    partprobe
+                    swapoff -a	# make sure that swap is turned off when making swap
+                    mkswap ${DEV}${PARTdelim}$(($PART+1))
+                fi
+                if [ $? -ne 0 ]; then
+                    echo "Creating of swap failed..."
+                fi
+            else
+                 export RESIZEERROR="1"
+                 echo "Shrinking of partition $PART failed..."
+            fi
+            get_partdata
         fi
-        if [ "$(blkid -s TYPE -o value -p /dev/zvol/$pool/swap 2>/dev/null)" != swap ]; then
-            mkswap /dev/zvol/$pool/swap
+    elif [ "$RESIZEERROR" -eq "0" -a -n "$CONFIG_partswap" -a "$CONFIG_rootfstype" = "zfs" ]; then
+        if [ ! -b /dev/zvol/$CONFIG_zfspool/swap ]; then
+            test -n "$CONFIG_splash" && /usr/bin/splash --msgtxt="init: creating swap..."
+            zfs create -V ${CONFIG_partswap}M -b $(getconf PAGESIZE) -o compression=zle -o logbias=throughput -o sync=always -o primarycache=metadata -o secondarycache=none -o com.sun:auto-snapshot=false $CONFIG_zfspool/swap
+            sync && sleep 1.0
+        fi
+        if ! parted -m -s /dev/zvol/$CONFIG_zfspool/swap print 2>/dev/null | grep -q "linux-swap(v[0-9])"; then
+            echo "format swap /dev/zvol/$CONFIG_zfspool/swap"
+            mkswap /dev/zvol/$CONFIG_zfspool/swap
         fi
     fi
 }
 
 kill_splash() {
-    test -n "$CONFIG_splash" && /bin/kill -SIGTERM $(pidof splash) 2>/dev/null
-    test -n "$CONFIG_splash" && /bin/kill -SIGTERM $(pidof splash-daemon) 2>/dev/null
+    test -n "$CONFIG_splash" && { kill $(pidof splash) 2>/dev/null; kill $(pidof splash-daemon) 2>/dev/null; }
     rm -fr /run/splash
-    busybox setconsole -r
+    setconsole -r
 }
 
 drop_shell() {
-    kill_splash
     set +x
+    touch /run/no_debug
+    kill_splash
+
+    mount_boot() {
+        { grep -sq /boot.*nfs $CONFIG_newroot/etc/fstab && mount $(awk '/\/boot/{sub(",private","",$0);printf "%s -o %s,vers=4", $1, $4}' $CONFIG_newroot/etc/fstab) /boot; } \
+          || { [ -e $CONFIG_newroot/etc/fstab ] && mount $(awk '/\/boot/{print $1}' $CONFIG_newroot/etc/fstab) /boot; } \
+          || { grep -sq /boot.*nfs /etc/fstab && mount $(awk '/\/boot/{sub(",private","",$0);printf "%s -o %s,vers=4", $1, $4}' /etc/fstab) /boot; } \
+          || { [ -e /etc/fstab ] && mount $(awk '/\/boot/{print $1}' /etc/fstab) /boot; } \
+          || mount /dev/mmcblk0p1 /boot
+    }
 
     mkdir -p /boot
 
     if [ "$1" != noumount ]; then
-        mountpoint -q $CONFIG_newroot || eval $mount_bin -t ${CONFIG_rootfstype} -o rw,"$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
-        [ -e $CONFIG_newroot/etc/fstab ] && /bin/mount "$(grep /boot $CONFIG_newroot/etc/fstab| awk '{ print $1 }')" /boot
-        mountpoint -q /boot || { [ -e /etc/fstab ] && /bin/mount "$(grep /boot /etc/fstab | awk '{ print $1 }')" /boot; }
-        mountpoint -q /boot || /bin/mount /dev/mmcblk0p1 /boot
+        mountpoint -q $CONFIG_newroot || $mount_bin -t ${CONFIG_rootfstype} -o rw,"$CONFIG_rootfsopts" "${CONFIG_root}" $CONFIG_newroot
+        mount_boot
         mountpoint -q $CONFIG_newroot/proc || /bin/mount -o bind /proc $CONFIG_newroot/proc
         mountpoint -q $CONFIG_newroot/boot || /bin/mount -o bind /boot $CONFIG_newroot/boot
         mountpoint -q $CONFIG_newroot/dev || /bin/mount -o bind /dev $CONFIG_newroot/dev
@@ -558,21 +602,22 @@ drop_shell() {
         mountpoint -q $CONFIG_newroot/run || /bin/mount -o bind /run $CONFIG_newroot/run
         [ "$CONFIG_rootfstype" = btrfs ] && ! mountpoint -q $CONFIG_newroot/lib/modules  && /bin/mount -t ${CONFIG_rootfstype} -o rw,subvol=modules/@ "${CONFIG_root}" $CONFIG_newroot/lib/modules
     else
-        [ -e /etc/fstab ] && /bin/mount "$(grep /boot /etc/fstab | awk '{ print $1 }')" /boot
-        mountpoint -q /boot || /bin/mount /dev/mmcblk0p1 /boot
+        mount_boot
     fi
     mountpoint -q $CONFIG_newroot && ln -s /rootfs /run/initramfs/rootfs
+    set_time
     [ -n "${CONFIG_console}" ] && exec > /dev/$CONFIG_console
     cat /motd
-    echo "========================================================================="
+    echo "===================================================================="
     cat /howto.txt
-    if [ -f /bin/bash ]; then
-        busybox cttyhack /bin/bash
+    if [ -f /bin/bash -a ! -h /bin/bash ]; then
+        setsid cttyhack /bin/bash
     else
-        ENV=/.profile busybox cttyhack /bin/sh
+        ENV=/.profile setsid cttyhack /bin/sh
     fi
-    rm -fr /run/do_drop
-    ps | grep busybox | grep telnetd | xargs kill 2>/dev/null; pkill sshrun
+    rm -f /run/do_drop
+    unset CONFIG_rescue_early; unset CONFIG_rescue; unset CONFIG_rescue_late
+    pkill sshrun
 
     mountpoint -q /boot && umount /boot; [ -d /boot ] && rmdir /boot
     if [ "$1" != noumount ]; then
@@ -583,7 +628,7 @@ drop_shell() {
         mountpoint -q $CONFIG_newroot/sys && umount $CONFIG_newroot/sys
         mountpoint -q $CONFIG_newroot/run && umount $CONFIG_newroot/run
         mountpoint -q $CONFIG_newroot/lib/modules && umount $CONFIG_newroot/lib/modules
-        mountpoint -q $CONFIG_newroot && umount $CONFIG_newroot
+        mountpoint -q $CONFIG_newroot && umount -l $CONFIG_newroot
     fi
     return 0
 }

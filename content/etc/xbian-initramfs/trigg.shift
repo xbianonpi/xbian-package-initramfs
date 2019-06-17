@@ -1,4 +1,8 @@
-KEY_LEFTSHIFT	1	touch /run/do_drop
-KEY_LEFTSHIFT	2	touch /run/do_drop
-KEY_LEFTCTRL	1	touch /run/do_debug
-KEY_LEFTCTRL	2	touch /run/do_debug
+KEY_LEFTSHIFT	1	echo -e "export CONFIG_rescue_early=1\nexport CONFIG_rescue=1" >/run/do_drop && kill -USR1 1
+KEY_LEFTSHIFT	2	echo -e "export CONFIG_rescue_early=1\nexport CONFIG_rescue=1" >/run/do_drop && kill -USR1 1
+KEY_RIGHTSHIFT	1	echo -e "export CONFIG_rescue=1\nexport CONFIG_rescue_late=1" >/run/do_drop && kill -USR1 1
+KEY_RIGHTSHIFT	2	echo -e "export CONFIG_rescue=1\nexport CONFIG_rescue_late=1" >/run/do_drop && kill -USR1 1
+KEY_LEFTCTRL	1	touch /run/do_debug && kill -USR1 1
+KEY_LEFTCTRL	2	touch /run/do_debug && kill -USR1 1
+KEY_RIGHTCTRL	1	touch /run/do_debug && kill -USR1 1
+KEY_RIGHTCTRL	2	touch /run/do_debug && kill -USR1 1

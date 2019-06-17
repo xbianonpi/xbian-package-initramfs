@@ -5,6 +5,13 @@
 MAKEBACKUP=yes
 
 #
+# How should initramfs be compressed. Values of gzip, bzip2, lzma and xz
+# are supported. If unset or kernel/bootloader does not support configured
+# compression, gzip is used.
+#
+COMPRESS=
+
+#
 # This defines if initram will be used always (=yes), never (=disabled)
 # or if required (=no). initramfs is required if you're running ZFS, F2FS
 # or NFS as root fs (if ethernet network driver not compiled in kernel),
@@ -31,7 +38,7 @@ VNC=auto
 #
 # Include iSCSI stuff into initramfs. If variable is set to 'yes', it will be
 # included always, if set to 'auto', it will be included if root=iSCSI= string
-# is found in /boot/cmdline.txt or /boot/boot.scr.txt. 'no' disables it at all
+# is found in /boot/cmdline.txt or /boot/boot.scr.txt.
 #
 # Recommended value: auto
 #
@@ -40,17 +47,35 @@ iSCSI=auto
 #
 # Include (W)LAN stuff into initramfs. If included, using root fs on NFS is possible
 # by WLAN connections. If variable is set to 'yes', it will be included always,
-# if set to 'auto', it will be included if WLAN or RA string is found in
-# /boot/cmdline.txt or /boot/boot.scr.txt. 'no' disables it at all
+# if set to 'auto', it will be included if 'wlan[0-9]', 'ra[0-9]', 'br[0-9]',
+# 'bond[0-9]' or 'cnet' string is found in /boot/cmdline.txt or /boot/boot.scr.txt.
 #
 # Recommended value: auto
 #
 LAN=auto
 
 #
+# Include EXTFS tools into initramfs. If variable is set to 'yes', it will be
+# included always, if set to 'auto', it will be included if current root fs is
+# ext2, ext3 or ext4 or undefined.
+#
+# Recommended value: auto
+#
+EXTFS=auto
+
+#
+# Include BTRFS tools into initramfs. If variable is set to 'yes', it will be
+# included always, if set to 'auto', it will be included if current root fs is
+# btrfs or undefined.
+#
+# Recommended value: auto
+#
+BTRFS=auto
+
+#
 # Include ZFS stuff into initramfs. If variable is set to 'yes', it will be
-# included always, if set to 'auto', it will be included if root=ZFS= string
-# is found in /boot/cmdline.txt or /boot/boot.scr.txt. 'no' disables it at all
+# included always, if set to 'auto', it will be included if current root fs is
+# zfs or root=ZFS= string is found in /boot/cmdline.txt or /boot/boot.scr.txt.
 #
 # Recommended value: auto
 #

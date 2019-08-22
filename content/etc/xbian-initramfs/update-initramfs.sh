@@ -214,7 +214,7 @@ copy_with_libs /sbin/udevd ./
 copy_with_libs /sbin/udevadm ./
 copy_with_libs /lib/systemd/systemd-udevd ./
 
-for f in lsmod rmmod insmod modprobe; do
+for f in lsmod rmmod insmod modprobe ip; do
     ln -s /bin/$f ./sbin/$f
 done
 
@@ -354,11 +354,12 @@ network={
         psk="__PSK__"
 }
 EOF
-        sed -i "s/__SSID__/$SSID/;s/__PSK__/$PSK/" ./etc/wpa_supplicant/wpa_supplicant.conf
-    #else
+        sed -i "s/__SSID__/$SSID/;s/__PSK__/$PSK/;s/GROUP=netdev/GROUP=$(getent group netdev | awk -F: '{print $3}')/" ./etc/wpa_supplicant/wpa_supplicant.conf
+    else
+        sed -i "s/GROUP=netdev/GROUP=$(getent group netdev | awk -F: '{print $3}')/" ./etc/wpa_supplicant/wpa_supplicant.conf
     #    sed -i "/^\(ctrl_interface\|update_config\)/s/^\(.*\)/#\1/g" ./etc/wpa_supplicant/wpa_supplicant.conf || :
     fi
-    put_to_modules "smsc95xx lan78xx"
+    put_to_modules "smsc95xx lan78xx genet"
     add_modules brcmfmac    && for f in /lib/firmware/brcm/brcmfmac434{30,55}-sdio.* /lib/firmware/brcm/brcmfmac4330-sdio.*; do copy_with_libs $f; done
     add_modules mt7601u     && copy_with_libs /lib/firmware/mt7601u.bin
     add_modules mt7610u_sta && copy_with_libs /etc/Wireless
@@ -383,8 +384,8 @@ EOF
     fi
     if grep -q "cnet=.*bond[0-9]" $bootfile; then
         put_to_modules "bonding"
-        [ -e /etc/modprobe.d/bonding ] || echo "options bonding mode=1 miimon=100 updelay=200 downdelay=200" > /etc/modprobe.d/bonding
-        cp --parents /etc/modprobe.d/bonding ./
+        [ -e /etc/modprobe.d/bonding.conf ] || echo "options bonding mode=1 miimon=100 updelay=200 downdelay=200" > /etc/modprobe.d/bonding.conf
+        cp --parents /etc/modprobe.d/bonding.conf ./
         cp --parents /etc/network/if-pre-up.d/ifenslave ./
         cp --parents /etc/network/if-up.d/ifenslave ./
         cp --parents /etc/network/if-post-down.d/ifenslave ./

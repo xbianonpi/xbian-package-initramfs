@@ -73,21 +73,32 @@ modify_interfaces() {
         echo $h
     }
 
-    if [ -n "$CONFIG_cnet" ] && [ ! -e $CONFIG_newroot/etc/network/interfaces.initbak ]; then
-        mv $CONFIG_newroot/etc/network/interfaces $CONFIG_newroot/etc/network/interfaces.initbak
-        cp /etc/network/interfaces $CONFIG_newroot/etc/network/
-    fi
-
     if [ "${CONFIG_rooton}" = nfs ]; then
         usedDEV=$(getused $(netstat -nt 2>/dev/null | grep -m1 $(grep -w ${CONFIG_newroot} /proc/mounts | awk '{ sub(".*,addr=",""); sub(",.*",""); print $1; }'):2049 | \
             awk '{ split($4, a, ":"); print a[1]; }'))
     elif [ "${CONFIG_rooton}" = iscsi ]; then
         usedDEV=$(getused $(netstat -nt 2>/dev/null | grep :$(iscsiadm -m session | awk '{ split($3, a, ":"); split(a[2], b, ","); print b[1]; }') | \
             awk '{ split($4, a, ":"); print a[1]; }'))
+    else
+        usedDEV=''
     fi
+
     for d in $usedDEV; do
-        grep -q "iface $d inet manual" ${CONFIG_newroot}/etc/network/interfaces || sed -i "s%iface $d inet .*%no-auto-down $d\niface $d inet manual%" ${CONFIG_newroot}/etc/network/interfaces
+        if ! grep -q "iface $d inet manual" /etc/network/interfaces; then
+            sed -i "s%iface $d inet .*%no-auto-down $d\niface $d inet manual%" /etc/network/interfaces
+            export CONFIG_devinuse="$d $CONFIG_devinuse"
+        fi
     done
+
+    if [ -n "$CONFIG_cnet" ]; then
+        lif=$(grep -B100 "^# ...here" /etc/network/interfaces) 2>/dev/null
+        rif=$(grep -B100 "^# ...here" $CONFIG_newroot/etc/network/interfaces) 2>/dev/null
+        if [ ! -e $CONFIG_newroot/etc/network/interfaces.initbak ] || [ ! -e $CONFIG_newroot/etc/network/interfaces ] || [ "$lif" != "$rif" ]; then
+            rpr=$(grep -A100 "^# ...here" $CONFIG_newroot/etc/network/interfaces 2>/dev/null | grep -v "^# ...here")
+            mv $CONFIG_newroot/etc/network/interfaces $CONFIG_newroot/etc/network/interfaces.initbak 2>/dev/null
+            cp /etc/network/interfaces $CONFIG_newroot/etc/network/ && echo "$rpr" >> $CONFIG_newroot/etc/network/interfaces
+        fi
+    fi
 
     [ -n "$CONFIG_cnet" ] && ! grep -q 'LAN=yes' ${CONFIG_newroot}/etc/default/xbian-initramfs && sed -i 's/LAN=.*/LAN=yes/g' ${CONFIG_newroot}/etc/default/xbian-initramfs
     [ "$CONFIG_rooton" = iscsi ] && { grep -q 'iSCSI=no' ${CONFIG_newroot}/etc/default/xbian-initramfs && sed -i 's/iSCSI=no/iSCSI=auto/g' ${CONFIG_newroot}/etc/default/xbian-initramfs; \

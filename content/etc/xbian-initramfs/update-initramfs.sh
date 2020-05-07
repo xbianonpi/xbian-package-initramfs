@@ -288,7 +288,7 @@ if [ "$VNC" = yes ] || ( grep -q vnc $bootfile && [ "$VNC" != no ] ); then
     esac
     if [ -e ./usr/local/sbin/vncserver ]; then
         copy_with_libs /sbin/ldconfig
-        cp --parents /etc/ld.so.conf.d/xbian-firmware.conf ./
+        cp --parents /etc/ld.so.conf.d/*xbian-firmware.conf ./
         cp --parents /etc/ld.so.conf ./
         chroot ./ /sbin/ldconfig
         rm -f ./sbin/ldconfig

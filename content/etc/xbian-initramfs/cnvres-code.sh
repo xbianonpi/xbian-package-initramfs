@@ -209,6 +209,16 @@ get_root() {
     get_partdata
 }
 
+parted_helper() {
+    parted "${1}" ---pretend-input-tty <<EOF
+${2}
+${3}
+${4}
+${5}
+quit
+EOF
+}
+
 convert_btrfs() {
     # Check for the existance of tune2fs through the RESIZEERROR variable
     if [ "$FSCHECK" != "btrfs" ] && [ "$CONFIG_convertfs" -eq '1' -a "${CONFIG_rootfstype}" = "btrfs" -a -x /sbin/e2fsck ]; then
@@ -540,7 +550,7 @@ create_swap() {
             umount $CONFIG_newroot
 
             sectorSWAP=$(( ( $swapsize - 5 ) * 1024*2 ))
-            if parted $DEV resizepart $PART $(( $sectorSTART + $(( $sectorSIZE - $sectorSWAP )) - 1 ))s yes 2>/dev/null; then
+            if parted_helper $DEV resizepart $PART $(( $sectorSTART + $(( $sectorSIZE - $sectorSWAP )) - 1 ))s 'Yes' 2>/dev/null; then
                 echo "Partition $PART shrinked..."
                 partprobe
                 get_partdata

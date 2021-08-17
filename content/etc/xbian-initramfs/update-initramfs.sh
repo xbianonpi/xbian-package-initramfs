@@ -159,6 +159,7 @@ cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
 cp /etc/xbian_version ./etc/
 cp /etc/resolv.conf ./etc/
 cp /etc/nsswitch.conf ./etc/
+cp /etc/passwd ./etc/
 
 grep -sv ^'#' /etc/modules | grep -v lirc_ >> ./etc/modules
 
@@ -204,7 +205,7 @@ fi
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
-for f in /usr/local/sbin/{xbian-hwrng,xbian-frandom,xbian-arch} /lib/arm-linux-gnueabihf/libresolv.so* /lib/arm-linux-gnueabihf/libnss_dns.so*; do
+for f in /usr/local/sbin/{xbian-hwrng,xbian-frandom,xbian-arch} /lib/arm-linux-gnueabihf/libresolv.so* /lib/arm-linux-gnueabihf/libnss_dns.so* /lib/arm-linux-gnueabihf/libnss_compat.so* /lib/arm-linux-gnueabihf/libnsl.so*; do
     copy_with_libs $f ./
 done
 #copy_with_libs /bin/bash ./
@@ -311,10 +312,8 @@ if [ "$iSCSI" = yes ] || grep -q "root=iSCSI=" $bootfile; then
     copy_modules "iscsi_tcp"
     copy_with_libs /sbin/iscsid
     copy_with_libs /usr/bin/iscsiadm
-    copy_with_libs /lib/arm-linux-gnueabihf/libnss_compat.so*
-    copy_with_libs /lib/arm-linux-gnueabihf/libnsl.so*
 
-    cp --parents /etc/iscsi/* /etc/passwd ./
+    cp --parents /etc/iscsi/* ./
 fi
 
 ##
@@ -386,10 +385,10 @@ EOF
         put_to_modules "bonding"
         [ -e /etc/modprobe.d/bonding.conf ] || echo "options bonding mode=1 miimon=100 updelay=200 downdelay=200" > /etc/modprobe.d/bonding.conf
         cp --parents /etc/modprobe.d/bonding.conf ./
-        cp --parents /etc/network/if-pre-up.d/ifenslave ./
-        cp --parents /etc/network/if-up.d/ifenslave ./
-        cp --parents /etc/network/if-post-down.d/ifenslave ./
+        cp -r /etc/xbian-initramfs/network ./etc/
     fi
+
+    copy_with_libs /sbin/ethtool
 else
     #cp --remove-destination /usr/lib/klibc/bin/kinit ./sbin	# FIXME: Do we really need this?
     cp --remove-destination /usr/lib/klibc/bin/ipconfig ./bin

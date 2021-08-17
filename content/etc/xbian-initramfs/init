@@ -157,18 +157,28 @@ if [ -n "$CONFIG_cnet" ]; then
         for d in $(ls -L /sys/class/net); do echo $d | grep -qE "ra[0-9]|wlan[0-9]|eth[0-9]" && bdevs="$bdevs $d"; done
         echo $bdevs | grep -q eth0 || bdevs=" eth0$bdevs"
     fi
-    ifup_all() {
-        [ -n "$1" ] || set -- 20
+    ifup_devs() {
+        nd='-a'; [ -z "$1" ] || nd=$1
+        to=30; [ -z "$2" ] || to=$2
         for r in $(seq 1 3); do
-            ifup -a &
-            for j in $(seq 1 $1); do
+            ifup $nd &
+            for j in $(seq 1 $to); do
                 sleep 0.5
-                pgrep ifup >/dev/null || { touch /run/network/ifup.$dev && echo "$dev" > /run/network/ifstate.$dev && return 0; }
+                if ! pgrep ifup >/dev/null; then
+                    touch /run/network/ifup.$dev
+                    echo "$dev" > /run/network/ifstate.$dev
+                    for d in $bdevs; do
+                        if ! ip a | grep -q "$d.*UP,"; then
+                            ifdown -f $d && sleep 1 && ifup -f $d
+                        fi
+                    done
+                    return 0
+                fi
             done
             pkill ifup >/dev/null 2>&1
             for d in $(grep ^auto /etc/network/interfaces | grep -E "wlan|ra" | awk '{print $2}'); do
                 pkill wpa_supplicant >/dev/null 2>&1
-                ifdown -f -a >/dev/null 2>&1
+                ifdown -f $nd >/dev/null 2>&1
                 module=$(readlink -f /sys/class/net/$d/device/driver/module); module=${module##*/}
                 if [ -n "$module" ] && grep -q ^$module /proc/modules; then
                     echo "Restart $module ..."
@@ -182,10 +192,16 @@ if [ -n "$CONFIG_cnet" ]; then
     }
     add_bdevs() {
         for d in $bdevs; do
-            echo -e "auto $d\niface $d inet manual\n  bond-master $dev\n  bond-primary$bdevs\n  bond-mode $bmo" >> $iff
             case $d in
-                wlan*|ra*) echo -e "  wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf\n  wireless-power off\n" >> $iff ;;
-                *)         echo "" >> $iff ;;
+                wlan*|ra*) echo -e "allow-hotplug $d\nauto $d\niface $d inet manual\n  bond-master $dev\n  bond-mode $bmo" >> $iff
+                           echo -e "  bond-give-a-chance 10\n  wpa-bridge $dev\n  wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf\n  wireless-power off\n" >> $iff
+                ;;
+                eth*)      echo -e "auto $d\niface $d inet manual\n  bond-master $dev\n  bond-mode $bmo" >> $iff
+                           echo -e "  pre-up ethtool -K $d tx off\n" >> $iff
+                ;;
+                *)         echo -e "auto $d\niface $d inet manual\n  bond-master $dev\n  bond-mode $bmo" >> $iff
+                           echo "" >> $iff
+                ;;
             esac
             # Somehow device state will not be stored in /run/network. So let's do it manually
             touch /run/network/ifup.$d && echo "$d" > /run/network/ifstate.$d
@@ -212,16 +228,18 @@ if [ -n "$CONFIG_cnet" ]; then
                                 dhcp_ifup() {
                                     if echo "$dev" | grep -q ^bond; then
                                         add_bdevs
-                                        echo -e "auto $dev\niface $dev inet dhcp\n  bond-slaves none\n  bond-miimon $bm2\n  bond-downdelay $bdd\n  bond-updelay $bud\n" >> $iff
+                                        echo -e "auto $dev\niface $dev inet dhcp\n  bond-slaves$bdevs\n  bond-primary eth0\n  bond-miimon $bm2\n  bond-downdelay $bdd\n  bond-updelay $bud\n" >> $iff
                                     else
                                         echo -e "auto $dev\niface $dev inet dhcp" >> $iff
                                         if echo "$dev" | grep -qE "wlan|ra"; then
                                             echo -e "  wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf\n  wireless-power off\n" >> $iff
+                                        elif echo "$dev" | grep -q ^eth; then
+                                            echo -e "  pre-up ethtool -K $dev tx off\n" >> $iff
                                         elif echo "$dev" | grep -q ^br; then
                                             add_bridge eth0
                                         fi
                                     fi
-                                    ifup_all
+                                    ifup_devs $dev 30
                                 }
                                 dhcp_ipconfig() {
                                     ipconfig $dev &
@@ -256,7 +274,7 @@ if [ -n "$CONFIG_cnet" ]; then
                             static_ifup() {
                                 if echo "$dev" | grep -q ^bond; then
                                     add_bdevs
-                                    echo -e "auto $dev\niface $dev inet static\n  bond-slaves none\n  bond-miimon $bm2\n  bond-downdelay $bdd\n  bond-updelay $bud" >> $iff
+                                    echo -e "auto $dev\niface $dev inet static\n  bond-slaves$bdevs\n  bond-primary eth0\n  bond-miimon $bm2\n  bond-downdelay $bdd\n  bond-updelay $bud\n" >> $iff
                                 else
                                     echo -e "auto $dev\niface $dev inet static" >> $iff
                                 fi
@@ -265,10 +283,12 @@ if [ -n "$CONFIG_cnet" ]; then
                                 [ -z $gip ] || echo "  gateway $gip" >> $iff
                                 if echo "$dev" | grep -qE "wlan|ra"; then
                                     echo -e "  wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf\n  wireless-power off\n" >> $iff
+                                elif echo "$dev" | grep -q ^eth; then
+                                    echo -e "  pre-up ethtool -K $dev tx off\n" >> $iff
                                 elif echo "$dev" | grep -q ^br; then
                                     add_bridge eth0
                                 fi
-                                ifup_all 6
+                                ifup_devs $dev 6
                             }
                             static_ipconfig() {
                                 ipconfig "$cip::$gip:$msk::$dev:none" &

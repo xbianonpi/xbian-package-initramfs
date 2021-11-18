@@ -163,7 +163,7 @@ cp /etc/passwd ./etc/
 
 grep -sv ^'#' /etc/modules | grep -v lirc_ >> ./etc/modules
 
-copy_modules "usb_storage vchiq"
+copy_modules "usb_storage vchiq phy-generic"
 put_to_modules "lz4 cfq-iosched ext4 f2fs evdev"
 copy_modules "$(cat ./etc/modules)"
 grep -shv ^'#' {/etc/fstab,/etc/fstab.d/*} | awk '/(nfs|nfs4|cifs)/{print $3}' | sort -u \

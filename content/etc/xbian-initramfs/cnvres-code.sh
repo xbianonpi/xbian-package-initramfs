@@ -182,7 +182,7 @@ get_root() {
             export CONFIG_rootfstype=zfs
             export CONFIG_rootfsopts=zfsutil
             [ "$(zfs get atime -H "$CONFIG_rootfs" | awk '{print $3}')" = off ] && export CONFIG_rootfsopts="$CONFIG_rootfsopts,noatime"
-            export CONFIG_root=$(zpool status -P $CONFIG_zfspool | awk "/\/.*ONLINE/"'{dev=$1} END{print dev}')
+            export CONFIG_root=$(readlink -fn $(zpool status -P $CONFIG_zfspool | awk "/\/.*ONLINE/"'{dev=$1} END{print dev}'))
         ;;
     esac
 

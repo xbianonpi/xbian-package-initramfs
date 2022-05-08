@@ -110,6 +110,6 @@ fi
 
 [ -e /boot/boot.scr.txt ] && ( cd /boot; [ -n "$(find ./ -iname boot.scr.txt -newer boot.scr)" ] && ./mks )
 
-[ "$1" = update ] || umount /boot
+[ "$1" = update ] && echo "$ramfs" || umount /boot
 
 exit 0

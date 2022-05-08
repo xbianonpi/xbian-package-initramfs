@@ -27,7 +27,7 @@ grep -q initramfs.gz /var/lib/dpkg/info/xbian-update.list && sed -i "/\(\/boot\/
 
 
 if [ -z "$MODVER" ]; then
-	test -z "$1" && MODVER="$(dpkg -l | awk '/(linux-image-[ab]|xbian-package-kernel)/{v=$3;sub("-.*","",v);sub("~","-",v);print v}')"
+	test -z "$1" && MODVER="$(dpkg -l | awk '/^[hi]i.*(linux-image-[ab]|xbian-package-kernel)/{v=$3;sub("-.*","",v);sub("~","-",v);print v}')"
 	test -z "$MODVER" && MODVER="$1"
 fi
 
@@ -50,7 +50,8 @@ copy_modules() {
                         *)
                                 ;;
                 esac
-                modname=$(find /lib/modules/$MODVER -iname $f -printf '%P') 
+                modname=$(find /lib/modules/$MODVER -iname $f -printf '%P')
+                [ -z "$modname" ] && modname=$(find /lib/modules/$MODVER -iname $(echo $f | tr '_' '-') -printf '%P')
                 [ -z "$modname" ] && continue
                 echo "copying module /lib/modules/$MODVER/$modname"
                 cp -a --parents "/lib/modules/$MODVER/$modname" ./
@@ -126,7 +127,14 @@ copy_with_libs() {
 
 TMPDIR=$(mktemp -d)
 cd $TMPDIR
-trap "{ cd ..; { rm -fr '${TMPDIR}' & }; rm -f $NP /run/initramfs.gz; exit 0; }" INT TERM EXIT
+trap "{ cd ..; { rm -fr '${TMPDIR}' & }; [ "$need_umount" = "yes" ] && umount /boot; rm -f $NP /run/initramfs.gz; exit 0; }" INT TERM EXIT
+
+need_umount=''
+if ! mountpoint -q /boot; then
+        mount /boot || { echo "FATAL: /boot can't be mounted"; exit 1; }
+        need_umount="yes"
+fi
+echo initramfs-tools >> /run/reboot-required
 
 mkdir -p bin dev etc/network etc/wpa_supplicant etc/network/if-down.d etc/network/if-up.d etc/network/if-post-down.d etc/network/if-pre-up.d \
     lib/modules mnt proc rootfs run sbin sys tmp usr/bin usr/lib/arm-linux-gnueabihf var
@@ -163,7 +171,7 @@ cp /etc/passwd ./etc/
 
 grep -sv ^'#' /etc/modules | grep -v lirc_ >> ./etc/modules
 
-copy_modules "usb_storage vchiq phy-generic"
+copy_modules "usb_storage vchiq phy-generic $INCLUDEMODULES"
 put_to_modules "lz4 cfq-iosched ext4 f2fs evdev"
 copy_modules "$(cat ./etc/modules)"
 grep -shv ^'#' {/etc/fstab,/etc/fstab.d/*} | awk '/(nfs|nfs4|cifs)/{print $3}' | sort -u \
@@ -173,7 +181,6 @@ grep -shv ^'#' {/etc/fstab,/etc/fstab.d/*} | awk '/(nfs|nfs4|cifs)/{print $3}' |
                 put_to_modules "nfsv4 nfsv3 nfs sunrpc rpcsec_gss_krb5"
                 ;;
             cifs)
-                list=cifs
                 put_to_modules "cifs"
                 ;;
         esac
@@ -440,15 +447,16 @@ if [ "$ZFS" = yes ] || grep -q  "root=ZFS=" $bootfile || grep -q ^zfs /{etc,proc
     copy_with_libs /etc/modprobe.d/zfs.conf
 fi
 
-depmod -b ./ $MODVER
-
-need_umount=''
-if ! mountpoint -q /boot; then
-        mount /boot || { echo "FATAL: /boot can't be mounted"; exit 1; }
-        need_umount="yes"
+##
+# Include Video drivers (optional)
+##
+mv /run/reboot-required /run/reboot-required.save
+if [ "$VIDEO" == yes ] || ( [ "$(/etc/xbian-initramfs/initram.switcher.sh update)" == yes ] && [ "$VIDEO" != no ] ); then
+    copy_modules "vc4 v3d rpivid-hevc snd_soc_hdmi_codec"
 fi
+mv /run/reboot-required.save /run/reboot-required
 
-[ -x /etc/xbian-initramfs/initram.switcher.sh ] && /etc/xbian-initramfs/initram.switcher.sh update
+depmod -b ./ $MODVER
 
 if [ "$MAKEBACKUP" = "yes" ]; then
     test -e /boot/initramfs.gz && mv /boot/initramfs.gz /boot/initramfs.gz.old
@@ -485,9 +493,6 @@ else
     RC=1
 fi
 
-[ "$need_umount" = "yes" ] && umount /boot
-
-echo initramfs-tools >> /run/reboot-required
 sync
 
 exit $RC

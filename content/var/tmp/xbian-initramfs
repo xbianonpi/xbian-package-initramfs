@@ -82,8 +82,23 @@ BTRFS=auto
 ZFS=auto
 
 #
+# Include Video driver stuff into initramfs. If variable is set to 'yes', it will
+# be included always, if set to 'auto', it will be included if the initramfs
+# is used anyway
+#
+# Recommended value: auto
+#
+VIDEO=auto
+
+#
 # This variable specifies the files which should be included into initramfs. Usually
 # used for firmware files, but all others are possible though. Wildcards are
 # supported
 #
 INCLUDEFILES=''
+
+#
+# This variable specifies the modules which should be included into initramfs.
+# Please note that these modules are not necessarily loaded during booting.
+#
+INCLUDEMODULES=''

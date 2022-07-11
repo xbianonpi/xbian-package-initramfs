@@ -109,6 +109,7 @@ fi
 
 if [ -n "$CONFIG_splash" ]; then
     [ -n "$CONFIG_cnet" ] && m="init: starting network..." || m="init: starting..."
+    sleep 0.5
     splash --infinitebar --msgtxt="$m"
 fi
 

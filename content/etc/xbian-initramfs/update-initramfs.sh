@@ -232,6 +232,7 @@ copy_with_libs /lib/terminfo
 cp --parents /usr/share/consolefonts/Lat2-Fixed16.psf.gz ./
 
 copy_with_libs /usr/bin/splash
+sed -i "s%\$sdc /bin/fuser -s 9999/tcp%pgrep splash-daemon >/dev/null%g" ./usr/bin/splash
 copy_with_libs /sbin/parted
 copy_with_libs /sbin/partprobe
 cp -d --remove-destination --parents /etc/default/template.json ./

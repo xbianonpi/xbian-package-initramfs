@@ -55,11 +55,15 @@ export CONFIG_rooton='local'
 
 export CMDLINE="$(cat /proc/cmdline)"
 for OPTION in ${CMDLINE}; do
-	OPTIONNAME=${OPTION%%=*}
-	echo "$OPTIONNAME" | grep -vq "\.\|-"  || continue
+	if [ -z "$nextVal" ]; then
+		OPTIONNAME=${OPTION%%=*}
+		[ -z "${OPTIONNAME##*-*}" ] && { nextVal=1; OPTIONNAME=${OPTIONNAME//-/}; continue; }
+		[ -z "${OPTIONNAME##*\.*}" ] && continue
+	fi
 	VALUE=${OPTION#*=}
 	test "$VALUE" = "$OPTIONNAME" && VALUE='1'
 	export CONFIG_"$OPTIONNAME"="$VALUE"
+	nextVal=
 done
 test ! -x /usr/bin/splash && unset CONFIG_splash
 up "after get cmdline"

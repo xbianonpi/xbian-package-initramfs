@@ -467,7 +467,8 @@ for rp in udhcpc dhclient wpa_supplicant; do
 done
 
 if test -n "$CONFIG_debug"; then set -- --verbose $@; fi
-if test -n "$CONFIG_startevent"; then set -- --startup-event=$CONFIG_startevent $@; fi
+if test -n "$CONFIG_startupevent"; then set -- --startup-event=$CONFIG_startupevent $@; fi
+if test -n "$CONFIG_defaultconsole"; then set -- --default-console=$CONFIG_defaultconsole $@; fi
 #unset debug
 set +x
 up "$@"; rm /dev /proc /sys /run

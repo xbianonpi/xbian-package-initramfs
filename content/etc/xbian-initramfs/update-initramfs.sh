@@ -367,7 +367,11 @@ EOF
     #    sed -i "/^\(ctrl_interface\|update_config\)/s/^\(.*\)/#\1/g" ./etc/wpa_supplicant/wpa_supplicant.conf || :
     fi
     put_to_modules "smsc95xx lan78xx genet"
-    add_modules brcmfmac    && for f in /lib/firmware/brcm/brcmfmac434{30,55}-sdio.* /lib/firmware/brcm/brcmfmac4330-sdio.*; do copy_with_libs $f; done
+    if add_modules brcmfmac; then
+        put_to_modules "brcmfmac-wcc brcmfmac-cyw brcmfmac-bca"
+        for f in /lib/firmware/brcm/brcmfmac434{30,55}-sdio.* /lib/firmware/brcm/brcmfmac4330-sdio.*; do copy_with_libs $f; done
+        for f in /lib/firmware/cypress/cyfmac434{30,55}-sdio.* /lib/firmware/cypress/cyfmac4330-sdio.*; do copy_with_libs $f; done
+    fi
     add_modules mt7601u     && copy_with_libs /lib/firmware/mt7601u.bin
     add_modules mt7610u_sta && copy_with_libs /etc/Wireless
     add_modules mt76x0      && copy_with_libs /lib/firmware/mediatek/mt7610u.bin

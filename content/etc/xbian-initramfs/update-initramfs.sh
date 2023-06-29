@@ -342,7 +342,7 @@ if grep -q "ip=" $bootfile; then
 fi
 if [ "$LAN" = yes ] || grep -qwE "wlan[0-9]|ra[0-9]|br[0-9]|bond[0-9]|cnet" $bootfile; then
     add_modules() {
-        grep -q ^$1 /{etc,proc}/modules && put_to_modules $1
+        grep -q ^$(echo $1 | tr '-' '_') /{etc,proc}/modules && put_to_modules $1
     }
     copy_with_libs /sbin/wpa_supplicant
     copy_with_libs /sbin/wpa_cli

@@ -31,37 +31,54 @@ if [ -z "$MODVER" ]; then
 	test -z "$MODVER" && MODVER="$1"
 fi
 
-depmod -a $MODVER
+LOCALVERSIONS='-v8 -64'
+MODVERSIONS=$MODVER
+for LVER in $LOCALVERSIONS; do
+	if [ -z "${MODVER##*$LVER*}" ]; then
+		MODVER2="$(echo $MODVER | sed "s/$LVER//g")"
+		if [ -d "/lib/modules/$MODVER2" ]; then
+			MODVERSIONS="$MODVER $MODVER2"
+		fi
+	fi
+done
 
-echo "Updating initramfs as requested by trigger. Kernel modules $MODVER."
+for MODVER in $MODVERSIONS; do
+	depmod -a $MODVER
+done
+
+echo "Updating initramfs as requested by trigger. Kernel modules $MODVERSIONS."
 mod_done=''
 lib_done=''
 
+copy_moddeps() {
+	for f in $1; do
+		f=$(basename $f)
+		f="${f%'.ko'}.ko"
+		case $mod_done in
+			*"/$f "*)
+				continue
+				;;
+			*)
+				;;
+		esac
+		modname=$(find /lib/modules/$MODVER -iname $f -printf '%P')
+		[ -z "$modname" ] && modname=$(find /lib/modules/$MODVER -iname $(echo $f | tr '_' '-') -printf '%P')
+		[ -z "$modname" ] && continue
+		echo "copying module /lib/modules/$MODVER/$modname"
+		cp -a --parents "/lib/modules/$MODVER/$modname" ./
+		mod_done="$mod_done $modname "
+		depends=$(grep "$modname:" "/lib/modules/$MODVER/modules.dep" | awk -F': ' '{print $2}')
+		[ -z "$depends" ] && continue
+		copy_moddeps "$depends"
+	done
+}
+
 copy_modules() {
-
-        tlist="$1"
-        for f in $tlist; do
-                f=$(basename $f)
-                f="${f%'.ko'}.ko"
-                case $mod_done in
-                        *"/$f "*)
-                                continue
-                                ;;
-                        *)
-                                ;;
-                esac
-                modname=$(find /lib/modules/$MODVER -iname $f -printf '%P')
-                [ -z "$modname" ] && modname=$(find /lib/modules/$MODVER -iname $(echo $f | tr '_' '-') -printf '%P')
-                [ -z "$modname" ] && continue
-                echo "copying module /lib/modules/$MODVER/$modname"
-                cp -a --parents "/lib/modules/$MODVER/$modname" ./
-                mod_done="$mod_done $modname "
-
-                depends=$(grep "$modname:" "/lib/modules/$MODVER/modules.dep" | awk -F': ' '{print $2}')
-                [ -z "$depends" ] && continue
-                copy_modules "$depends"
-        done
-
+	mod_done_g=$mod_done
+	for MODVER in $MODVERSIONS; do
+		mod_done=$mod_done_g
+		copy_moddeps "$1"
+	done
 }
 
 put_to_modules(){
@@ -159,11 +176,13 @@ cp -d --remove-destination --parents /etc/default/{tmpfs,rcS,xbian-rnd} ./
 mkdir -p etc/udev/.dev
 cp -d --remove-destination --parents /etc/modprobe.d/*.conf ./
 cp -d --remove-destination /etc/xbian-initramfs/blacklist.conf ./etc/modprobe.d
-#cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/hid ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/scsi ./
-cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/storage ./
-cp --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
-cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
+for MODVER in $MODVERSIONS; do
+    #cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/hid ./
+    cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/scsi ./
+    cp -d --remove-destination -av --parents /lib/modules/$MODVER/kernel/drivers/usb/storage ./
+    cp -d --remove-destination -av --parents /lib/modules/$MODVER/modules.builtin ./
+    cp --remove-destination -av --parents /lib/modules/$MODVER/modules.order ./
+done
 cp /etc/xbian_version ./etc/
 cp /etc/resolv.conf ./etc/
 cp /etc/nsswitch.conf ./etc/
@@ -461,7 +480,9 @@ if [ "$VIDEO" == yes ] || ( [ "$(/etc/xbian-initramfs/initram.switcher.sh update
 fi
 mv /run/reboot-required.save /run/reboot-required
 
-depmod -b ./ $MODVER
+for MODVER in $MODVERSIONS; do
+	depmod -b ./ $MODVER
+done
 
 if [ "$MAKEBACKUP" = "yes" ]; then
     test -e /boot/initramfs.gz && mv /boot/initramfs.gz /boot/initramfs.gz.old

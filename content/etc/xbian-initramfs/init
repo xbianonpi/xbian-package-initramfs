@@ -455,15 +455,15 @@ pids2kill="$pids2kill $(pidof thd)"
 up "switch root"
 
 for rp in udhcpc dhclient wpa_supplicant; do
-    p=$(pgrep $rp)
-    if [ -n "$p" ]; then
+    pids=$(pgrep $rp)
+    for p in $pids; do
         cmd="$(cat /proc/$p/cmdline | tr '\000' ' ')"
         if [ "$rp" != wpa_supplicant ] || ! echo $CONFIG_devinuse | grep -qE "wlan|ra"; then
             echo "Restart $cmd" >&2
             kill $p && chroot $CONFIG_newroot $cmd 2>/dev/null
             sed -i "s/$p/$(pgrep $rp)/" /run/sendsigs.omit.d/*
         fi
-    fi
+    done
 done
 
 if test -n "$CONFIG_debug"; then set -- --verbose $@; fi

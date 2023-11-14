@@ -388,16 +388,21 @@ EOF
     put_to_modules "smsc95xx lan78xx genet"
     if add_modules brcmfmac; then
         put_to_modules "brcmfmac-wcc brcmfmac-cyw brcmfmac-bca"
-        for f in /lib/firmware/brcm/brcmfmac434{30,55}-sdio.* /lib/firmware/brcm/brcmfmac4330-sdio.*; do copy_with_libs $f; done
-        for f in /lib/firmware/cypress/cyfmac434{30,55}-sdio.* /lib/firmware/cypress/cyfmac4330-sdio.*; do copy_with_libs $f; done
+        for f in /lib/firmware/brcm/brcmfmac434{30,36,55}-sdio*.* /lib/firmware/brcm/brcmfmac4330-sdio.*; do copy_with_libs $f; done
+        for f in /lib/firmware/cypress/cyfmac434{30,36,55}-sdio*.* /lib/firmware/cypress/cyfmac4330-sdio.*; do copy_with_libs $f; done
     fi
     add_modules mt7601u     && copy_with_libs /lib/firmware/mt7601u.bin
     add_modules mt7610u_sta && copy_with_libs /etc/Wireless
     add_modules mt76x0      && copy_with_libs /lib/firmware/mediatek/mt7610u.bin
+    add_modules mt76x0u     && for f in /lib/firmware/mediatek/mt7610*.bin; do copy_with_libs $f; done
     add_modules mt76x2u     && for f in /lib/firmware/mediatek/mt7662u*.bin; do copy_with_libs $f; done
+    add_modules rtl8192cu   && { for f in /lib/firmware/rtlwifi/rtl8192cufw*.bin; do copy_with_libs $f; done; copy_with_libs /etc/modprobe.d/rtl8192cu.conf; }
+    add_modules rtl8xxxu    && { for f in /lib/firmware/rtlwifi/rtl8*u*.bin; do copy_with_libs $f; done; copy_with_libs /etc/modprobe.d/rtl8xxxu.conf; }
     add_modules 8192cu      && copy_with_libs /etc/modprobe.d/8192cu.conf
     add_modules 8192eu      && copy_with_libs /etc/modprobe.d/8192eu.conf
+    add_modules rt2800usb   && copy_with_libs /lib/firmware/rt2870.bin
 
+    cp --parents /lib/firmware/regulatory.db{.p7s,} ./
     cp --parents /etc/xbian-udhcpc/xbian-udhcpc ./
     cp -d /etc/network/if-down.d/wpasupplicant ./etc/network/if-down.d
     cp -d /etc/network/if-post-down.d/wpasupplicant ./etc/network/if-post-down.d

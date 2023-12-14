@@ -153,8 +153,10 @@ if ! mountpoint -q /boot; then
 fi
 echo initramfs-tools >> /run/reboot-required
 
+[ "$(dpkg --print-architecture)" = arm64 ] && ARMLIB=aarch64-linux-gnu || ARMLIB=arm-linux-gnueabihf
+
 mkdir -p bin dev etc/network etc/wpa_supplicant etc/network/if-down.d etc/network/if-up.d etc/network/if-post-down.d etc/network/if-pre-up.d \
-    lib/modules mnt proc rootfs run sbin sys tmp usr/bin usr/lib/arm-linux-gnueabihf var
+    lib/modules mnt proc rootfs run sbin sys tmp usr/bin usr/lib/${ARMLIB} var
 
 cat << \EOF > ./.profile
 export PS1='\w # '
@@ -231,7 +233,7 @@ fi
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
-for f in /usr/local/sbin/{xbian-hwrng,xbian-frandom,xbian-arch} /lib/arm-linux-gnueabihf/libresolv.so* /lib/arm-linux-gnueabihf/libnss_dns.so* /lib/arm-linux-gnueabihf/libnss_compat.so* /lib/arm-linux-gnueabihf/libnsl.so*; do
+for f in /usr/local/sbin/{xbian-hwrng,xbian-frandom,xbian-arch} /lib/${ARMLIB}/libresolv.so* /lib/${ARMLIB}/libnss_dns.so* /lib/${ARMLIB}/libnss_compat.so* /lib/${ARMLIB}/libnsl.so*; do
     copy_with_libs $f ./
 done
 #copy_with_libs /bin/bash ./
@@ -439,7 +441,7 @@ if [ "$EXTFS" = yes ] || [ -z "$rootfs" ] || [[ "$rootfs" =~ ext ]]; then
     copy_with_libs /sbin/e2fsck
     copy_with_libs /sbin/resize2fs
     copy_with_libs /usr/bin/stdbuf
-    copy_with_libs /usr/lib/arm-linux-gnueabihf/coreutils/libstdbuf.so
+    copy_with_libs /usr/lib/${ARMLIB}/coreutils/libstdbuf.so
     copy_with_libs `which btrfs-convert`
 fi
 

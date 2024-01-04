@@ -387,7 +387,7 @@ EOF
         sed -i "s/GROUP=netdev/GROUP=$(getent group netdev | awk -F: '{print $3}')/" ./etc/wpa_supplicant/wpa_supplicant.conf
     #    sed -i "/^\(ctrl_interface\|update_config\)/s/^\(.*\)/#\1/g" ./etc/wpa_supplicant/wpa_supplicant.conf || :
     fi
-    put_to_modules "smsc95xx lan78xx genet"
+    put_to_modules "smsc95xx lan78xx genet macb"
     if add_modules brcmfmac; then
         put_to_modules "brcmfmac-wcc brcmfmac-cyw brcmfmac-bca"
         for f in /lib/firmware/brcm/brcmfmac434{30,36,55}-sdio*.* /lib/firmware/brcm/brcmfmac4330-sdio.*; do copy_with_libs $f; done

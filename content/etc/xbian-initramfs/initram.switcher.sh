@@ -63,7 +63,8 @@ ramfs_check() {
     esac
 
     [ "$FORCEINITRAM" = disabled ] && ramfs=no
-    { [ -e /var/run/reboot-required ] || [ "$FORCEINITRAM" = yes ] || grep -wqsE 'bootmenu|rescue|vnc|cnet' $bootfile; } && ramfs=yes || :
+    { [ -e /var/run/reboot-required ] || dpkg --compare-versions "$(dpkg-query -f='${Version}' --show xbian-package-xbmc)" ge "21" \
+                                      || [ "$FORCEINITRAM" = yes ] || grep -wqsE 'bootmenu|rescue|vnc|cnet' $bootfile; } && ramfs=yes || :
 }
 
 case $(xbian-arch) in

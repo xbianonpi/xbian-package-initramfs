@@ -27,22 +27,31 @@ grep -q initramfs.gz /var/lib/dpkg/info/xbian-update.list && sed -i "/\(\/boot\/
 
 
 if [ -z "$MODVER" ]; then
-	test -z "$1" && MODVER="$(dpkg -l | awk '/^[hi]i.*(linux-image-[ab]|xbian-package-kernel)/{v=$3;sub("-.*","",v);sub("~","-",v);print v}')"
+	test -z "$1" && MODVER="$(dpkg -l | awk '/^[hi]i.*(linux-image-[ab]|xbian-package-kernel)/{v=$3;sub("-.*","",v);sub("~","-",v);print v;exit}')"
 	test -z "$MODVER" && MODVER="$1"
 fi
 
-LOCALVERSIONS='-v8 -64'
+LOCALVERSIONS='-v8 -64 -16k64'
 MODVERSIONS=$MODVER
 for LVER in $LOCALVERSIONS; do
 	if [ -z "${MODVER##*$LVER*}" ]; then
-		MODVER2="$(echo $MODVER | sed "s/$LVER//g")"
-		if [ -d "/lib/modules/$MODVER2" ]; then
-			MODVERSIONS="$MODVER $MODVER2"
+		MV="$(echo $MODVER | sed "s/$LVER//g")"
+		if [ -d "/lib/modules/$MV" ]; then
+			MVS="$MVS $MV"
 		fi
+		for LV in $LOCALVERSIONS; do
+			MV="$(echo $MODVER | sed "s/$LVER/$LV/g")"
+			if [ -d "/lib/modules/$MV" ]; then
+				MVS="$MVS $MV"
+			fi
+		done
+		MODVERSIONS="$MVS"
+		break
 	fi
 done
 
 for MODVER in $MODVERSIONS; do
+	echo "depmod -a $MODVER"
 	depmod -a $MODVER
 done
 

@@ -427,8 +427,10 @@ fi
 # mount root partition
 echo "Mounting root as: mount -t ${CONFIG_rootfstype} -o ${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot" >&2
 if ! $mount_bin -t ${CONFIG_rootfstype} -o noatime,${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot; then
-	echo "Mounting root partition ${CONFIG_root} failed" >&2
-	drop_shell "noumount"
+	if [ "$CONFIG_rootfstype" != btrfs ] || ! btrfs check --clear-space-cache v1 ${CONFIG_root} || ! $mount_bin -t ${CONFIG_rootfstype} -o space_cache=v2,noatime,${CONFIG_rootfsopts} ${CONFIG_root} $CONFIG_newroot; then
+		echo "Mounting root partition ${CONFIG_root} failed" >&2
+		drop_shell "noumount"
+	fi
 fi
 up "after mount"
 

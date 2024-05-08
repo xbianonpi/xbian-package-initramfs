@@ -98,21 +98,23 @@ put_to_modules(){
 }
 
 copy_file() {
-        cp -d --remove-destination -v --parents $3 "$1" "$2"
-        test -h "$1" || return
-        dr=$(dirname "$1")
-        fl=$(readlink "$1")
+    fl="$1"
+    cp -d -v --remove-destination --parents $3 "$fl" "$2"
+    while test -h "$fl"; do
+        dr=$(dirname "$fl")
+        fl=$(readlink "$fl")
         test -e "$fl" || fl="$dr/$fl"
         case $lib_done in
-                *" $fl "*)
-                        echo "again $fl" >&2
-                        return 
-                        ;;
-                *)
-                        cp -d -v --remove-destination --parents $3 "$fl" "$2" 
-                        lib_done="$lib_done $fl"
-                        ;;
+            *" $fl "*)
+                echo "again $fl" >&2
+                break
+                ;;
+            *)
+                cp -d -v --remove-destination --parents $3 "$fl" "$2"
+                lib_done="$lib_done $fl"
+                ;;
         esac
+    done
 }
 
 copy_with_libs() {

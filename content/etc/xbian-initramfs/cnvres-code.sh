@@ -19,7 +19,7 @@ up() {
 
 mount_root_btrfs() {
     test -z "$1" && device="LABEL=xbian-root-btrfs" || device="$1"
-    /bin/mount -t btrfs -o compress=lzo,rw,noatime,space_cache $device $CONFIG_newroot
+    /bin/mount -t btrfs -o rw,noatime $device $CONFIG_newroot
 }
 
 gen_resolv() {

@@ -167,7 +167,8 @@ echo initramfs-tools >> /run/reboot-required
 [ "$(dpkg --print-architecture)" = arm64 ] && ARMLIB=aarch64-linux-gnu || ARMLIB=arm-linux-gnueabihf
 
 mkdir -p bin dev etc/network etc/wpa_supplicant etc/network/if-down.d etc/network/if-up.d etc/network/if-post-down.d etc/network/if-pre-up.d \
-    lib/modules mnt proc rootfs run sbin sys tmp usr/bin usr/lib/${ARMLIB} var
+    usr/lib/modules mnt proc rootfs run sbin sys tmp usr/bin usr/lib/${ARMLIB} var
+ln -s ./usr/lib ./lib
 
 cat << \EOF > ./.profile
 export PS1='\w # '
@@ -244,7 +245,7 @@ fi
 
 cp -d --remove-destination -a --parents /lib/klibc* ./
 
-for f in /usr/local/sbin/{xbian-hwrng,xbian-frandom,xbian-arch} /lib/${ARMLIB}/libresolv.so* /lib/${ARMLIB}/libnss_dns.so* /lib/${ARMLIB}/libnss_compat.so* /lib/${ARMLIB}/libnsl.so*; do
+for f in /usr/local/sbin/{xbian-hwrng,xbian-frandom,xbian-arch} /lib/${ARMLIB}/{libresolv.so,libnss_dns.so,libnss_compat.so,libnsl.so,libkmod.so}*; do
     copy_with_libs $f ./
 done
 #copy_with_libs /bin/bash ./
@@ -252,7 +253,9 @@ done
 #copy_with_libs /bin/sh ./
 copy_with_libs /sbin/udevd ./
 copy_with_libs /sbin/udevadm ./
+copy_with_libs /usr/bin/udevadm ./
 copy_with_libs /lib/systemd/systemd-udevd ./
+[ -e /lib/udev/hwdb.bin ] && cp -pv --parents /lib/udev/hwdb.bin ./
 
 for f in lsmod rmmod insmod modprobe ip; do
     ln -s /bin/$f ./sbin/$f
@@ -494,7 +497,7 @@ fi
 ##
 mv /run/reboot-required /run/reboot-required.save
 if [ "$VIDEO" == yes ] || ( [ "$(/etc/xbian-initramfs/initram.switcher.sh update)" == yes ] && [ "$VIDEO" != no ] ); then
-    copy_modules "vc4 v3d rpivid-hevc snd_soc_hdmi_codec"
+    copy_modules "vc4 v3d rpivid-hevc rpi-hevc-dec snd_soc_hdmi_codec"
 fi
 mv /run/reboot-required.save /run/reboot-required
 

@@ -497,7 +497,7 @@ fi
 ##
 mv /run/reboot-required /run/reboot-required.save
 if [ "$VIDEO" == yes ] || ( [ "$(/etc/xbian-initramfs/initram.switcher.sh update)" == yes ] && [ "$VIDEO" != no ] ); then
-    copy_modules "vc4 v3d rpivid-hevc rpi-hevc-dec snd_soc_hdmi_codec"
+    copy_modules "vc4 v3d rpivid-hevc rpi-hevc-dec snd_soc_hdmi_codec i2c_brcmstb"
 fi
 mv /run/reboot-required.save /run/reboot-required
 
